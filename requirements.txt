@@ -1,0 +1,5 @@
+langgraph
+langchain-google-genai
+langchain-core
+langsmith
+pytest
