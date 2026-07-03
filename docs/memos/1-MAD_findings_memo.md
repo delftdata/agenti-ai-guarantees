@@ -9,9 +9,11 @@ ChatDev runs a fixed 12-phase chain on every task. Across 130 traces the structu
 
 | ChatDev/ProgramDev (n=130) | failed (93) | clean (37) |
 |---|---|---|
-| avg exchanges | 12.3 | 12.2 |
+| avg agent turns | 24.7 | 24.5 |
 | avg code-writes | 5.4 | 6.1 |
 | avg runs | 8.4 | 8.3 |
+
+Numbers regenerable via `scripts/05_failed_vs_clean.py` (output: `docs/failed_vs_clean.md`). The originally circulated version reported exchanges as round-trips (12.3 vs 12.2); the scripted metric counts individual agent turns, exactly 2x. Same ratio, same conclusion.
 
 71% of runs fail at least one mode, but graph shape carries no signal, the topology is hard-coded, so failures occur *within* a fixed structure, not because of structural variation.
 

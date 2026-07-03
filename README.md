@@ -25,6 +25,7 @@ scripts/01_explore.py     # filter to ChatDev/ProgramDev, inspect first 5
 scripts/02_corpus_profile.py  # whole-corpus profile -> docs/corpus_profile.md
 scripts/03_extract_chatdev.py # plan-graph metrics per ChatDev/ProgramDev trace
 scripts/04_topology_grid.py   # run the topology x discipline grid (offline)
+scripts/05_failed_vs_clean.py # failed vs clean structural split -> docs/failed_vs_clean.md
 tests/
     fixtures/synthetic_mad.json
     test_loader.py        # runs fully offline against the fixture
@@ -47,13 +48,13 @@ three annotators (raw booleans are kept too). Rows that don't map are logged.
 
 ```powershell
 cd mast-plan-analysis
-py -3.11 -m venv .venv
+py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-On macOS/Linux use `python3.11 -m venv .venv` and `source .venv/bin/activate`.
+Python 3.11+ (developed on 3.14). On macOS/Linux use `python3 -m venv .venv` and `source .venv/bin/activate`.
 
 ## Run the exploration script
 
