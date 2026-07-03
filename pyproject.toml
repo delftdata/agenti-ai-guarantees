@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent_guarantees"
+version = "0.1.0"
+description = "Guarantees for agentic AI workflows: MAD corpus analysis, a deterministic execution-topology rig, and real-agent LangGraph experiments."
+requires-python = ">=3.11"
+dependencies = [
+    "networkx==3.4.2",
+    "huggingface_hub==0.25.2",
+]
+
+[project.optional-dependencies]
+llm = [
+    "langgraph",
+    "langchain-google-genai",
+    "langchain-core",
+]
+dev = [
+    "pytest==8.3.4",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

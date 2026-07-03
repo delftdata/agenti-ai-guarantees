@@ -11,16 +11,13 @@ Run from the repo root:
 """
 from __future__ import annotations
 
-import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
-# Make ``src/`` importable without installing the package.
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
 
-from agent_guarantees.mad.loader import (  # noqa: E402
+from agent_guarantees.mad.loader import (
     MAST_MODES,
     ensure_raw,
     load_full,

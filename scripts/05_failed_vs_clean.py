@@ -16,16 +16,14 @@ Run from the repo root:
 from __future__ import annotations
 
 import statistics
-import sys
 from pathlib import Path
 from typing import List, Sequence, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
 
-from agent_guarantees.mad import loader  # noqa: E402
-from agent_guarantees.mad.graph import iter_chatdev  # noqa: E402
-from agent_guarantees.mad.loader import MAST_MODES  # noqa: E402
+from agent_guarantees.mad import loader
+from agent_guarantees.mad.graph import iter_chatdev
+from agent_guarantees.mad.loader import MAST_MODES
 
 DOCS = ROOT / "docs"
 OUT_FILE = DOCS / "failed_vs_clean.md"

@@ -9,14 +9,8 @@ Run from the repo root:
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-# Make ``src/`` importable without installing the package.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-
-from agent_guarantees.mad.inspect_traces import inspect_record  # noqa: E402
-from agent_guarantees.mad.loader import ensure_raw, load_all  # noqa: E402
+from agent_guarantees.mad.inspect_traces import inspect_record
+from agent_guarantees.mad.loader import ensure_raw, load_all
 
 SYSTEM = "ChatDev"
 BENCHMARK = "ProgramDev"
