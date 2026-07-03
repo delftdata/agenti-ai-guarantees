@@ -23,9 +23,9 @@ from typing import List, Sequence, Tuple
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from mast_analysis import loader  # noqa: E402
-from mast_analysis.graph import iter_chatdev  # noqa: E402
-from mast_analysis.loader import MAST_MODES  # noqa: E402
+from agent_guarantees.mad import loader  # noqa: E402
+from agent_guarantees.mad.graph import iter_chatdev  # noqa: E402
+from agent_guarantees.mad.loader import MAST_MODES  # noqa: E402
 
 DOCS = ROOT / "docs"
 OUT_FILE = DOCS / "failed_vs_clean.md"

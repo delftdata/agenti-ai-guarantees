@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from mast_analysis.loader import MAST_MODES, load_all, load_full, load_human
+from agent_guarantees.mad.loader import MAST_MODES, load_all, load_full, load_human
 
 FIXTURE = Path(__file__).parent / "fixtures" / "synthetic_mad.json"
 
@@ -77,7 +77,7 @@ def test_human_record_normalizes_with_majority_vote(fixture_files):
 
 def test_human_unmappable_row_is_logged(fixture_files, caplog):
     _, human_file = fixture_files
-    with caplog.at_level(logging.WARNING, logger="mast_analysis.loader"):
+    with caplog.at_level(logging.WARNING, logger="agent_guarantees.mad.loader"):
         list(load_human(human_file))
     assert "does not map to a MAST mode token" in caplog.text
 

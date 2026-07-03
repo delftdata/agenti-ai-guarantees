@@ -21,7 +21,7 @@ def fvc():
 
 def _record(trace_id: str, flags: dict, **metric_overrides) -> dict:
     """A minimal extract_record-shaped dict: metrics + mast_flags."""
-    from mast_analysis.loader import MAST_MODES
+    from agent_guarantees.mad.loader import MAST_MODES
 
     metrics = {
         "node_count": 10, "exchange_count": 6, "write_count": 2,

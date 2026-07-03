@@ -17,7 +17,7 @@ from typing import Sequence
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from mast_analysis.exec_lab import (  # noqa: E402
+from agent_guarantees.execlab.rig import (  # noqa: E402
     DISCIPLINES,
     TOPOLOGIES,
     make_fanout_plan,

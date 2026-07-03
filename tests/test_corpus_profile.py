@@ -24,7 +24,7 @@ def profile():
 @pytest.fixture
 def records(tmp_path):
     """Split the synthetic fixture into the two real file shapes and load them."""
-    from mast_analysis.loader import load_full, load_human
+    from agent_guarantees.mad.loader import load_full, load_human
 
     data = json.loads(FIXTURE.read_text(encoding="utf-8"))
     full_file = tmp_path / "full.json"

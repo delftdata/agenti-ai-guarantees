@@ -1,7 +1,7 @@
 """Offline, deterministic tests for the execution-topology rig."""
 from __future__ import annotations
 
-from mast_analysis.exec_lab import (
+from agent_guarantees.execlab.rig import (
     make_fanout_plan,
     parallelizable_width,
     run_experiment,

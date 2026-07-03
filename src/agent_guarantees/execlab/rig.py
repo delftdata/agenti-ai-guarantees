@@ -22,7 +22,7 @@ from typing import Any, Callable, Dict, List, Tuple
 
 import networkx as nx
 
-from .stats import parallelizable_width as _dilworth_width
+from ..mad.stats import parallelizable_width as _dilworth_width
 
 TOPOLOGIES: Tuple[str, ...] = ("sequential", "parallel", "over_parallel")
 DISCIPLINES: Tuple[str, ...] = ("disciplined", "ffa")

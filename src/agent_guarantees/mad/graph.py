@@ -174,7 +174,7 @@ def _matches(value, allowed) -> bool:
 def iter_chatdev(loader, benchmarks=None) -> Iterator[dict]:
     """Yield ``extract_record`` for every ChatDev trace in the full dataset.
 
-    ``loader`` is the ``mast_analysis.loader`` module (or anything exposing
+    ``loader`` is the ``agent_guarantees.mad.loader`` module (or anything exposing
     ``ensure_raw`` and ``load_full``). ``benchmarks`` optionally filters the
     benchmark (e.g. ``"ProgramDev"``).
     """

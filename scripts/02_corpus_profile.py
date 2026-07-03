@@ -20,7 +20,7 @@ from typing import Dict, List, Sequence, Tuple
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from mast_analysis.loader import (  # noqa: E402
+from agent_guarantees.mad.loader import (  # noqa: E402
     MAST_MODES,
     ensure_raw,
     load_full,

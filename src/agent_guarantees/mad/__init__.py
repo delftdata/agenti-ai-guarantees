@@ -1,4 +1,4 @@
-"""mast_analysis — tools for exploring the MAD multi-agent failure dataset."""
+"""agent_guarantees.mad — tools for exploring the MAD multi-agent failure dataset."""
 
 from .loader import (
     FULL_FILENAME,

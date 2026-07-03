@@ -12,6 +12,7 @@ from __future__ import annotations
 import itertools
 import json
 import logging
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,10 +34,9 @@ MAST_MODES: List[str] = [
     "3.1", "3.2", "3.3",
 ]
 
-# Repo layout: <root>/src/mast_analysis/loader.py  -> root is parents[2].
-PACKAGE_DIR = Path(__file__).resolve().parent
-REPO_ROOT = PACKAGE_DIR.parents[1]
-DATA_RAW = REPO_ROOT / "data" / "raw"
+# Default raw-data location: <cwd>/data/raw, overridable via the MAD_DATA_DIR
+# environment variable. Every loader function also accepts an explicit path.
+DATA_RAW = Path(os.environ.get("MAD_DATA_DIR", "") or Path.cwd() / "data" / "raw")
 
 # Leading "X.Y" token of a human "failure mode" string, e.g. "1.2 Disobey ...".
 _MODE_TOKEN_RE = re.compile(r"^\s*(\d+\.\d+)\b")

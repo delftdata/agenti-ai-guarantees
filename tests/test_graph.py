@@ -7,8 +7,8 @@ from pathlib import Path
 import networkx as nx
 import pytest
 
-from mast_analysis.graph import build_graph, extract_record
-from mast_analysis.stats import compute_metrics
+from agent_guarantees.mad.graph import build_graph, extract_record
+from agent_guarantees.mad.stats import compute_metrics
 
 FIXTURE = Path(__file__).parent / "fixtures" / "synthetic_mad.json"
 
@@ -71,7 +71,7 @@ def test_role_graph_edges(sample_trajectory):
 
 def test_extract_record_serialization_roundtrips(sample, tmp_path):
     # Load the sample as a real TraceRecord via the loader (still offline).
-    from mast_analysis.loader import load_full
+    from agent_guarantees.mad.loader import load_full
 
     full_file = tmp_path / "g.json"
     full_file.write_text(json.dumps([sample]), encoding="utf-8")
