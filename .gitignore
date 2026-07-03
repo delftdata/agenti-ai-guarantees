@@ -1,0 +1,22 @@
+# Raw dataset — never committed; the loader re-fetches from the HF Hub.
+data/raw/*
+!data/raw/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Tooling / envs
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# HF cache that hf_hub_download may drop next to local_dir
+data/raw/.cache/

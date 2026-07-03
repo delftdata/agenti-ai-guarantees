@@ -1,0 +1,52 @@
+{
+  "full": [
+    {
+      "mas_name": "ChatDev",
+      "llm_name": "gpt-4o-mini",
+      "benchmark_name": "ProgramDev",
+      "trace_id": "full-0001",
+      "trace": {
+        "key": "ChatDev/ProgramDev/0001",
+        "index": 0,
+        "trajectory": "**[Start Chat]**\n\nuser_role_name: Chief Executive Officer\nassistant_role_name: Chief Technology Officer\n\nChief Executive Officer: We need a snake game.\nChief Technology Officer: Understood, I will direct the team.\n\n**[Coding]**\n\nuser_role_name: Chief Technology Officer\nassistant_role_name: Programmer\n\nProgrammer: Here is the first version of the code.\n\n**[Code Review]**\n\nuser_role_name: Code Reviewer\nassistant_role_name: Programmer\n\nCode Reviewer: The logic looks reasonable.\n\n**[Testing]**\n\nuser_role_name: Software Test Engineer\nassistant_role_name: Programmer\n\nSoftware Test Engineer: All tests pass."
+      },
+      "mast_annotation": {
+        "1.1": 0, "1.2": 1, "1.3": 0, "1.4": 0, "1.5": 0,
+        "2.1": 0, "2.2": 0, "2.3": 1, "2.4": 0, "2.5": 0, "2.6": 0,
+        "3.1": 0, "3.2": 0, "3.3": 1
+      }
+    }
+  ],
+  "human": [
+    {
+      "round": 1,
+      "mas_name": "ChatDev",
+      "benchmark_name": "ProgramDev",
+      "trace_id": "human-0001",
+      "trace": "**[Start Chat]**\n\nuser_role_name: Chief Executive Officer\nassistant_role_name: Chief Technology Officer\n\n**[Coding]**\n\nuser_role_name: Chief Technology Officer\nassistant_role_name: Programmer\n\nProgrammer: writes the code.\nCode Reviewer: reviews the code.",
+      "annotations": [
+        {"failure mode": "1.1 Disobey task specification", "annotator_1": true,  "annotator_2": true,  "annotator_3": false},
+        {"failure mode": "1.2 Disobey role specification", "annotator_1": false, "annotator_2": false, "annotator_3": true},
+        {"failure mode": "2.3 Step repetition",            "annotator_1": true,  "annotator_2": false, "annotator_3": true},
+        {"failure mode": "3.3 Incorrect verification",     "annotator_1": false, "annotator_2": false, "annotator_3": false},
+        {"failure mode": "Other (uncategorized free-text note)", "annotator_1": true, "annotator_2": false, "annotator_3": false}
+      ]
+    }
+  ],
+  "graph_sample": {
+    "mas_name": "ChatDev",
+    "llm_name": "gpt-4o-mini",
+    "benchmark_name": "ProgramDev",
+    "trace_id": "graph-0001",
+    "trace": {
+      "key": "ChatDev/ProgramDev/graph",
+      "index": 0,
+      "trajectory": "**[Preprocessing]**\n\n**[RolePlaying]**\n\n**assistant_role_name** | Chief Technology Officer |\n**user_role_name** | Chief Executive Officer |\n\nChief Executive Officer: Please design a calculator.\nChief Technology Officer: Understood, here is the design.\n\n**[RolePlaying]**\n\n**assistant_role_name** | Programmer |\n**user_role_name** | Chief Technology Officer |\n\nChief Technology Officer: Implement the design.\nProgrammer: Implementation complete.\n\n**[Update Codes]**\n\ncalculator.py written.\n\n**[Execute Detail]**\n\nCommand run, exit code 0."
+    },
+    "mast_annotation": {
+      "1.1": 0, "1.2": 0, "1.3": 0, "1.4": 0, "1.5": 0,
+      "2.1": 0, "2.2": 1, "2.3": 0, "2.4": 0, "2.5": 0, "2.6": 0,
+      "3.1": 0, "3.2": 0, "3.3": 0
+    }
+  }
+}
