@@ -1,1 +1,27 @@
-# Placeholder — rewritten later on this integration branch.
+# Raw dataset — never committed; the loader re-fetches from the HF Hub.
+data/raw/*
+!data/raw/.gitkeep
+
+# HF cache that hf_hub_download may drop next to local_dir
+data/raw/.cache/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Tooling / envs
+.venv/
+.venv-integration/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Legacy local artifacts
+setup_keys.sh
+agentic-ai-guarantees/

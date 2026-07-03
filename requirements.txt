@@ -1,1 +1,4 @@
-# Placeholder — rewritten later on this integration branch.
+# Dependencies are declared in pyproject.toml; this file just installs the
+# package editable with all extras. For the offline-only toolkit use
+# `pip install -e .[dev]` instead.
+-e .[llm,dev]
