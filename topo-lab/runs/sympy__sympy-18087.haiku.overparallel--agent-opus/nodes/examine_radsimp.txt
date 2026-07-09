@@ -1,0 +1,37 @@
+Looking at the issue, the problem is that `sqrt(sin(x)**2)` is being incorrectly simplified to `sin(x)` (rather than `Abs(sin(x))` or left unevaluated) for general complex `x`, which then makes `cos(x)+sqrt(sin(x)**2)` look like `cos(x)+sin(x)`.
+
+## Analysis of radsimp.py
+
+After reading through `sympy/simplify/radsimp.py`, I do **not** believe this file is the source of the bug. Here is my reasoning:
+
+### What radsimp.py actually does
+
+The main functions in this file are:
+
+1. **`collect`, `rcollect`** — collect additive terms with respect to given symbols/patterns. They do pattern matching and rebuild expressions but do not rewrite `sqrt(sin(x)**2)` into `sin(x)`.
+
+2. **`collect_sqrt`, `collect_const`** — collect terms sharing common square-root/constant factors. `collect_sqrt` specifically looks for factors `m` that are `m.is_number` (numeric radicals like `sqrt(2)`) — it explicitly restricts to `m.is_number`, so a symbolic radical like `sqrt(sin(x)**2)` would not be touched.
+
+3. **`radsimp`** — rationalizes denominators to remove square roots. It only operates on the *denominator* structure (`handle(1/d)`), and its `ispow2` / `_num` machinery is about removing radicals from denominators. It wouldn't turn `cos(x) + sqrt(sin(x)**2)` (which has no radical denominator) into `cos(x) + sin(x)`.
+
+4. **`split_surds`, `rad_rationalize`, `_split_gcd`** — these operate on terms *"whose squares are positive rationals"*, i.e. numeric surds. They are not applied to symbolic expressions like `sin(x)`.
+
+### Where the real problem lies
+
+The incorrect simplification `sqrt(sin(x)**2) -> sin(x)` is a **`Pow`/`sqrt` autoevaluation (or power-simplification) issue**, not a radical-denominator-rationalization issue. The key clue in the bug report is:
+
+> "Oddly it gets this right if x is real."
+
+This behavior is controlled by assumption-based logic that decides whether `sqrt(z**2) == z`. That is only valid when `z` is nonnegative (or when the base is known real/nonnegative). The logic that (mistakenly) reduces `sqrt(sin(x)**2)` to `sin(x)` for general complex `x` lives in the power-evaluation / powsimp code:
+
+- **`sympy/core/power.py`** — `Pow._eval_power` and `Pow.eval`, which handle `(b**e)**other` and decide when exponents can be combined (e.g. `(sin(x)**2)**(1/2)`). The condition allowing `(b**2)**(1/2) -> b` must require the base be nonnegative/real, not merely that the outer product of exponents is an integer times a half.
+- **`sympy/simplify/powsimp.py`** — `powdenest`/`powsimp` with the `force` flag, which can combine exponents.
+- Possibly **`trigsimp`** in `sympy/simplify/trigsimp.py`, but trigsimp likely just calls power simplification which does the wrong reduction.
+
+The reason it is correct for real `x`: when `sin(x)` is known real, `sin(x)**2` is nonnegative, and there is more assumption information — but the buggy branch is one that combines exponents `2 * (1/2) = 1` without properly guarding on the sign/realness of the base, and for general complex `x` this guard is being applied incorrectly.
+
+### Conclusion
+
+`radsimp.py` is **not** the source of the issue. The functions here restrict their radical handling to numeric surds (`is_number`) or to denominators, and none of them perform the `sqrt(sin(x)**2) -> sin(x)` rewrite that causes the wrong answer. The fix should target the power-evaluation logic (`sympy/core/power.py`, specifically the `Pow._eval_power` handling of `(b**e)**e2` where it decides `abs`-vs-identity based on whether `b` is real/nonnegative), and/or the corresponding branch in `powsimp.py`. No change to `radsimp.py` is warranted.
+
+Since my instruction was only to investigate `radsimp.py`, and it is not the culprit, I am not proposing a diff against `radsimp.py`.

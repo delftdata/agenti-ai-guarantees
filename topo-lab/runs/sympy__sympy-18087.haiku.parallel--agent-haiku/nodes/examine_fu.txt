@@ -1,0 +1,56 @@
+# Analysis of sqrt(sin(x)**2) Simplification Issue
+
+## Problem Statement
+The issue is that `trigsimp(cos(x) + sqrt(sin(x)**2))` incorrectly simplifies to `cos(x) + sin(x)` for general complex `x`, when it should only do this simplification for real `x` where `sin(x)` is real and non-negative.
+
+Mathematically, `sqrt(sin(x)**2) = |sin(x)|`, not `sin(x)`. For real `x`, this is correct only when `sin(x) >= 0`.
+
+## Root Cause Analysis
+
+Looking at the `fu.py` file, the transformations that would be involved in simplifying such expressions are:
+
+### 1. **TR5 and TR6 Functions (Lines 432-474)**
+   - `TR5`: Replaces `sin(x)**2` with `1 - cos(x)**2`
+   - `TR6`: Replaces `cos(x)**2` with `1 - sin(x)**2`
+   - These functions use `_TR56` helper which operates on **squared** trigonometric functions
+   - **Issue**: These don't handle square roots directly
+
+### 2. **The _TR56 Helper (Lines 401-430)**
+   - Transforms expressions like `f**2` to `h(g**2)`
+   - Controls exponent handling with `max` and `pow` parameters
+   - **Issue**: Doesn't account for the difference between `sin(x)**2` and `sqrt(sin(x)**2)`
+
+### 3. **Problem Location: Power Simplification**
+   The actual issue is likely NOT in `fu.py` itself but in how SymPy handles `sqrt()` of squared expressions before they reach the trigsimp algorithms.
+
+In the power representation, `sqrt(sin(x)**2)` should be represented as `sin(x)**2**(S.Half)` = `sin(x)**1`, which simplifies to `sin(x)` **only under the assumption that sin(x) is real and non-negative**.
+
+## Missing Assumption Handling
+
+The issue is that none of the transformations in `fu.py` properly check assumptions about the domain of variables:
+
+1. **No domain checking in TR5/TR6**: These rules don't verify that the expression is operating in real domain
+2. **No Abs() handling**: When `sqrt(f(x)**2)` appears, it should become `Abs(f(x))`, not `f(x)`
+3. **Assumption propagation failure**: The transformations don't respect or use the `is_real` assumption
+
+## Related Code Sections
+
+- **TR0 (Line 285)**: Basic simplification using `.normal().factor().expand()` - this might aggressively simplify without domain checks
+- **TR10 and TR10i (Lines 664-799)**: These expand/contract trig functions and could be applied to problematic expressions
+- **Bottom-up traversal (used throughout)**: The `bottom_up()` function applies transformations recursively from leaves to root, which could cause premature simplification of `sqrt(sin(x)**2)` to `sin(x)`
+
+## Specific Vulnerability
+
+The vulnerability chain is:
+1. Expression `cos(x) + sqrt(sin(x)**2)` enters trigsimp
+2. Some inner transformation converts `sqrt(sin(x)**2)` to `sin(x)` without checking assumptions
+3. The simplified form `cos(x) + sin(x)` is returned
+
+This is likely happening in the power/root simplification layer (sympy.core) **before** `fu.py` is even called, or in early stages like TR0.
+
+## Recommendation for Fix
+
+The fix should:
+1. Ensure that `sqrt(expr**2)` simplifies to `Abs(expr)` rather than `expr`
+2. Only allow `Abs(sin(x))` to simplify to `sin(x)` when `sin(x).is_positive` or `x.is_real` assumptions are satisfied
+3. Modify the problematic transformation(s) to check `expr.is_real` before applying simplifications that assume real domain

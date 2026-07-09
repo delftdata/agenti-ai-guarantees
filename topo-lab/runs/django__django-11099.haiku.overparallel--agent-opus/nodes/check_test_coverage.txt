@@ -1,0 +1,166 @@
+I'll analyze this task. Note that my instruction is to review the test file and provide analysis, but the deliverable requests a unified diff resolving the problem. Let me provide both the analysis and the fix.
+
+## Analysis
+
+Based on the problem statement, the issue is in `django/contrib/auth/validators.py`. The `ASCIIUsernameValidator` and `UnicodeUsernameValidator` classes use the regex `r'^[\w.@+-]+$'`. Because Python's `$` anchor matches before a trailing newline, usernames ending with `\n` are incorrectly accepted.
+
+Regarding `tests/auth_tests/test_validators.py`: this file historically contains tests for password validators (like `MinimumLengthValidator`, `CommonPasswordValidator`, etc.), but does **not** contain dedicated tests for the username validators' newline-handling behavior. 
+
+**Tests that exist:** There are no tests in `test_validators.py` verifying that `ASCIIUsernameValidator`/`UnicodeUsernameValidator` reject trailing newlines. Username validation is instead exercised indirectly through form tests (`test_forms.py`) and model tests.
+
+**New tests needed:** A test should be added that constructs each validator and asserts that valid usernames (e.g. `"glenn"`, `"GÊlënn"`) pass, while invalid ones containing a newline (e.g. `"glenn\n"`, `"trailingnewline\n"`) raise `ValidationError`.
+
+## Fix
+
+The required change is to replace `^...$` with `\A...\Z` in both validators:
+
+```diff
+--- a/django/contrib/auth/validators.py
++++ b/django/contrib/auth/validators.py
+@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
+ 
+ @deconstructible
+ class ASCIIUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only English letters, '
+         'numbers, and @/./+/-/_ characters.'
+@@ -17,7 +17,7 @@ class ASCIIUsernameValidator(validators.RegexValidator):
+ 
+ @deconstructible
+ class UnicodeUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only letters, '
+         'numbers, and @/./+/-/_ characters.'
+```
+
+And add tests:
+
+```diff
+--- a/tests/auth_tests/test_validators.py
++++ b/tests/auth_tests/test_validators.py
+@@ -1,5 +1,7 @@
+ import os
+ 
++from django.contrib.auth import validators
++from django.core.exceptions import ValidationError
+ from django.contrib.auth.models import User
+ from django.contrib.auth.password_validation import (
+     CommonPasswordValidator, MinimumLengthValidator, NumericPasswordValidator,
+@@ -253,3 +255,21 @@ class UserAttributeSimilarityValidatorTest(TestCase):
+                 UserAttributeSimilarityValidator(user_attributes=['first_name']).validate(
+                     'testclient', user=user,
+                 )
++
++
++class UsernameValidatorsTests(SimpleTestCase):
++    def test_unicode_validator(self):
++        valid_usernames = ['joe', 'René', 'ᴮᴵᴳᴮᴵᴿᴰ', 'أحمد']
++        invalid_usernames = [
++            "o'connell", "عبد ال",
++            "zerowidth\u200Bspace", "nonbreaking\u00A0space",
++            "en\u2013dash", 'trailingnewline\u000A',
++        ]
++        v = validators.UnicodeUsernameValidator()
++        for valid in valid_usernames:
++            with self.subTest(valid=valid):
++                v(valid)
++        for invalid in invalid_usernames:
++            with self.subTest(invalid=invalid):
++                with self.assertRaises(ValidationError):
++                    v(invalid)
++
++    def test_ascii_validator(self):
++        valid_usernames = ['glenn', 'GLEnN', 'jean-marc']
++        invalid_usernames = ["o'connell", 'Éric', 'jean marc', "أحمد", 'trailingnewline\n']
++        v = validators.ASCIIUsernameValidator()
++        for valid in valid_usernames:
++            with self.subTest(valid=valid):
++                v(valid)
++        for invalid in invalid_usernames:
++            with self.subTest(invalid=invalid):
++                with self.assertRaises(ValidationError):
++                    v(invalid)
+```
+
+## Deliverable Diff
+
+```diff
+diff --git a/django/contrib/auth/validators.py b/django/contrib/auth/validators.py
+--- a/django/contrib/auth/validators.py
++++ b/django/contrib/auth/validators.py
+@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
+ 
+ @deconstructible
+ class ASCIIUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only English letters, '
+         'numbers, and @/./+/-/_ characters.'
+@@ -17,7 +17,7 @@ class ASCIIUsernameValidator(validators.RegexValidator):
+ 
+ @deconstructible
+ class UnicodeUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only letters, '
+         'numbers, and @/./+/-/_ characters.'
+diff --git a/tests/auth_tests/test_validators.py b/tests/auth_tests/test_validators.py
+--- a/tests/auth_tests/test_validators.py
++++ b/tests/auth_tests/test_validators.py
+@@ -1,5 +1,6 @@
+ import os
+ 
++from django.contrib.auth import validators
+ from django.contrib.auth.models import User
+ from django.contrib.auth.password_validation import (
+     CommonPasswordValidator, MinimumLengthValidator, NumericPasswordValidator,
+@@ -7,7 +8,7 @@ from django.contrib.auth.password_validation import (
+     get_default_password_validators, get_password_validators, validate_password,
+ )
+ from django.core.exceptions import ValidationError
+-from django.test import TestCase, override_settings
++from django.test import SimpleTestCase, TestCase, override_settings
+ from django.test.utils import isolate_apps
+ from django.utils.html import conditional_escape
+ 
+@@ -252,3 +253,21 @@ class UserAttributeSimilarityValidatorTest(TestCase):
+                 UserAttributeSimilarityValidator(user_attributes=['first_name']).validate(
+                     'testclient', user=user,
+                 )
++
++
++class UsernameValidatorsTests(SimpleTestCase):
++    def test_unicode_validator(self):
++        valid_usernames = ['joe', 'René', 'ᴮᴵᴳᴮᴵᴿᴰ', 'أحمد']
++        invalid_usernames = [
++            "o'connell", "عبد ال",
++            "zerowidth\u200Bspace", "nonbreaking\u00A0space",
++            "en\u2013dash", 'trailingnewline\u000A',
++        ]
++        v = validators.UnicodeUsernameValidator()
++        for valid in valid_usernames:
++            with self.subTest(valid=valid):
++                v(valid)
++        for invalid in invalid_usernames:
++            with self.subTest(invalid=invalid):
++                with self.assertRaises(ValidationError):
++                    v(invalid)
++
++    def test_ascii_validator(self):
++        valid_usernames = ['glenn', 'GLEnN', 'jean-marc']
++        invalid_usernames = ["o'connell", 'Éric', 'jean marc', "أحمد", 'trailingnewline\n']
++        v = validators.ASCIIUsernameValidator()
++        for valid in valid_usernames:
++            with self.subTest(valid=valid):
++                v(valid)
++        for invalid in invalid_usernames:
++            with self.subTest(invalid=invalid):
++                with self.assertRaises(ValidationError):
++                    v(invalid)
+```

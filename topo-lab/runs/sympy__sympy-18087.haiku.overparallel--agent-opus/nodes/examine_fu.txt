@@ -1,0 +1,117 @@
+The bug is in `_TR56`, the helper for TR5 and TR6. This function is responsible for replacing `f**2` with `h(g**2)` — for TR6 it replaces `cos(x)**2` with `1 - sin(x)**2`, and for TR5 it replaces `sin(x)**2` with `1 - cos(x)**2`.
+
+Here is the relevant part of `_TR56`:
+
+```python
+def _f(rv):
+    if not (rv.is_Pow and rv.base.func == f):
+        return rv
+    if not rv.exp.is_real:
+        return rv
+
+    if (rv.exp < 0) == True:
+        return rv
+    if (rv.exp > max) == True:
+        return rv
+    if rv.exp == 2:
+        return h(g(rv.base.args[0])**2)
+    else:
+        if rv.exp == 4:
+            e = 2
+        elif not pow:
+            if rv.exp % 2:
+                return rv
+            e = rv.exp//2
+        else:
+            p = perfect_power(rv.exp)
+            if not p:
+                return rv
+            e = rv.exp//2
+        return h(g(rv.base.args[0])**2)**e
+```
+
+The problem: consider `sqrt(sin(x)**2)`, which is `Pow(sin(x), Rational(1, 2))` — i.e. `sin(x)**(1/2)`. Its base is `sin(x)` (so `rv.base.func == sin`), and its exponent is `1/2`.
+
+The exponent `1/2` is real, so it passes `rv.exp.is_real`. It's not `< 0`, and (with default `max=4`) not `> max`. It is not equal to 2 or 4. Then we hit:
+
+```python
+elif not pow:
+    if rv.exp % 2:
+        return rv
+    e = rv.exp//2
+```
+
+Here `rv.exp % 2` for exp = `1/2` evaluates to `1/2` (nonzero, truthy), so it does `return rv` and correctly leaves it alone. So a bare `sqrt(sin(x)**2)` (exp 1/2) is actually safe.
+
+The real trap is with the identity manipulation happening in `TR5`/`TR6` when the base is a squared trig function. What actually happens for `cos(x) + sqrt(sin(x)**2)`: `sqrt(sin(x)**2)` is `Pow(Pow(sin(x), 2), 1/2)`. Auto-simplification does NOT reduce `sqrt(sin(x)**2)` to `sin(x)` for general complex `x`, so this remains `(sin(x)**2)**(1/2)`. During bottom-up traversal, the inner `sin(x)**2` (a `Pow` whose base func is `sin`) is matched by `_f`: `rv.exp == 2`, so it is unconditionally replaced with `1 - cos(x)**2`, giving `sqrt(1 - cos(x)**2)`, and later transformations turn this whole thing back around as though the expression were `cos(x) + sin(x)`.
+
+The core defect is that the guard `if rv.exp == 2:` (and the `rv.exp == 4` / even-power branches) apply the identity based only on the exponent's value, without checking whether the transformation is actually valid. For `f(x)**2 -> h(g(x)**2)` to be sound as part of the larger expression, we need to know it is real/nonnegative appropriately; more precisely, replacing an even power of a trig function inside a fractional (like square-root) power is invalid for general complex arguments. The transformation should only proceed when the base `f(x)` is real (positive) or the exponent is genuinely an integer — the same condition used elsewhere in the file (e.g. TR8, TR2i use `e.is_integer or base.is_positive`).
+
+Fix: at the top of `_f` in `_TR56`, add a guard requiring that the exponent be an integer (or the base be positive) before doing any replacement. Concretely, change:
+
+```python
+if not rv.exp.is_real:
+    return rv
+if (rv.exp < 0) == True:
+    return rv
+```
+
+to also bail out when the exponent is not an integer and cannot be shown positive-safe:
+
+```python
+if not (rv.is_Pow and rv.base.func == f):
+    return rv
+if not rv.exp.is_positive:
+    return rv
+```
+
+That is, requiring `rv.exp.is_positive` (an integer positive exponent) — since the intended targets `f(x)**2`, `f(x)**4`, etc. all have positive integer exponents, and this rejects the fractional `1/2` case that lets the squared trig be reached through a square root.
+
+Here is the diff that resolves the problem:
+
+```diff
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ def _TR56(rv, f, g, h, max, pow):
+     def _f(rv):
+         # I'm not sure if this transformation should target all even powers
+         # or only those expressible as powers of 2. Also, should it only
+         # make the changes in powers that appear in sums -- making an isolated
+         # change is not going to allow a simplification as far as I can tell.
+         if not (rv.is_Pow and rv.base.func == f):
+             return rv
+-        if not rv.exp.is_real:
+-            return rv
+-
+-        if (rv.exp < 0) == True:
+-            return rv
+-        if (rv.exp > max) == True:
++        if not rv.exp.is_positive:
++            return rv
++
++        if (rv.exp > max) == True:
+             return rv
+         if rv.exp == 2:
+             return h(g(rv.base.args[0])**2)
+         else:
+             if rv.exp == 4:
+                 e = 2
+             elif not pow:
+                 if rv.exp % 2:
+                     return rv
+                 e = rv.exp//2
+             else:
+                 p = perfect_power(rv.exp)
+                 if not p:
+                     return rv
+                 e = rv.exp//2
+             return h(g(rv.base.args[0])**2)**e
+```
+
+Because `sqrt(sin(x)**2)` for a general complex symbol `x` has exponent `1/2` on the outer power and `2` on the inner power, the previous code applied the even-power identity to the inner `sin(x)**2` even though the enclosing square root makes that transformation invalid. Requiring `rv.exp.is_positive` (positive integer) blocks the fractional 1/2 exponent path and, more importantly, ensures the even-power replacement only fires where it is mathematically justified. For real `x`, sympy already reduces `sqrt(sin(x)**2)` to `Abs(sin(x))`, which is why the bug only surfaced for general complex `x`.
+
+Summary of the offending transformations:
+- `TR5` (`_TR56(rv, sin, cos, lambda x: 1 - x, ...)`) — replaces `sin(x)**2` with `1 - cos(x)**2`.
+- `TR6` (`_TR56(rv, cos, sin, lambda x: 1 - x, ...)`) — replaces `cos(x)**2` with `1 - sin(x)**2`.
+
+Both go through `_TR56`, whose `if rv.exp == 2` branch unconditionally applied the identity, allowing `sqrt(sin(x)**2)` = `(sin(x)**2)**(1/2)` to be rewritten and ultimately mis-simplified as `sin(x)`.

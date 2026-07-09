@@ -1,0 +1,113 @@
+```diff
+diff --git a/sympy/simplify/fu.py b/sympy/simplify/fu.py
+index 1234567..abcdefg 100644
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ -39,6 +39,7 @@ from sympy.functions.elementary.hyperbolic import (
+ from sympy.functions.elementary.trigonometric import (
+     cos, sin, tan, cot, sec, csc, sqrt, TrigonometricFunction)
+ from sympy.ntheory.factor_ import perfect_power
++from sympy.functions.elementary.complexes import Abs
+ from sympy.polys.polytools import factor
+ from sympy.simplify.simplify import bottom_up
+ from sympy.strategies.tree import greedy
+@@ -107,6 +108,35 @@ def TR1(rv):
+     return bottom_up(rv, f)
+ 
+ 
++def _denest_sqrt_of_squares(rv):
++    """Replace sqrt(f(x)**2) with Abs(f(x)) for proper handling of complex numbers.
++    
++    This function ensures that expressions like sqrt(sin(x)**2) are properly
++    simplified to Abs(sin(x)) rather than incorrectly to sin(x), which is only
++    valid for non-negative real values.
++    
++    Examples
++    ========
++    
++    >>> from sympy.simplify.fu import _denest_sqrt_of_squares
++    >>> from sympy import sin, cos, sqrt, symbols
++    >>> x = symbols('x')
++    >>> _denest_sqrt_of_squares(sqrt(sin(x)**2))
++    Abs(sin(x))
++    >>> _denest_sqrt_of_squares(cos(x) + sqrt(sin(x)**2))
++    cos(x) + Abs(sin(x))
++    """
++    def f(rv):
++        if isinstance(rv, Pow) and rv.exp == S.Half:
++            base = rv.base
++            if isinstance(base, Pow) and base.exp == 2:
++                # sqrt(expr**2) -> Abs(expr)
++                return Abs(base.base)
++        return rv
++    
++    return bottom_up(rv, f)
++
++
+ def TR2(rv):
+     """Replace tan and cot with sin/cos and cos/sin
+ 
+@@ -2220,6 +2250,11 @@ def fu(rv, measure=lambda x: (L(x), x.count_ops())):
+     fRL1 = greedy(RL1, measure)
+     fRL2 = greedy(RL2, measure)
+ 
++    # Apply sqrt of squares denesting to fix issue #18087
++    # This ensures sqrt(f(x)**2) is not incorrectly simplified to f(x)
++    # for general complex x, but rather to Abs(f(x))
++    if rv.has(sqrt) and rv.has(Pow):
++        rv = _denest_sqrt_of_squares(rv)
++
+     was = rv
+     rv = sympify(rv)
+     if not isinstance(rv, Expr):
+diff --git a/sympy/simplify/tests/test_trigsimp.py b/sympy/simplify/tests/test_trigsimp.py
+index 2345678..cdefghi 100644
+--- a/sympy/simplify/tests/test_trigsimp.py
++++ b/sympy/simplify/tests/test_trigsimp.py
+@@ -1,6 +1,6 @@
+ from sympy import (
+     symbols, sin, simplify, cos, trigsimp, tan, exptrigsimp,sinh,
+-    cosh, diff, cot, Subs, exp, tanh, S, integrate, I,Matrix,
++    cosh, diff, cot, Subs, exp, tanh, S, integrate, I, Matrix, Abs,
+     Symbol, coth, pi, log, count_ops, sqrt, E, expand, Piecewise , Rational
+     )
+ 
+@@ -556,3 +556,37 @@ def test_trigsimp_old():
+ 
+     assert trigsimp(1-sin(sin(x)**2+cos(x)**2)**2, old=True, deep=True) == cos(1)**2
+ 
++
++def test_issue_18087_sqrt_of_square():
++    """Regression test for issue #18087
++    
++    trigsimp should not incorrectly simplify cos(x) + sqrt(sin(x)**2) to
++    cos(x) + sin(x) for general complex x. The sqrt(sin(x)**2) should
++    simplify to Abs(sin(x)) to properly handle the absolute value.
++    """
++    # Test with general complex symbol
++    x = Symbol('x')
++    expr = cos(x) + sqrt(sin(x)**2)
++    result = trigsimp(expr)
++    
++    # The result should NOT be cos(x) + sin(x)
++    # It should be cos(x) + Abs(sin(x))
++    assert result != cos(x) + sin(x), \
++        "trigsimp incorrectly simplified sqrt(sin(x)**2) to sin(x) for general x"
++    
++    # Test that sqrt(sin(x)**2) itself is handled correctly
++    sqrt_expr = sqrt(sin(x)**2)
++    sqrt_result = trigsimp(sqrt_expr)
++    assert sqrt_result != sin(x), \
++        "trigsimp incorrectly simplified sqrt(sin(x)**2) to sin(x)"
++    assert sqrt_result == Abs(sin(x)), \
++        "sqrt(sin(x)**2) should simplify to Abs(sin(x))"
++    
++    # Test with real-valued symbol for consistency
++    x_real = Symbol('x', real=True)
++    expr_real = cos(x_real) + sqrt(sin(x_real)**2)
++    result_real = trigsimp(expr_real)
++    assert result_real != cos(x_real) + sin(x_real), \
++        "trigsimp incorrectly simplified sqrt(sin(x)**2) to sin(x) for real x"
++    assert result_real == cos(x_real) + Abs(sin(x_real)), \
++        "For real x, sqrt(sin(x)**2) should still simplify to Abs(sin(x))"
+```

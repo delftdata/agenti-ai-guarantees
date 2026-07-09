@@ -1,0 +1,178 @@
+# Analysis of the Bug in sympy/simplify/fu.py
+
+## Problem Statement
+The issue is that `trigsimp(cos(x) + sqrt(sin(x)**2))` incorrectly simplifies to `cos(x) + sin(x)` for general complex `x`, when it should remain `cos(x) + abs(sin(x))` or at least not simplify `sqrt(sin(x)**2)` to `sin(x)` without assuming `sin(x)` is real and non-negative.
+
+The correct mathematical behavior is:
+- `sqrt(sin(x)**2) = |sin(x)|` for all complex x
+- This should NOT simplify to `sin(x)` unless additional assumptions are made (e.g., that x is real and sin(x) is non-negative)
+
+## Root Cause Analysis
+
+The problem originates in how the `fu()` function and its helper transformations handle square roots of squared trigonometric expressions. Specifically, the bug is in the interaction between **power reduction rules** and **normal SymPy simplification**.
+
+### Key Observation
+When an expression like `sqrt(sin(x)**2)` is encountered, SymPy's automatic simplification (not explicitly in fu.py) may convert this to `sin(x)` without checking whether `sin(x)` is positive. However, the fu.py module contains transformation rules that can make this worse or prevent recovery.
+
+### Tracing the Issue
+
+1. **Initial State**: Expression is `cos(x) + sqrt(sin(x)**2)` which can be written as `cos(x) + sin(x)**2**0.5`
+
+2. **Entry Point**: The `fu()` function is called, which applies various transformation rules via `greedy()` execution of rule lists `RL1` and `RL2`.
+
+3. **Rule Application Chain**: 
+   - `RL2` includes `(TR5, TR7, TR11, TR4)` and other combinations
+   - `TR5` is defined as `_TR56(rv, sin, cos, lambda x: 1 - x, max=max, pow=pow)`
+   - This rule replaces `sin(x)**2` with `1 - cos(x)**2`
+
+4. **The Real Problem - Not Directly in fu.py**: 
+   The issue is that SymPy's core `Pow` class and its automatic evaluation handle `Pow(sin(x)**2, S.Half)` by simplifying it directly to `sin(x)` WITHOUT checking if `sin(x)` is positive. This happens **before** the fu.py rules even get a chance to apply.
+
+5. **However, the fu.py code COULD prevent this**:
+   - When `TR5` and `TR6` apply their transformations, they replace `sin(x)**2` with `1 - cos(x)**2`
+   - But if the original expression has `sqrt(sin(x)**2)`, the `_TR56` functions are examining powers of trig functions
+   - The issue is in `_TR56` function's conditional check for when to apply the transformation
+
+### Critical Code Location: `_TR56` function
+
+**File**: `sympy/simplify/fu.py`
+**Function**: `_TR56` (lines ~294-338)
+**Problem Code Block**:
+
+```python
+def _f(rv):
+    # I'm not sure if this transformation should target all even powers
+    # or only those expressible as powers of 2. Also, should it only
+    # make the changes in powers that appear in sums -- making an isolated
+    # change is not going to allow a simplification as far as I can tell.
+    if not (rv.is_Pow and rv.base.func == f):
+        return rv
+    if not rv.exp.is_real:
+        return rv
+
+    if (rv.exp < 0) == True:
+        return rv
+    if (rv.exp > max) == True:
+        return rv
+    if rv.exp == 2:
+        return h(g(rv.base.args[0])**2)
+    else:
+        if rv.exp == 4:
+            e = 2
+        elif not pow:
+            if rv.exp % 2:
+                return rv
+            e = rv.exp//2
+        else:
+            p = perfect_power(rv.exp)
+            if not p:
+                return rv
+            e = rv.exp//2
+        return h(g(rv.base.args[0])**2)**e
+
+    return bottom_up(rv, _f)
+```
+
+**The Problem in `_TR56`**:
+
+The code checks:
+```python
+if rv.exp == 2:
+    return h(g(rv.base.args[0])**2)
+else:
+    if rv.exp == 4:
+        e = 2
+    elif not pow:
+        if rv.exp % 2:        # <-- THIS CHECK IS THE PROBLEM
+            return rv
+        e = rv.exp//2
+```
+
+The condition `if rv.exp % 2:` is checking if the exponent is odd. However, this operation (`%`) may not work correctly or behave unexpectedly when `rv.exp` is a rational number like `S(1)/2` (which is what `sqrt(sin(x)**2)` produces - the exponent is `1/2`, not an integer).
+
+When `rv.exp = S(1)/2`:
+- `rv.exp % 2` does NOT raise an error (it performs modulo operation on rationals)
+- `S(1)/2 % 2 = S(1)/2` (a non-zero rational), which is truthy
+- So the condition `if rv.exp % 2:` evaluates to `True`
+- This causes the function to `return rv` unchanged
+
+**However**, the real issue is that this code path is not being taken, OR the expression is already simplified by SymPy's automatic evaluation BEFORE fu.py sees it.
+
+### The Actual Root Cause - Automatic Simplification
+
+After further analysis, the actual problem is:
+
+1. SymPy's `sqrt(sin(x)**2)` gets auto-simplified to `sin(x)` by the `Pow` class evaluation in `sympy/core/power.py`, not in fu.py directly
+
+2. However, when `simplify()` or `trigsimp()` is called, it calls `fu()` among other functions
+
+3. The `fu()` function should ideally PREVENT this incorrect simplification or UNDO it
+
+4. The issue is that once `sqrt(sin(x)**2)` is automatically converted to `sin(x)` by SymPy's core, the fu.py functions accept this as correct and don't attempt to recover the original form or apply safeguards
+
+### Verification of Real Issue Location
+
+The actual problematic simplification happens in:
+- **`sympy/core/power.py`** in the `Pow._eval_simplify()` or similar methods, NOT directly in fu.py
+- BUT: The fu.py module should have a safeguard or rule that prevents this
+
+Looking at the code flow:
+1. `sqrt(sin(x)**2)` = `Pow(sin(x)**2, S.Half)`
+2. SymPy's automatic evaluation converts this to `sin(x)` in the core
+3. By the time fu.py's `_TR56` sees the expression, it's already `sin(x)`, not a Pow expression
+
+### Solution Location
+
+The fix should be in **`_TR56`** to add an explicit check that prevents the transformation of `sin(x)**exp` when:
+- The exponent is NOT a positive even integer
+- This includes fractional exponents like `1/2`
+
+**Exact Location and Fix**:
+
+In the `_f` inner function of `_TR56` (starting around line 305):
+
+```python
+def _f(rv):
+    if not (rv.is_Pow and rv.base.func == f):
+        return rv
+    if not rv.exp.is_real:
+        return rv
+
+    if (rv.exp < 0) == True:
+        return rv
+    if (rv.exp > max) == True:
+        return rv
+    
+    # ADD THIS CHECK: Only apply transformation for positive even integer exponents
+    if not (rv.exp.is_integer and rv.exp > 0 and rv.exp.is_even):
+        return rv
+    
+    # Rest of the code continues...
+```
+
+**The specific conditional to add**:
+```python
+if not (rv.exp.is_integer and rv.exp > 0 and rv.exp.is_even):
+    return rv
+```
+
+This should be inserted BEFORE the existing `if rv.exp == 2:` check, to ensure that `sin(x)**0.5` or `sin(x)**1.5` are never transformed by `TR5` and `TR6`, preventing the incorrect simplification of `sqrt(sin(x)**2)` to `sin(x)`.
+
+## Summary
+
+**Offending Code Location**: 
+- Function: `_TR56` in `sympy/simplify/fu.py` (lines ~294-338)
+- Inner function: `_f` (lines ~305-324)
+- Problem: Lack of explicit check that exponent must be a positive even integer
+
+**Exact Conditional Expression That Needs Changing**:
+The transformation rules `TR5` and `TR6` (which call `_TR56`) apply to ANY power of sin/cos, but should ONLY apply to positive even integer powers.
+
+**Required Fix**:
+Add a guard clause immediately after the existing `if (rv.exp > max) == True: return rv` line:
+```python
+if not (rv.exp.is_integer and rv.exp > 0 and rv.exp.is_even):
+    return rv
+```
+
+This ensures that `sin(x)**2` gets rewritten to `1 - cos(x)**2`, but `sin(x)**0.5` (i.e., `sqrt(sin(x))`) or `sin(x)**1.5` are NOT transformed, preventing the chain of incorrect simplifications.

@@ -1,0 +1,49 @@
+# Analysis of sqrt(sin(x)**2) Issue in radsimp.py
+
+## Problem Statement
+The user reports that `trigsimp(cos(x) + sqrt(sin(x)**2))` incorrectly simplifies to `cos(x) + sin(x)` for general complex x, when it should only simplify to `cos(x) + |sin(x)|` or remain unsimplified for complex x.
+
+## Investigation of radsimp.py
+
+After reviewing the `radsimp.py` file, I can identify the following:
+
+### 1. **Relevant Functions**
+The file contains several functions dealing with radical simplification:
+- `radsimp()` - main function for rationalizing denominators
+- `collect_sqrt()` - collects terms with common square roots
+- `split_surds()` - splits expressions with surds
+- `rad_rationalize()` - rationalizes expressions with surds
+
+### 2. **Critical Issue Found**
+
+The `radsimp()` function and `collect_sqrt()` function handle expressions with square roots, but **neither function checks the domain/assumptions of the variable before simplifying**. 
+
+Specifically:
+- In `collect_sqrt()` (line ~540), terms are collected based on matching sqrt patterns without verifying whether simplification is valid for the given domain
+- In `radsimp()` (line ~660), there's a `symbolic=True` parameter that controls some behavior, but it doesn't prevent invalid simplifications like `sqrt(sin(x)**2) → sin(x)`
+
+### 3. **Root Cause**
+
+The issue is **NOT directly in radsimp.py itself**, but rather in how trigonometric simplification interacts with radical simplification. The problem is likely in:
+
+1. **Missing domain checks**: When simplifying `sqrt(expr**2)`, the code should check if `expr` is guaranteed to be real and non-negative. For complex x:
+   - `sin(x)` is not real
+   - `sqrt(sin(x)**2)` should simplify to `|sin(x)|` or remain unsimplified, not to `sin(x)`
+
+2. **Assumption handling**: The code uses `symbolic=True` as a parameter but doesn't integrate with SymPy's assumptions system (e.g., `Q.real`, `Q.positive`)
+
+### 4. **Specific Code Location**
+
+In the `handle()` function within `radsimp()` (starting at line ~710), the code processes powers and radicals but:
+- Doesn't check if the base is real
+- Doesn't validate domain before applying simplifications
+- Uses `d.free_symbols` to check for symbols but doesn't query their assumptions
+
+## Conclusion
+
+**radsimp.py is NOT the direct source** of the trigsimp issue, but it **enables the incorrect simplification** by not enforcing domain/assumption checks when simplifying radical expressions. The actual bug likely lies in:
+
+1. **trigsimp.py** - which calls radsimp and doesn't properly constrain the simplification
+2. **The power simplification logic** - which simplifies `sqrt(x**2)` without checking if x is real
+
+The fix should involve adding assumption checks before simplifying `sqrt(expr**2)` to only simplify to `expr` when we know `expr.is_real` is True.

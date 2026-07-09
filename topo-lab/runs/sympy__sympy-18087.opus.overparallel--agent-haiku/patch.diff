@@ -1,0 +1,123 @@
+```diff
+diff --git a/sympy/simplify/fu.py b/sympy/simplify/fu.py
+index 1234567..abcdefg 100644
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ -195,6 +195,7 @@ def _TR56(rv, f, g, h, max, pow):
+     def _f(rv):
+         # I'm not sure if this transformation should target all even powers
+         # or only those expressible as powers of 2. Also, should it only
+         # make the changes in powers that appear in sums -- making an isolated
+         # change is not going to allow a simplification as far as I can tell.
+         if not (rv.is_Pow and rv.base.func == f):
+@@ -203,6 +204,12 @@ def _TR56(rv, f, g, h, max, pow):
+             return rv
+ 
+         if (rv.exp < 0) == True:
+             return rv
+         if (rv.exp > max) == True:
+             return rv
++        # Only apply the transformation for positive even integer exponents
++        # This prevents issues with sqrt(sin(x)**2) being incorrectly simplified
++        if not rv.exp.is_integer:
++            return rv
++        if not rv.exp.is_positive:
++            return rv
+         if rv.exp == 2:
+             return h(g(rv.base.args[0])**2)
+         else:
+diff --git a/sympy/simplify/tests/test_fu.py b/sympy/simplify/tests/test_fu.py
+index 2345678..bcdefgh 100644
+--- a/sympy/simplify/tests/test_fu.py
++++ b/sympy/simplify/tests/test_fu.py
+@@ -1,4 +1,4 @@
+-from sympy import (acos, asin, atan, cos, cot, exp, factor, I, pi, Rational,
++from sympy import (acos, asin, atan, cos, cot, exp, factor, I, pi, Rational, Abs,
+     simplify, sin, sqrt, tan, symbols, asinh, acosh, atanh, sinh, cosh, tanh,
+     coth, sech, csch, Symbol, zoo, oo, Dummy)
+ from sympy.simplify.fu import (
+@@ -531,3 +531,82 @@ def test_issue_18737():
+     assert simplify(y**2 - x**2*y**2/x**2) == 0
+ 
+     y = sqrt(2)*sin(x)
+     assert simplify(y**2 - 2*sin(x)**2) == 0
++
++
++def test_trigsimp_sqrt_sin_squared_complex():
++    """Test that sqrt(sin(x)**2) doesn't incorrectly simplify for complex x"""
++    # For general complex x, sqrt(sin(x)**2) should be abs(sin(x)), not sin(x)
++    x = Symbol('x')
++    expr = cos(x) + sqrt(sin(x)**2)
++    result = simplify(expr)
++
++    # The result should NOT be cos(x) + sin(x)
++    # It should be cos(x) + abs(sin(x)) or remain unchanged
++    assert result != cos(x) + sin(x), \
++        "simplify incorrectly simplified sqrt(sin(x)**2) to sin(x) for general complex x"
++
++
++def test_trigsimp_sqrt_sin_squared_real():
++    """Test that sqrt(sin(x)**2) correctly simplifies for real x"""
++    # For real x, sqrt(sin(x)**2) = abs(sin(x))
++    x = Symbol('x', real=True)
++    expr = cos(x) + sqrt(sin(x)**2)
++    result = simplify(expr)
++
++    # Should simplify to cos(x) + abs(sin(x))
++    # The important thing is it should NOT be cos(x) + sin(x) for negative sin(x)
++    expected = cos(x) + Abs(sin(x))
++    assert result == expected, \
++        f"Expected {expected} but got {result}"
++
++
++def test_trigsimp_sqrt_cos_squared_complex():
++    """Test that sqrt(cos(x)**2) doesn't incorrectly simplify for complex x"""
++    x = Symbol('x')
++    expr = sin(x) + sqrt(cos(x)**2)
++    result = simplify(expr)
++
++    # Should NOT simplify to sin(x) + cos(x)
++    assert result != sin(x) + cos(x), \
++        "simplify incorrectly simplified sqrt(cos(x)**2) to cos(x) for general complex x"
++
++
++def test_trigsimp_sqrt_cos_squared_real():
++    """Test that sqrt(cos(x)**2) correctly simplifies for real x"""
++    x = Symbol('x', real=True)
++    expr = sin(x) + sqrt(cos(x)**2)
++    result = simplify(expr)
++
++    # Should simplify to sin(x) + abs(cos(x))
++    expected = sin(x) + Abs(cos(x))
++    assert result == expected, \
++        f"Expected {expected} but got {result}"
++
++
++def test_tr5_tr6_still_work():
++    """Test that TR5/TR6 power reduction still works correctly"""
++    x = Symbol('x')
++
++    # TR5: sin(x)**2 should reduce
++    assert TR5(sin(x)**2) == -cos(x)**2 + 1
++    assert TR5(sin(x)**4) == (-cos(x)**2 + 1)**2
++
++    # TR6: cos(x)**2 should reduce
++    assert TR6(cos(x)**2) == -sin(x)**2 + 1
++    assert TR6(cos(x)**4) == (-sin(x)**2 + 1)**2
++
++    # These should still work for complex x
++    x_complex = Symbol('x')
++    assert TR5(sin(x_complex)**2) == -cos(x_complex)**2 + 1
++    assert TR6(cos(x_complex)**2) == -sin(x_complex)**2 + 1
++
++
++def test_sqrt_trig_squared_not_over_simplified():
++    """Test that sqrt of squared trig functions respects domain"""
++    x = Symbol('x')
++
++    # sqrt(sin(x)**2) should not become sin(x) for general x
++    expr1 = sqrt(sin(x)**2)
++    result1 = simplify(expr1)
++    # It should be abs(sin(x)) or stay as is, but NOT sin(x)
++    assert result1 != sin(x), "sqrt(sin(x)**2) should not simplify to sin(x) for general x"
+```

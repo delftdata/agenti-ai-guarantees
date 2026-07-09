@@ -1,0 +1,36 @@
+# Analysis of django/contrib/auth/validators.py
+
+## Verification Results
+
+### Current State
+Examining the file contents provided:
+
+**ASCIIUsernameValidator:**
+- Current regex: `r'\A[\w.@+-]+\Z'`
+- Status: ✓ CORRECT - Uses `\A` and `\Z` anchors
+
+**UnicodeUsernameValidator:**
+- Current regex: `r'\A[\w.@+-]+\Z'`
+- Status: ✓ CORRECT - Uses `\A` and `\Z` anchors
+
+## Detailed Analysis
+
+### Problem Statement
+The original issue reported that the regex patterns used `^` and `$` anchors, which allow trailing newlines to be matched. This is because in Python's `re` module:
+- `$` matches before a trailing newline character, not after it
+- This allows strings like `"username\n"` to pass validation incorrectly
+
+### Solution Verification
+Both validators have been correctly updated to use:
+- `\A` - Matches only at the absolute start of the string (equivalent to `^` in single-line mode but stricter)
+- `\Z` - Matches only at the absolute end of the string, NOT before a trailing newline
+
+### Pattern Verification
+The regex pattern `r'\A[\w.@+-]+\Z'` correctly:
+1. Anchors at the absolute start with `\A`
+2. Matches one or more word characters, dots, @, plus, or minus signs with `[\w.@+-]+`
+3. Anchors at the absolute end with `\Z` (rejecting strings with trailing newlines)
+
+## Conclusion
+
+✓ **VERIFIED**: Both `ASCIIUsernameValidator` and `UnicodeUsernameValidator` now correctly use `\A` and `\Z` anchors instead of `^` and `$`. The fix properly addresses the issue where usernames with trailing newlines were incorrectly accepted. The validators will now reject any username that contains a trailing newline character.

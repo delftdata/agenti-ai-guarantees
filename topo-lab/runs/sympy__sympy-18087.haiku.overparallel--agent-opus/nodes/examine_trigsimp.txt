@@ -1,0 +1,31 @@
+The bug is in the fu module's TR transforms, specifically in how `sqrt(sin(x)**2)` = `(sin(x)**2)**(1/2)` gets handled by the identity-substitution transforms like TR5/TR6 and the artifacts matching in `__trigsimp`.
+
+Analysis of the code flow:
+
+1. `trigsimp(cos(x)+sqrt(sin(x)**2))` with default `method='matching'` calls `futrig(expr)`.
+
+2. `futrig` runs `_futrig` via `bottom_up`, which applies the `greedy(tree)` set of TR transformations.
+
+3. The problematic transform is **TR6** (and the related `matchers_identity`/`artifacts` patterns using `a*sin(b)**2 -> a - a*cos(b)**2`). These patterns treat `sin(b)**2` as a base to be rewritten, but critically they operate on powers of sin/cos.
+
+The core issue is a pattern like:
+```
+(a*sin(b)**2, a - a*cos(b)**2)
+```
+and the reverse artifact patterns. When the expression is `sqrt(sin(x)**2)` = `(sin(x)**2)**Rational(1,2)`, these transformations (and TR5/TR6 in fu.py, plus `_match_div_rewrite`/`_replace_mul_fpowxgpow`) treat `sin(x)**2` under a fractional exponent as if `(sin(x)**2)**(1/2)` simplifies to `sin(x)**1 = sin(x)`.
+
+The mathematically invalid step is treating `(sin(x)**2)**(1/2) == sin(x)`. This is only valid when `sin(x)` is real/nonnegative (i.e., when `x` is real). For general complex `x`, `sqrt(sin(x)**2) = |sin(x)|`-analogue, not `sin(x)`. This is exactly why the problem statement notes it "gets this right if x is real" — the assumptions on `x` change whether `(z**2)**(1/2)` folds to `z`.
+
+Key locations responsible:
+
+- **`_replace_mul_fpowxgpow`** in trigsimp.py already guards against this with the check `if b.is_positive or e.is_integer:` — this is the *correct* pattern to follow. It only folds powers when the base is positive or the exponent is an integer.
+
+- However, the **fu.py transforms** (TR5, TR6, TR7, TR8, and especially the power-rewriting ones invoked from the `_futrig` tree) and the `matchers_identity`/`artifacts` in `__trigsimp` do NOT have this guard. They rewrite `sin(b)**2 <-> 1 - cos(b)**2` type identities and combine powers without checking that the exponent is an integer or the base is positive.
+
+The actual root cause found by tracing: the transform that combines `(sin(x)**2)**(1/2)` into `sin(x)` is `TR56`/`_TR56` logic in `sympy/simplify/fu.py` (used by TR5 and TR6). `_TR56` rewrites `f(x)**n` where `n` need not be an even integer. It applies the `sin**2 -> 1-cos**2` rewrite when it should require the power to be an even integer (or handle the half-power/sqrt case specially).
+
+Conclusion / fix direction:
+
+The incorrect simplification originates in **`fu.py`'s `_TR56` helper** (called by `TR5`, `TR6`), which handles powers of `sin`/`cos`. It processes `(sin(x)**2)**(1/2)` — i.e. a power with a non-integer resulting exponent — and folds the square root into a first power. The fix is to add a guard in `_TR56` so that the transformation only proceeds when the exponent is a positive even integer (or when the base is provably nonnegative), analogous to the `b.is_positive or e.is_integer` guard already present in `_replace_mul_fpowxgpow`. Since this instruction was to *identify* the culprit, the sub-function causing the bug is the fu-transform power handler `_TR56` (via `TR5`/`TR6`) invoked from `_futrig`, which unsafely equates `sqrt(sin(x)**2)` with `sin(x)` by not restricting to even-integer exponents.
+
+(Note: The requested deliverable was a unified diff, but this instruction explicitly asked only for the analysis as plain text, so no patch is produced here.)

@@ -1,0 +1,113 @@
+The bug is in the `_TR56` helper function, which is used by TR5 and TR6. Let me analyze the relevant code.
+
+## Analysis
+
+The issue is that `trigsimp` incorrectly simplifies `cos(x) + sqrt(sin(x)**2)` as though it were `cos(x) + sin(x)` for general complex `x`.
+
+The expression `sqrt(sin(x)**2)` is internally represented as `sin(x)**(1/2 * 2)`... no — actually `sqrt(sin(x)**2)` is `(sin(x)**2)**(1/2)`, which may not automatically simplify. But more relevantly, the transformations that convert `sin(x)**2 -> 1 - cos(x)**2` are the culprit, since applying such a substitution inside a `sqrt` (i.e. `Pow` with fractional exponent `1/2`) is where things go wrong.
+
+### The problematic code: `_TR56`
+
+```python
+def _f(rv):
+    if not (rv.is_Pow and rv.base.func == f):
+        return rv
+    if not rv.exp.is_real:
+        return rv
+
+    if (rv.exp < 0) == True:
+        return rv
+    if (rv.exp > max) == True:
+        return rv
+    if rv.exp == 2:
+        return h(g(rv.base.args[0])**2)
+    else:
+        if rv.exp == 4:
+            e = 2
+        elif not pow:
+            if rv.exp % 2:
+                return rv
+            e = rv.exp//2
+        else:
+            ...
+```
+
+Here `rv` is a `Pow` whose base is a trig function (e.g. `sin(x)`), and `rv.exp` is the exponent.
+
+Consider `sqrt(sin(x)**2)`. Internally this is `Pow(sin(x), 1)` wrapped... actually the key path: when `_TR56` processes something like `sin(x)**S.Half` or an even exponent that is really the result of `sqrt(sin(x)**2)`.
+
+The real problem: the check `if rv.exp % 2:` is intended to bail out for odd integer exponents. But when `rv.exp` is a **non-integer** rational such as `S.Half` (from a sqrt), the modulo operation `rv.exp % 2` does not correctly reject it.
+
+For example, with `rv.exp == S.Half`:
+- `rv.exp % 2` gives `1/2`, which is truthy, so `return rv` — that particular case is handled.
+
+But consider the actual representation. `sqrt(sin(x)**2)` where the whole thing hits `_TR56` with `rv.base = sin(x)` and `rv.exp` being a value like `S.Half`... The dangerous scenario is a fractional exponent that, after `rv.exp % 2 == 0`, is treated as if the transformation `sin**2 -> 1 - cos**2` is valid, then raised to `e = rv.exp//2`. Because `sqrt(sin(x)**2) != sqrt(1 - cos(x)**2)` in general for complex `x` (sign issues under the square root), this is an invalid simplification.
+
+### The root cause
+
+The guard `if (rv.exp < 0) == True` and `if (rv.exp > max) == True` and `if rv.exp % 2` only correctly handle **integer** exponents. When the exponent is a non-integer rational (like `1/2`), the code either:
+1. Fails to properly reject it, or
+2. Proceeds to compute `e = rv.exp//2` and applies `h(g(...)**2)**e`, which for a fractional `e` produces an expression that is only valid when the base is nonnegative (i.e. `x` real).
+
+The transformation `sin(x)**2 = 1 - cos(x)**2` is an *identity* only for even integer exponents where no branch of a root is being taken. Raising to a half-integer power (`sqrt`) breaks the identity for complex arguments.
+
+### The fix
+
+`_TR56` should require that `rv.exp` is an **integer** before attempting the substitution. The current code only checks `rv.exp.is_real`, which admits `1/2`. It should add:
+
+```python
+if not rv.exp.is_real:
+    return rv
+if (rv.exp < 0) == True:
+    return rv
+if (rv.exp > max) == True:
+    return rv
+```
+
+should become something like requiring integer exponents (rejecting non-integer such as `S.Half`):
+
+```python
+if not (rv.is_Pow and rv.base.func == f):
+    return rv
+if not rv.exp.is_real:
+    return rv
+if (rv.exp < 0) == True:
+    return rv
+if (rv.exp > max) == True:
+    return rv
+```
+
+with an added check `if rv.exp.is_integer is False: return rv` (or similar), so a `sqrt` (exponent `1/2`) never gets its base rewritten via the Pythagorean identity.
+
+## Proposed patch
+
+The correct place to fix is in `_TR56`. Reject fractional (non-integer) exponents explicitly:
+
+```diff
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ def _TR56(rv, f, g, h, max, pow):
+     def _f(rv):
+         # I'm not sure if this transformation should target all even powers
+         # or only those expressible as powers of 2. Also, should it only
+         # make the changes in powers that appear in sums -- making an isolated
+         # change is not going to allow a simplification as far as I can tell.
+         if not (rv.is_Pow and rv.base.func == f):
+             return rv
+-        if not rv.exp.is_real:
++        if not (rv.exp.is_integer or rv.base.is_positive):
+             return rv
+ 
+         if (rv.exp < 0) == True:
+             return rv
+```
+
+### Reasoning for the fix
+
+The Pythagorean substitution `sin(x)**2 -> 1 - cos(x)**2` is only unconditionally valid inside a `Pow` when:
+- the exponent is an **integer** (so we are genuinely dealing with `(sin(x)**2)` factors and no root/branch is taken), OR
+- the base is known to be positive (so square roots behave predictably).
+
+For `sqrt(sin(x)**2)` with general complex `x`, the exponent is `1/2` (not an integer) and `sin(x)` is not known positive, so the substitution must be blocked. Changing `if not rv.exp.is_real` to `if not (rv.exp.is_integer or rv.base.is_positive)` prevents `_TR56` from rewriting the base of a fractional power, which fixes both TR5 and TR6 (and, transitively, `fu`/`trigsimp`).
+
+This is consistent with the guards used elsewhere in the file (e.g. TR8, TR2i, TR12i, TR111, TR14) which all condition trig manipulations inside powers on `e.is_integer or base.is_positive`. `_TR56` was the outlier that only checked `is_real`, allowing the invalid half-integer case through.

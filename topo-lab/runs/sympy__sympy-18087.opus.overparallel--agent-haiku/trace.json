@@ -1,0 +1,140 @@
+{
+  "graph": "sympy__sympy-18087.opus.overparallel.json",
+  "topology": "overparallel",
+  "agent": "haiku",
+  "mock": false,
+  "schedule": [
+    [
+      "add_tests",
+      "apply_fix",
+      "design_fix",
+      "inspect_trigsimp_paths",
+      "investigate_root_cause"
+    ],
+    [
+      "assemble_diff"
+    ]
+  ],
+  "wall_s": 203.9,
+  "total_cost_usd": 0.2984,
+  "overwrite_events": [],
+  "nodes": [
+    {
+      "node": "add_tests",
+      "wall_s": 15.06,
+      "reads": [
+        {
+          "path": "sympy/simplify/tests/test_fu.py",
+          "bytes": 17497,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [
+        "design_fix"
+      ],
+      "input_tokens": 8728,
+      "cache_read_tokens": 17633,
+      "output_tokens": 2338,
+      "cost_usd": 0.02218,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "apply_fix",
+      "wall_s": 191.93,
+      "reads": [
+        {
+          "path": "sympy/simplify/fu.py",
+          "bytes": 66787,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [
+        "design_fix"
+      ],
+      "input_tokens": 23281,
+      "cache_read_tokens": 17633,
+      "output_tokens": 23927,
+      "cost_usd": 0.14468,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "sympy/simplify/fu.py"
+      ]
+    },
+    {
+      "node": "design_fix",
+      "wall_s": 14.02,
+      "reads": [
+        {
+          "path": "sympy/simplify/fu.py",
+          "bytes": 66787,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [
+        "investigate_root_cause",
+        "inspect_trigsimp_paths"
+      ],
+      "input_tokens": 23311,
+      "cache_read_tokens": 17633,
+      "output_tokens": 1657,
+      "cost_usd": 0.03336,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "inspect_trigsimp_paths",
+      "wall_s": 15.03,
+      "reads": [
+        {
+          "path": "sympy/simplify/trigsimp.py",
+          "bytes": 44857,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 14903,
+      "cache_read_tokens": 17633,
+      "output_tokens": 1440,
+      "cost_usd": 0.02387,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "investigate_root_cause",
+      "wall_s": 22.89,
+      "reads": [
+        {
+          "path": "sympy/simplify/fu.py",
+          "bytes": 66787,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 23391,
+      "cache_read_tokens": 17633,
+      "output_tokens": 2400,
+      "cost_usd": 0.03715,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "assemble_diff",
+      "wall_s": 11.97,
+      "reads": [],
+      "missing_deps": [],
+      "input_tokens": 26441,
+      "cache_read_tokens": 17633,
+      "output_tokens": 1794,
+      "cost_usd": 0.03717,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    }
+  ]
+}

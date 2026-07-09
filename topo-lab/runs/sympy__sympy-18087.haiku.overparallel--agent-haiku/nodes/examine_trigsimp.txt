@@ -1,0 +1,61 @@
+# Analysis of trigsimp.py Issue: sqrt(sin(x)**2) Simplification
+
+## Problem Statement
+The `trigsimp` function incorrectly simplifies `cos(x) + sqrt(sin(x)**2)` as though it were `cos(x) + sin(x)` for general complex `x`. The correct simplification should be `cos(x) + abs(sin(x))` for real `x`, or remain unchanged for complex `x`.
+
+## Root Cause Analysis
+
+### Primary Issue: Power Simplification in sqrt()
+The issue is that `sqrt(sin(x)**2)` should simplify to `abs(sin(x))`, not `sin(x)`. This is a fundamental mathematical property:
+- For real numbers: `sqrt(a**2) = abs(a)`
+- For complex numbers: `sqrt(a**2)` is not automatically `abs(a)`
+
+### How trigsimp Handles This
+
+1. **Main Entry Point**: The `trigsimp()` function (lines 333-377) dispatches to different methods based on the `method` parameter (default: 'matching').
+
+2. **Default Path - futrig()**: When method='matching' (default), it calls `futrig()` (lines 715-745) which is the main simplification engine.
+
+3. **futrig() Flow**:
+   - Calls `bottom_up()` which applies `_futrig()` recursively from leaves to root
+   - `_futrig()` (lines 748-812) applies a series of transformations: TR1-TR22, TRmorrie, etc.
+   - These transformations are applied in sequence through a greedy tree search
+
+4. **Problematic Transformations**: The Fu transformations (particularly in `sympy/simplify/fu.py`) include rules that simplify powers and radicals. The issue likely stems from:
+   - **Power/Radical Handling**: Transformations that simplify `sqrt(sin(x)**2)` without checking if the base is always positive
+   - **Lack of Assumption Checking**: The code doesn't verify whether `x` is real before applying simplifications that assume real values
+
+### Specific Problem Areas in trigsimp.py
+
+1. **Lines 753-757** (`_futrig` function):
+   ```python
+   tree = [identity,
+       (
+       TR3,  # canonical angles
+       TR1,  # sec-csc -> cos-sin
+       ...
+   ```
+   These transformations, particularly those handling powers and products, don't account for the assumptions about the variable domain.
+
+2. **Lines 788-800**: The tree of transformations applies `TR5`, `TR6`, `TR15`, `TR16` which handle power expansions without checking assumptions.
+
+3. **Deep Recursion**: The `bottom_up()` approach means sqrt(sin(x)**2) gets simplified at the leaf level before the context (that it's part of a sum with cos(x)) is considered.
+
+## Why It Works for Real x
+
+When `x` is declared as real, SymPy's assumption system allows safe simplification of `sqrt(sin(x)**2)` to `abs(sin(x))` or further to `sin(x)` (after `abs()` is simplified knowing `sin(x)` can be negative). For general complex `x`, this assumption is invalid.
+
+## The Fix Location
+
+The actual problematic simplification is likely occurring in:
+1. **sympy/simplify/fu.py** - The Fu transformations that handle sqrt and power simplifications
+2. **sympy/core/power.py** - The `Pow._eval_simplify()` or `sqrt()` implementations that simplify `sqrt(a**2)` without checking assumptions
+
+The trigsimp.py itself correctly dispatches to these functions, but those downstream functions don't properly handle the general complex case.
+
+## Recommended Investigation Points
+
+1. Check `sympy/simplify/fu.py` for transformations that handle sqrt(expr**2)
+2. Check `sympy/functions/elementary/miscellaneous.py` for sqrt simplification logic
+3. Look for uses of `.rewrite()`, `.simplify()`, or `.expand()` on square roots in the power/radical handling code
+4. Verify that any power simplification checks the `is_real` or `is_positive` assumptions before applying real-domain-only transformations

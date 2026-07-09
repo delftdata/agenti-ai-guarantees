@@ -1,0 +1,54 @@
+# Analysis of trigsimp.py for sqrt(sin(x)**2) Simplification Issue
+
+## Problem Statement
+The issue is that `trigsimp(cos(x) + sqrt(sin(x)**2))` incorrectly simplifies to `cos(x) + sin(x)` for general complex `x`, when it should recognize that `sqrt(sin(x)**2) = |sin(x)|` (not `sin(x)` for complex numbers).
+
+## Code Flow Analysis
+
+### Entry Point: `trigsimp()` function (line ~340)
+The main `trigsimp()` function dispatches to different simplification methods based on the `method` parameter:
+- Default method: `'matching'` → calls `futrig(x)`
+- Other methods: `'groebner'`, `'combined'`, `'fu'`, `'old'`
+
+For the default case, it calls `futrig(expr)`.
+
+### Primary Issue: `futrig()` function (line ~1009)
+The `futrig()` function calls `_futrig()` which applies a series of transformations via a "tree" strategy using the `greedy()` algorithm. This function ultimately relies on symbolic rewriting rules that don't properly account for the distinction between `sqrt(sin(x)**2)` and `|sin(x)|` for complex arguments.
+
+### Secondary Issue: The Rewriting Rules in `_futrig()` (line ~1039)
+The transformation tree in `_futrig()` includes numerous trigonometric identity transformations like:
+- `TR1`, `TR2`, `TR3`, `TR5`, `TR6`, `TR8`, `TR10`, `TR10i`, `TR11`, `TR12`, `TR14`, `TR15`, `TR16`, `TR111`, `TR22`, `TRmorrie`
+
+These are imported from `sympy.simplify.fu` module and are not visible in this file. However, none of these transformations have logic to preserve the distinction between `sqrt(x**2)` and `|x|` for complex values.
+
+### Root Cause: Missing Assumption Handling
+
+The problem occurs because:
+
+1. **No Complex Check**: When `trigsimp()` is called on a general expression (without specifying that `x` is real), the function doesn't preserve the mathematical distinction that:
+   - For real `x`: `sqrt(sin(x)**2) = |sin(x)|`
+   - For complex `x`: `sqrt(sin(x)**2) ≠ sin(x)` in general
+
+2. **Sqrt Simplification Bypass**: The functions in this module focus on trigonometric identities but don't prevent or manage the simplification of `sqrt(sin(x)**2)` which should require absolute value notation or an explicit assumption that `sin(x)` is real/non-negative.
+
+3. **Missing Radsimp Integration**: The module doesn't properly coordinate with `radsimp` or the core power/sqrt simplification logic that should be checking assumptions before simplifying `sqrt(u**2) → u`.
+
+## Specific Vulnerable Code Sections
+
+1. **Line ~1040-1068**: The transformation tree in `_futrig()` - these transformations could be inappropriately simplifying radical expressions.
+
+2. **Line ~367-378**: In `trigsimp()`, when calling the simplification methods, there's no explicit handling to preserve the semantic meaning of `sqrt(sin(x)**2)` for non-real domains.
+
+3. **Interaction with `__trigsimp()` (line ~819)**: This recursive helper applies pattern matching that may indirectly cause the problematic simplification through the `expand()` and `factor()` operations at lines ~944-951.
+
+## Why It Works for Real `x`
+
+When `x` is declared as real (via assumptions), the power/sqrt simplification in core SymPy correctly simplifies `sqrt(sin(x)**2)` to `|sin(x)|`, and then trigsimp doesn't mishandle it. The problem only manifests for general complex `x`.
+
+## Conclusion
+
+The issue is not in a single function but in the **lack of assumption-aware simplification** throughout the trigsimp pipeline. The transformations in `futrig()` and `_futrig()` don't check whether their input expressions have assumptions that would validate simplifications like `sqrt(sin(x)**2) → sin(x)`. The fix should involve:
+
+1. Checking assumptions on variables before applying certain transformations
+2. Adding logic to `_futrig()` or its helper functions to skip simplifications that depend on assumptions being met
+3. Potentially deferring sqrt simplification until assumptions are verified

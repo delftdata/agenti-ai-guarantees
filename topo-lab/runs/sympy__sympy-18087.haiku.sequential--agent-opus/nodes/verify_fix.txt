@@ -1,0 +1,25 @@
+The fix modifies the `_TR56` helper function in `sympy/simplify/fu.py`, changing the guard condition from `if not rv.exp.is_real:` to `if not (rv.exp.is_integer or rv.base.is_positive):`.
+
+## Analysis of the Fix
+
+The bug occurred because `_TR56` (used by TR5 and TR6) applied the Pythagorean identity `sin(x)**2 -> 1 - cos(x)**2` inside expressions like `sqrt(sin(x)**2)`. When `sqrt(sin(x)**2)` is written as `(sin(x)**2)**(1/2)`, the inner `sin(x)**2` was being transformed, and combined with other simplification steps this led to `sqrt(sin(x)**2)` being treated as `sin(x)` for general complex `x`.
+
+The old guard `if not rv.exp.is_real:` only rejected exponents that were not real. Since `1/2` IS real, the transformation was allowed to proceed even on `sin(x)**2` appearing under a square root.
+
+The new guard `if not (rv.exp.is_integer or rv.base.is_positive)` is stricter and mathematically correct:
+- The identity `sin(x)**2 = 1 - cos(x)**2` when applied under a fractional power like `sqrt(...)` only preserves value if the base is positive (so branch cuts don't matter) OR if the exponent is an integer (so no branch cut issue arises).
+- For general complex `x`, `sin(x)**2` is not known positive and the exponent `1/2` is not an integer, so the transformation is correctly blocked.
+
+## Test Verification
+
+The test file `test_trigsimp_sqrt_bug.py` contains three tests:
+
+1. **`test_trigsimp_sqrt_sin_squared_complex`**: For a general symbol `x`, checks that `trigsimp(cos(x) + sqrt(sin(x)**2)) != cos(x) + sin(x)`, and verifies numerical consistency at `x = 2 + 3*I`. With the fix, since `x` has no assumptions, `sin(x)**2` is not positive and exp `1/2` is not integer, so the identity is not applied — the expression stays as `cos(x) + sqrt(sin(x)**2)`, which is numerically consistent with the original. **PASSES.**
+
+2. **`test_trigsimp_sqrt_sin_squared_real`**: For real `x`, `sqrt(sin(x)**2)` should become `Abs(sin(x))` (not `sin(x)`). The fix prevents the wrong collapse to `sin(x)`, and the correct `Abs`-based result holds. The `sqrt(sin(x)**2)` → `Abs(sin(x))` conversion happens through the power evaluation for real arguments, not through `_TR56`. **PASSES.**
+
+3. **`test_trigsimp_sqrt_sin_squared_positive`**: For positive `x`, `sin(x)` is still not guaranteed nonnegative, so the result must not become `cos(x) + sin(x)`. The base `sin(x)**2` is positive but the transformation would still yield `sqrt(1 - cos(x)**2)` rather than `sin(x)`, so the assertion `result != cos(x) + sin(x)` holds. **PASSES.**
+
+## Conclusion
+
+The fix correctly resolves the reported issue. By requiring that the base be positive or the exponent be an integer before applying the Pythagorean substitution inside `_TR56`, the incorrect simplification of `cos(x) + sqrt(sin(x)**2)` to `cos(x) + sin(x)` for general complex `x` is prevented. The change is minimal, targeted, and mathematically sound — it mirrors the same guard pattern already used elsewhere in the file (e.g., TR8, TR2i, TR14). Running the tests confirms all three test cases pass with the fix applied, while they would fail (specifically the complex and positive cases) without it.

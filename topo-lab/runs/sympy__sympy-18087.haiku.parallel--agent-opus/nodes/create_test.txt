@@ -1,0 +1,69 @@
+The bug is in the fu-based simplification where `sqrt(sin(x)**2)` gets treated as `sin(x)` for general complex `x`. The root cause is in `powsimp`/`sqrtdenest` or in the `_TR` rules that assume `sqrt(x**2) == x`.
+
+Let me create a test file to verify the correct behavior.
+
+===FILE: sympy/simplify/tests/test_issue_sqrt_sin.py===
+"""
+Test for the bug where trigsimp incorrectly simplifies
+cos(x) + sqrt(sin(x)**2) as though it were cos(x) + sin(x)
+for general complex x.
+
+See: "Simplify of simple trig expression fails"
+"""
+
+from sympy import (symbols, cos, sin, sqrt, trigsimp, simplify, Abs,
+                   nsimplify, I, N)
+
+
+def test_trigsimp_sqrt_sin_squared_complex():
+    # For a general complex symbol, sqrt(sin(x)**2) is NOT equal to sin(x)
+    # (it is Abs(sin(x)) only for real x, and in general it is not sin(x)).
+    x = symbols('x')
+    expr = cos(x) + sqrt(sin(x)**2)
+
+    result = trigsimp(expr)
+
+    # The incorrect (buggy) simplification would be cos(x) + sin(x)
+    assert result != cos(x) + sin(x), \
+        "trigsimp incorrectly simplified sqrt(sin(x)**2) to sin(x)"
+
+    # The result must remain numerically equal to the original for
+    # a complex test point where sin(x) is not equal to sqrt(sin(x)**2).
+    # Pick a complex value of x for which sin(x) has negative real part
+    # (so sqrt(sin(x)**2) != sin(x)).
+    test_point = 2 + 3*I
+    orig_val = complex(N(expr.subs(x, test_point)))
+    res_val = complex(N(result.subs(x, test_point)))
+    assert abs(orig_val - res_val) < 1e-9, \
+        "trigsimp changed the value of the expression for complex x"
+
+
+def test_trigsimp_sqrt_sin_squared_not_equal_sin():
+    # Directly assert the simplified form is not the naive sin form
+    x = symbols('x')
+    expr = cos(x) + sqrt(sin(x)**2)
+    result = trigsimp(expr)
+    assert result != cos(x) + sin(x)
+
+
+def test_trigsimp_sqrt_sin_squared_real():
+    # For a real symbol, sqrt(sin(x)**2) == Abs(sin(x)).
+    x = symbols('x', real=True)
+    expr = cos(x) + sqrt(sin(x)**2)
+
+    result = trigsimp(expr)
+
+    # For real x, sqrt(sin(x)**2) is Abs(sin(x)), not sin(x) in general.
+    assert result == cos(x) + Abs(sin(x))
+
+    # And it must remain numerically correct at a real point where
+    # sin is negative.
+    test_point = 4  # sin(4) < 0
+    orig_val = float(N(expr.subs(x, test_point)))
+    res_val = float(N(result.subs(x, test_point)))
+    assert abs(orig_val - res_val) < 1e-9
+===END===
+
+Analysis: This test file verifies that:
+1. For general complex `x`, `trigsimp(cos(x) + sqrt(sin(x)**2))` must not become `cos(x) + sin(x)`, and it must preserve the numerical value at a complex test point where `sqrt(sin(x)**2) != sin(x)`.
+2. For real `x`, the correct simplification is `cos(x) + Abs(sin(x))`, verified both symbolically and numerically at a point where `sin(x)` is negative.

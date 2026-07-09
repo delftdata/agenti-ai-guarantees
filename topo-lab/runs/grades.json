@@ -1,0 +1,146 @@
+[
+  {
+    "run": "django__django-11099.haiku.overparallel--agent-haiku",
+    "patch_applies": false,
+    "test_patch_applies": false,
+    "normalized": true,
+    "tests": "n/a",
+    "apply_error": "error: corrupt patch at line 52"
+  },
+  {
+    "run": "django__django-11099.haiku.overparallel--agent-opus",
+    "patch_applies": false,
+    "test_patch_applies": false,
+    "normalized": false,
+    "tests": "n/a",
+    "apply_error": "error: patch failed: tests/auth_tests/test_validators.py:237\nerror: tests/auth_tests/test_validators.py: patch does not apply"
+  },
+  {
+    "run": "django__django-11099.haiku.parallel--agent-haiku",
+    "patch_applies": false,
+    "test_patch_applies": false,
+    "normalized": true,
+    "tests": "n/a",
+    "apply_error": "error: patch failed: tests/auth_tests/test_validators.py:160\nerror: tests/auth_tests/test_validators.py: patch does not apply"
+  },
+  {
+    "run": "django__django-11099.haiku.parallel--agent-opus",
+    "patch_applies": true,
+    "test_patch_applies": false,
+    "normalized": false,
+    "tests": "n/a",
+    "apply_error": "error: patch failed: tests/auth_tests/test_validators.py:237\nerror: tests/auth_tests/test_validators.py: patch does not apply"
+  },
+  {
+    "run": "django__django-11099.haiku.sequential--agent-haiku",
+    "patch_applies": false,
+    "test_patch_applies": false,
+    "normalized": true,
+    "tests": "n/a",
+    "apply_error": "error: corrupt patch at line 203"
+  },
+  {
+    "run": "django__django-11099.haiku.sequential--agent-opus",
+    "patch_applies": false,
+    "test_patch_applies": false,
+    "normalized": false,
+    "tests": "n/a",
+    "apply_error": "error: corrupt patch at line 37"
+  },
+  {
+    "run": "django__django-11099.opus.overparallel--agent-haiku",
+    "patch_applies": false,
+    "test_patch_applies": false,
+    "normalized": true,
+    "tests": "n/a",
+    "apply_error": "error: corrupt patch at line 41"
+  },
+  {
+    "run": "django__django-11099.opus.parallel--agent-haiku",
+    "patch_applies": false,
+    "test_patch_applies": false,
+    "normalized": true,
+    "tests": "n/a",
+    "apply_error": "error: corrupt patch at line 68"
+  },
+  {
+    "run": "django__django-11099.opus.sequential--agent-haiku",
+    "patch_applies": false,
+    "test_patch_applies": false,
+    "normalized": true,
+    "tests": "n/a",
+    "apply_error": "error: patch failed: tests/auth_tests/test_validators.py:107\nerror: tests/auth_tests/test_validators.py: patch does not apply"
+  },
+  {
+    "run": "sympy__sympy-18087.haiku.overparallel--agent-haiku",
+    "patch_applies": false,
+    "test_patch_applies": false,
+    "normalized": true,
+    "tests": "n/a",
+    "apply_error": "error: corrupt patch at line 14"
+  },
+  {
+    "run": "sympy__sympy-18087.haiku.overparallel--agent-opus",
+    "patch_applies": false,
+    "test_patch_applies": false,
+    "normalized": false,
+    "tests": "n/a",
+    "apply_error": "error: patch failed: sympy/simplify/fu.py:498\nerror: sympy/simplify/fu.py: patch does not apply"
+  },
+  {
+    "run": "sympy__sympy-18087.haiku.parallel--agent-haiku",
+    "patch_applies": false,
+    "test_patch_applies": false,
+    "normalized": false,
+    "tests": "n/a",
+    "apply_error": "error: corrupt patch at line 20"
+  },
+  {
+    "run": "sympy__sympy-18087.haiku.parallel--agent-opus",
+    "patch_applies": false,
+    "test_patch_applies": false,
+    "normalized": false,
+    "tests": "n/a",
+    "apply_error": "error: corrupt patch at line 41"
+  },
+  {
+    "run": "sympy__sympy-18087.haiku.sequential--agent-haiku",
+    "patch_applies": false,
+    "test_patch_applies": false,
+    "normalized": true,
+    "tests": "n/a",
+    "apply_error": "error: corrupt patch at line 62"
+  },
+  {
+    "run": "sympy__sympy-18087.haiku.sequential--agent-opus",
+    "patch_applies": false,
+    "test_patch_applies": false,
+    "normalized": false,
+    "tests": "n/a",
+    "apply_error": "error: corrupt patch at line 33"
+  },
+  {
+    "run": "sympy__sympy-18087.opus.overparallel--agent-haiku",
+    "patch_applies": false,
+    "test_patch_applies": false,
+    "normalized": true,
+    "tests": "n/a",
+    "apply_error": "error: corrupt patch at line 12"
+  },
+  {
+    "run": "sympy__sympy-18087.opus.parallel--agent-haiku",
+    "patch_applies": false,
+    "test_patch_applies": false,
+    "normalized": true,
+    "tests": "n/a",
+    "apply_error": "error: corrupt patch at line 17"
+  },
+  {
+    "run": "sympy__sympy-18087.opus.sequential--agent-haiku",
+    "patch_applies": false,
+    "test_patch_applies": false,
+    "normalized": true,
+    "tests": "n/a",
+    "apply_error": "error: corrupt patch at line 17"
+  }
+]

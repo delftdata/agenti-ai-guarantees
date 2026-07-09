@@ -1,0 +1,51 @@
+Based on my examination of the three files, the fix belongs in `_TR56` in `sympy/simplify/fu.py`.
+
+```diff
+diff --git a/sympy/simplify/fu.py b/sympy/simplify/fu.py
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ -500,17 +500,18 @@ def _TR56(rv, f, g, h, max, pow):
+     def _f(rv):
+         # I'm not sure if this transformation should target all even powers
+         # or only those expressible as powers of 2. Also, should it only
+         # make the changes in powers that appear in sums -- making an isolated
+         # change is not going to allow a simplification as far as I can tell.
+         if not (rv.is_Pow and rv.base.func == f):
+             return rv
+-        if not rv.exp.is_real:
++        if not rv.exp.is_integer or not rv.exp.is_positive:
+             return rv
+ 
+-        if (rv.exp < 0) == True:
+-            return rv
+         if (rv.exp > max) == True:
+             return rv
+         if rv.exp == 2:
+             return h(g(rv.base.args[0])**2)
+         else:
+             if rv.exp == 4:
+                 e = 2
+             elif not pow:
+                 if rv.exp % 2:
+                     return rv
+                 e = rv.exp//2
+```
+
+## Analysis
+
+The offending transformation is `_TR56` (the helper used by `TR5` and `TR6`) in `sympy/simplify/fu.py`.
+
+`sqrt(sin(x)**2)` is represented as `(sin(x)**2)**(1/2)`, but when SymPy processes powers, the inner `sin(x)**2` gets matched by `_TR56._f`. The guard was:
+
+```python
+if not rv.exp.is_real:
+    return rv
+if (rv.exp < 0) == True:
+    return rv
+```
+
+This only rejects non-real or negative exponents. It permits fractional exponents like `1/2`. When `_TR56` operates on `sin(x)**2` (base `sin`, exponent 2) that lives inside a `sqrt`, and rewrites `sin(x)**2 -> 1 - cos(x)**2`, the branch/sign of the square root is not preserved. The end effect is that `sqrt(sin(x)**2)` collapses to `sin(x)` — which is only valid when `sin(x)` is nonnegative (real x in an appropriate range), not for general complex x.
+
+The fix restricts `_TR56` to only fire when the exponent is a **positive integer**. That keeps valid identities like `sin(x)**2 -> 1 - cos(x)**2` intact for genuine positive-even-integer powers, while refusing to manipulate the squared trig base beneath a fractional (`1/2`) power. As a result, `sqrt(sin(x)**2)` is left unchanged for symbolic (complex) x, giving the correct behavior, while the real-x case (where `sqrt(sin(x)**2)` auto-evaluates to `Abs(sin(x))`) continues to work.
+
+`radsimp.py` was ruled out: its radical handling only rationalizes denominators and collects numeric surds; it contains no `sqrt(a**2) -> a` reduction. The `matchers_identity` rules in `trigsimp.py` (`a*sin(b)**2 -> a - a*cos(b)**2`) are mathematically valid identities and are not themselves the collapse point — the actual removal of the square root happens through the `_TR56` power manipulation within the futrig/Fu chain.

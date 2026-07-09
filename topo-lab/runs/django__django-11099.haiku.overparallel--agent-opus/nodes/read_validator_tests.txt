@@ -1,0 +1,19 @@
+The `test_validators.py` file contains a `UsernameValidatorsTests` class with two test methods that test the username validators:
+
+**`test_unicode_validator`**: Tests `validators.UnicodeUsernameValidator()`. It defines:
+- `valid_usernames = ['joe', 'René', 'ᴮᴵᴳᴮᴵᴿᴰ', 'أحمد']` — expected to pass validation.
+- `invalid_usernames` including strings with apostrophes, spaces, zero-width spaces, non-breaking spaces, and en-dashes — expected to raise `ValidationError`.
+
+**`test_ascii_validator`**: Tests `validators.ASCIIUsernameValidator()`. It defines:
+- `valid_usernames = ['glenn', 'GLEnN', 'jean-marc']` — expected to pass.
+- `invalid_usernames = ["o'connell", 'Éric', 'jean marc', "أحمد"]` — expected to raise `ValidationError`.
+
+**Test structure/pattern**: Each test instantiates the validator, iterates over valid usernames using `self.subTest(valid=valid)` and calls the validator directly (`v(valid)`), expecting no exception. It then iterates over invalid usernames using `self.subTest(invalid=invalid)`, wrapping each call in `with self.assertRaises(ValidationError)`.
+
+**Relevance to the problem**: The problem statement reports that the username validators using the regex `r'^[\w.@+-]+$'` will incorrectly accept usernames ending with a trailing newline, because `$` in Python regexes matches a trailing newline. The fix is to change the regex to `r'\A[\w.@+-]+\Z'`.
+
+**How to extend the tests to cover this fix**: Following the existing pattern, the `invalid_usernames` lists in both `test_unicode_validator` and `test_ascii_validator` should include strings with trailing newlines (e.g., `'trailingnewline\n'`). Under the current buggy regex these would incorrectly pass, but with the corrected `\A...\Z` regex they would correctly raise `ValidationError`. The subTest wrapping makes it easy to add such cases, and each new entry would be verified via the `assertRaises(ValidationError)` block.
+
+So to properly resolve and verify the issue, I would:
+1. Modify `django/contrib/auth/validators.py` to change both `ASCIIUsernameValidator.regex` and `UnicodeUsernameValidator.regex` from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'`.
+2. Add newline-containing entries (like `'trailingnewline\n'`) to the `invalid_usernames` lists in both test methods to guard against regression.

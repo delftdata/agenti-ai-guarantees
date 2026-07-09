@@ -1,0 +1,83 @@
+# Analysis: trigsimp of simple trig expression
+
+## Problem Statement
+`trigsimp(cos(x) + sqrt(sin(x)**2))` incorrectly simplifies to `cos(x) + sin(x)` for general complex `x`, when it should simplify to `cos(x) + Abs(sin(x))` (or remain unchanged for complex x without additional assumptions).
+
+The issue is that `sqrt(sin(x)**2)` should equal `Abs(sin(x))`, not `sin(x)`.
+
+## Root Cause Analysis
+
+After examining the code, the problem lies in **TR5 and TR6 transformations** in `sympy/simplify/fu.py`:
+
+### TR5 Function (lines ~530-545)
+```python
+def TR5(rv, max=4, pow=False):
+    """Replacement of sin**2 with 1 - cos(x)**2."""
+    return _TR56(rv, sin, cos, lambda x: 1 - x, max=max, pow=pow)
+```
+
+### TR6 Function (lines ~548-563)
+```python
+def TR6(rv, max=4, pow=False):
+    """Replacement of cos**2 with 1 - sin(x)**2."""
+    return _TR56(rv, cos, sin, lambda x: 1 - x, max=max, pow=pow)
+```
+
+### Core Issue: _TR56 Helper (lines ~418-468)
+The `_TR56` function replaces even powers of sin/cos without proper sign handling:
+
+```python
+def _TR56(rv, f, g, h, max, pow):
+    """Helper for TR5 and TR6 to replace f**2 with h(g**2)"""
+    def _f(rv):
+        if not (rv.is_Pow and rv.base.func == f):
+            return rv
+        if not rv.exp.is_real:
+            return rv
+        if (rv.exp < 0) == True:
+            return rv
+        if (rv.exp > max) == True:
+            return rv
+        if rv.exp == 2:
+            return h(g(rv.base.args[0])**2)  # <-- PROBLEM HERE
+        else:
+            if rv.exp == 4:
+                e = 2
+            # ... more transformations
+            return h(g(rv.base.args[0])**2)**e
+    return bottom_up(rv, _f)
+```
+
+**The critical problem**: When `rv.exp == 2`, the code does:
+```python
+h(g(rv.base.args[0])**2)
+```
+
+For `sin(x)**2`, this calls `h(cos(x)**2) = 1 - cos(x)**2` using the identity `sin²(x) = 1 - cos²(x)`.
+
+However, when the expression is wrapped in a square root like `sqrt(sin(x)**2)`, the simplification chain doesn't account for the fact that:
+- `sqrt(sin(x)**2)` should simplify to `Abs(sin(x))`
+- Not to `sin(x)` directly
+
+## Secondary Issue: Power Simplification in radsimp.py
+
+In `sympy/simplify/radsimp.py`, the `ispow2` function (line ~677) and subsequent handling don't properly account for sign requirements when simplifying powers with half-rational exponents.
+
+## The Complete Chain of Failure
+
+1. User calls `trigsimp(cos(x) + sqrt(sin(x)**2))`
+2. The expression is processed through various transformations
+3. TR5/TR6 or related transformations see `sin(x)**2` inside the sqrt
+4. They apply `1 - cos(x)**2` substitution
+5. The sqrt is then simplified without preserving the absolute value requirement
+6. Result: incorrectly assumes `sqrt(expr**2) = expr` rather than `sqrt(expr**2) = Abs(expr)`
+
+## Specific Location
+
+**File**: `sympy/simplify/fu.py`
+**Functions**: `_TR56` (lines ~418-468), `TR5` (lines ~530-545), `TR6` (lines ~548-563)
+**Root Issue**: The transformations replace even powers without verifying that subsequent sqrt operations will correctly apply absolute value when needed.
+
+The simplification should either:
+1. Not apply TR5/TR6 to expressions that are inside sqrt with half-exponents, OR
+2. Ensure that sqrt simplifications always respect the requirement that `sqrt(x**2) = Abs(x)` instead of assuming `sqrt(x**2) = x`

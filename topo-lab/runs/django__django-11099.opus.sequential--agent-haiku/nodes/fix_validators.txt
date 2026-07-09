@@ -1,0 +1,33 @@
+## Analysis
+
+The problem is that Python's `$` regex anchor matches before a trailing newline, not strictly at the end of the string. The `\Z` anchor matches only at the absolute end of the string, and `\A` matches only at the absolute beginning. This prevents usernames with trailing newlines from being accepted.
+
+The fix is straightforward: replace `r'^[\w.@+-]+$'` with `r'\A[\w.@+-]+\Z'` in both validator classes.
+
+===FILE: django/contrib/auth/validators.py===
+import re
+
+from django.core import validators
+from django.utils.deconstruct import deconstructible
+from django.utils.translation import gettext_lazy as _
+
+
+@deconstructible
+class ASCIIUsernameValidator(validators.RegexValidator):
+    regex = r'\A[\w.@+-]+\Z'
+    message = _(
+        'Enter a valid username. This value may contain only English letters, '
+        'numbers, and @/./+/-/_ characters.'
+    )
+    flags = re.ASCII
+
+
+@deconstructible
+class UnicodeUsernameValidator(validators.RegexValidator):
+    regex = r'\A[\w.@+-]+\Z'
+    message = _(
+        'Enter a valid username. This value may contain only letters, '
+        'numbers, and @/./+/-/_ characters.'
+    )
+    flags = 0
+===END===

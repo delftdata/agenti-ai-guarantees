@@ -1,0 +1,37 @@
+## Analysis of Username Validator Tests
+
+### Existing Tests
+
+The `tests/auth_tests/test_validators.py` file contains a `UsernameValidatorsTests` class (a `SimpleTestCase` subclass) with two test methods:
+
+1. **`test_unicode_validator`** — Tests `validators.UnicodeUsernameValidator()`
+   - Valid usernames: `['joe', 'René', 'ᴮᴵᴳᴮᴵᴿᴰ', 'أحمد']`
+   - Invalid usernames: `["o'connell", "عبد ال", "zerowidth\u200Bspace", "nonbreaking\u00A0space", "en\u2013dash"]`
+
+2. **`test_ascii_validator`** — Tests `validators.ASCIIUsernameValidator()`
+   - Valid usernames: `['glenn', 'GLEnN', 'jean-marc']`
+   - Invalid usernames: `["o'connell", 'Éric', 'jean marc', "أحمد"]`
+
+Both use `self.subTest()` to iterate and validate each username individually, calling `v(valid)` directly for valid names and wrapping `v(invalid)` in `with self.assertRaises(ValidationError):` for invalid names.
+
+### Newline Handling — Gap Identified
+
+**There are currently NO tests for newline handling.** Neither test method includes any username with a trailing newline character (`\n` / `\u000A`).
+
+This is the crux of the bug: the validator regex `r'^[\w.@+-]+$'` uses `$`, which matches at the end of the string OR just before a trailing newline. As a result, a username like `'trailingnewline\n'` incorrectly passes validation. Because no test covers this scenario, the buggy behavior goes undetected.
+
+### New Tests Needed
+
+To reproduce the bug and guard against regression, the `invalid_usernames` lists in **both** test methods must be augmented with a trailing-newline case:
+
+- In `test_unicode_validator`: add `'trailingnewline\u000A'` (equivalently `'trailingnewline\n'`).
+- In `test_ascii_validator`: add `'trailingnewline\n'`.
+
+### Expected Behavior of New Tests
+
+- **Before the fix** (regex `r'^[\w.@+-]+$'`): these new cases would NOT raise `ValidationError`, so the tests would fail — correctly exposing the bug.
+- **After the fix** (regex `r'\A[\w.@+-]+\Z'`): `\Z` anchors strictly to the end of the string and does not permit a trailing newline, so these cases correctly raise `ValidationError` and the tests pass.
+
+### Conclusion
+
+The source fix (changing both `ASCIIUsernameValidator.regex` and `UnicodeUsernameValidator.regex` from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'`) must be paired with the two test additions above. The proposed diff from the upstream node correctly implements both the source change and the test additions, following the existing test conventions (`subTest`, `assertRaises(ValidationError)`).

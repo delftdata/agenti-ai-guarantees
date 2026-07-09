@@ -1,0 +1,40 @@
+diff --git a/sympy/simplify/fu.py b/sympy/simplify/fu.py
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ -500,13 +500,9 @@ def _TR56(rv, f, g, h, max, pow):
+         # change is not going to allow a simplification as far as I can tell.
+         if not (rv.is_Pow and rv.base.func == f):
+             return rv
+-        if not rv.exp.is_real:
+-            return rv
+-
+-        if (rv.exp < 0) == True:
+-            return rv
+-        if (rv.exp > max) == True:
++        if not rv.exp.is_integer or rv.exp.is_negative == True or rv.exp > max:
+             return rv
++
+         if rv.exp == 2:
+             return h(g(rv.base.args[0])**2)
+         else:
+diff --git a/sympy/simplify/tests/test_trigsimp.py b/sympy/simplify/tests/test_trigsimp.py
+--- a/sympy/simplify/tests/test_trigsimp.py
++++ b/sympy/simplify/tests/test_trigsimp.py
+@@ -177,6 +177,16 @@ def test_trigsimp_issues():
+     assert trigsimp(-sin(x)**4 - 2*sin(x)**2*cos(x)**2 - cos(x)**4) == -1
+ 
+ 
++def test_trigsimp_issued_18087():
++    # regression test for issue #18087: trigsimp should not simplify
++    # cos(x) + sqrt(sin(x)**2) to cos(x) + sin(x) for general complex x
++    x = Symbol('x')
++    expr = cos(x) + sqrt(sin(x)**2)
++    assert trigsimp(expr) != cos(x) + sin(x)
++    # numerically the simplified result should match the original expression
++    from sympy.utilities.randtest import verify_numerically as tn
++    assert tn(trigsimp(expr), expr)
++
++
+ def test_trigsimp_issue_2515():
+     x = Symbol('x')
+     assert trigsimp(x*cos(x)*tan(x)) == x*sin(x)

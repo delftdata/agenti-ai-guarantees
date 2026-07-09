@@ -1,0 +1,141 @@
+# Analysis: Root Cause and Fix Design for trigsimp Issue
+
+## Problem Statement
+`trigsimp` incorrectly simplifies `cos(x) + sqrt(sin(x)**2)` to `cos(x) + sin(x)` for general complex `x`, when it should simplify to `cos(x) + Abs(sin(x))`.
+
+The issue is that `sqrt(sin(x)**2)` should equal `Abs(sin(x))`, not `sin(x)`.
+
+## Root Cause Analysis
+
+The problem occurs in the `_TR56` helper function used by `TR5` and `TR6`:
+
+- **TR5**: Replaces `sin(x)**2` with `1 - cos(x)**2`
+- **TR6**: Replaces `cos(x)**2` with `1 - sin(x)**2`
+
+These transformations are mathematically valid **only when the exponent is a positive even integer**. However, the current implementation also applies them to fractional exponents like `1/2` (which represents square root).
+
+When `TR5` is applied to `sin(x)**0.5` (i.e., `sqrt(sin(x))`), the code incorrectly transforms it:
+- Input: `sqrt(sin(x)**2)` = `(sin(x)**2)**0.5`
+- Incorrectly becomes: `(1 - cos(x)**2)**0.5` = `sqrt(1 - cos(x)**2)` = `Abs(sin(x))`
+- Then further simplification loses the absolute value
+
+The root cause is in `_TR56` function at line ~445, specifically the condition:
+
+```python
+if not (rv.is_Pow and rv.base.func == f):
+    return rv
+if not rv.exp.is_real:
+    return rv
+if (rv.exp < 0) == True:
+    return rv
+if (rv.exp > max) == True:
+    return rv
+```
+
+The function checks:
+1. ✓ Is it a power with base `sin` or `cos`?
+2. ✓ Is the exponent real?
+3. ✓ Is the exponent negative? (reject if yes)
+4. ✓ Is the exponent > max? (reject if yes)
+5. ✗ **MISSING**: Is the exponent an integer?
+
+The critical missing check is that the exponent must be a **positive integer** for the identity `sin(x)**2 = 1 - cos(x)**2` to hold true.
+
+## Fix Design
+
+**Location**: `sympy/simplify/fu.py`, function `_TR56`
+
+**Function to modify**: `_TR56` (used by `TR5` and `TR6`)
+
+**Exact change needed**:
+
+After the existing condition checks in `_TR56`, add a check to ensure the exponent is an integer before proceeding with the transformation.
+
+The condition checks in `_TR56` should enforce that:
+- The exponent must be a positive integer for the identity to apply
+- Non-integer exponents (like `1/2` for square root) must be rejected
+
+### Current problematic code (lines ~445-461):
+
+```python
+def _f(rv):
+    # I'm not sure if this transformation should target all even powers
+    # or only those expressible as powers of 2. Also, should it only
+    # make the changes in powers that appear in sums -- making an isolated
+    # change is not going to allow a simplification as far as I can tell.
+    if not (rv.is_Pow and rv.base.func == f):
+        return rv
+    if not rv.exp.is_real:
+        return rv
+
+    if (rv.exp < 0) == True:
+        return rv
+    if (rv.exp > max) == True:
+        return rv
+    if rv.exp == 2:
+        return h(g(rv.base.args[0])**2)
+    else:
+        if rv.exp == 4:
+            e = 2
+        elif not pow:
+            if rv.exp % 2:
+                return rv
+            e = rv.exp//2
+        else:
+            p = perfect_power(rv.exp)
+            if not p:
+                return rv
+            e = rv.exp//2
+        return h(g(rv.base.args[0])**2)**e
+```
+
+### Corrected code:
+
+```python
+def _f(rv):
+    # I'm not sure if this transformation should target all even powers
+    # or only those expressible as powers of 2. Also, should it only
+    # make the changes in powers that appear in sums -- making an isolated
+    # change is not going to allow a simplification as far as I can tell.
+    if not (rv.is_Pow and rv.base.func == f):
+        return rv
+    if not rv.exp.is_real:
+        return rv
+
+    if (rv.exp < 0) == True:
+        return rv
+    if (rv.exp > max) == True:
+        return rv
+    # Only apply transformation for integer exponents
+    if not rv.exp.is_integer:
+        return rv
+    if rv.exp == 2:
+        return h(g(rv.base.args[0])**2)
+    else:
+        if rv.exp == 4:
+            e = 2
+        elif not pow:
+            if rv.exp % 2:
+                return rv
+            e = rv.exp//2
+        else:
+            p = perfect_power(rv.exp)
+            if not p:
+                return rv
+            e = rv.exp//2
+        return h(g(rv.base.args[0])**2)**e
+```
+
+## Why This Fix Works
+
+1. **Prevents fractional exponent transformation**: By checking `if not rv.exp.is_integer: return rv`, square roots (exponent `1/2`), cube roots (exponent `1/3`), and other fractional exponents are no longer transformed.
+
+2. **Preserves valid transformations**: Integer exponents continue to work as before:
+   - `sin(x)**2` → `1 - cos(x)**2` ✓
+   - `sin(x)**4` → `(1 - cos(x)**2)**2` ✓
+   - `sin(x)**6` → `(1 - cos(x)**2)**3` ✓
+
+3. **Fixes the reported issue**: `sqrt(sin(x)**2)` = `sin(x)**(1/2)` is no longer incorrectly transformed, so:
+   - `cos(x) + sqrt(sin(x)**2)` remains as `cos(x) + Abs(sin(x))` (or leaves it unchanged) instead of becoming `cos(x) + sin(x)`
+
+4. **Minimal change**: Single line addition (`if not rv.exp.is_integer: return rv`) with no side effects on other transformations.

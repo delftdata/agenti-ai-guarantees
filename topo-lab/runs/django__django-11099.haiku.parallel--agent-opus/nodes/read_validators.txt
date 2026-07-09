@@ -1,0 +1,52 @@
+The current `validators.py` file defines two username validator classes, both subclassing `django.core.validators.RegexValidator`:
+
+## ASCIIUsernameValidator
+- **regex:** `r'^[\w.@+-]+$'`
+- **message:** Indicates valid usernames may contain only English letters, numbers, and `@/./+/-/_` characters.
+- **flags:** `re.ASCII` — this restricts `\w` to only match ASCII characters (English letters, digits, and underscore).
+
+## UnicodeUsernameValidator
+- **regex:** `r'^[\w.@+-]+$'`
+- **message:** Indicates valid usernames may contain only letters, numbers, and `@/./+/-/_` characters (no "English" qualifier, since Unicode letters are permitted).
+- **flags:** `0` — no special flags, so `\w` matches Unicode word characters as well.
+
+## The Problem
+Both validators use the identical regex pattern `r'^[\w.@+-]+$'`. The character class `[\w.@+-]` allows word characters plus `.`, `@`, `+`, and `-`. The anchors `^` and `$` are intended to match the beginning and end of the string.
+
+However, in Python's `re` module, the `$` anchor matches not only at the end of the string but also just before a trailing newline character (`\n`). This means a username like `"validname\n"` would incorrectly pass validation, since the `$` matches immediately before the trailing newline.
+
+## The Fix
+The recommended solution is to replace the `^`...`$` anchors with `\A`...`\Z`:
+- `\A` matches only at the absolute start of the string.
+- `\Z` matches only at the absolute end of the string (and, unlike `$`, does NOT match before a trailing newline).
+
+So both regexes should be changed to `r'\A[\w.@+-]+\Z'`.
+
+## Notes on Implementation
+- Both classes are decorated with `@deconstructible`, meaning they are serializable for migrations. Changing the `regex` attribute value changes the deconstructed representation, which may require a new auth migration to update the field validators (there is an existing pattern of such migrations, e.g., `0008_alter_user_username_max_length.py`).
+- The change is trivial: modify the `regex` class attribute on both `ASCIIUsernameValidator` and `UnicodeUsernameValidator`.
+
+Here is the diff to resolve the issue:
+
+```diff
+--- a/django/contrib/auth/validators.py
++++ b/django/contrib/auth/validators.py
+@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
+ 
+ @deconstructible
+ class ASCIIUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only English letters, '
+         'numbers, and @/./+/-/_ characters.'
+@@ -17,7 +17,7 @@ class ASCIIUsernameValidator(validators.RegexValidator):
+ 
+ @deconstructible
+ class UnicodeUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only letters, '
+         'numbers, and @/./+/-/_ characters.'
+```

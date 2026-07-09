@@ -1,0 +1,69 @@
+The test file contains a `UsernameValidatorsTests` class with two test methods:
+
+1. **`test_unicode_validator`** – Tests `validators.UnicodeUsernameValidator()`:
+   - **Valid usernames**: `['joe', 'René', 'ᴮᴵᴳᴮᴵᴿᴰ', 'أحمد']` – these should pass validation without raising.
+   - **Invalid usernames**: `["o'connell", "عبد ال", "zerowidth\u200Bspace", "nonbreaking\u00A0space", "en\u2013dash"]` – these should raise `ValidationError`. They include an apostrophe, a space, a zero-width space, a non-breaking space, and an en-dash.
+   - Uses `self.subTest()` to iterate and validate each username individually.
+
+2. **`test_ascii_validator`** – Tests `validators.ASCIIUsernameValidator()`:
+   - **Valid usernames**: `['glenn', 'GLEnN', 'jean-marc']`
+   - **Invalid usernames**: `["o'connell", 'Éric', 'jean marc', "أحمد"]` – apostrophe, non-ASCII accented character, space, and non-ASCII Arabic.
+
+**Key observation regarding the bug**: Neither test currently includes any test case with a trailing newline (e.g., `'trailingnewline\n'`). This is exactly the quirk described in the problem statement — the regex `r'^[\w.@+-]+$'` matches strings ending in a newline because `$` matches at the end of the string OR just before a trailing newline.
+
+**To properly reproduce and guard against the bug**, the tests need to be augmented so that usernames like `'trailingnewline\n'` (a valid-looking username followed by `\n`) are added to the `invalid_usernames` lists in both `test_unicode_validator` and `test_ascii_validator`. With the current `$`-based regex, these would incorrectly pass (i.e., not raise `ValidationError`), causing the test to fail. After changing the validator regex to use `\A...\Z` (which anchors strictly to string start/end and does not allow a trailing newline), these test cases would correctly raise `ValidationError`.
+
+**Test structure conventions to follow when adding cases**: The tests use `SimpleTestCase`, iterate over lists using `for ... in`, wrap each with `with self.subTest(...)`, call `v(valid)` for valid names, and use `with self.assertRaises(ValidationError):` around `v(invalid)` for invalid names.
+
+The actual fix to the source (`django/contrib/auth/validators.py`) is to change both `ASCIIUsernameValidator.regex` and `UnicodeUsernameValidator.regex` from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'`.
+
+Now I'll produce the diff.
+
+```diff
+diff --git a/django/contrib/auth/validators.py b/django/contrib/auth/validators.py
+index 000000..000000 100644
+--- a/django/contrib/auth/validators.py
++++ b/django/contrib/auth/validators.py
+@@ -7,7 +7,7 @@
+ 
+ @deconstructible
+ class ASCIIUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only English letters, '
+         'numbers, and @/./+/-/_ characters.'
+@@ -17,7 +17,7 @@
+ 
+ @deconstructible
+ class UnicodeUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only letters, '
+         'numbers, and @/./+/-/_ characters.'
+diff --git a/tests/auth_tests/test_validators.py b/tests/auth_tests/test_validators.py
+index 000000..000000 100644
+--- a/tests/auth_tests/test_validators.py
++++ b/tests/auth_tests/test_validators.py
+@@ -257,6 +257,7 @@ class UsernameValidatorsTests(SimpleTestCase):
+         invalid_usernames = [
+             "o'connell", "عبد ال",
+             "zerowidth\u200Bspace", "nonbreaking\u00A0space",
+             "en\u2013dash",
++            'trailingnewline\u000A',
+         ]
+         v = validators.UnicodeUsernameValidator()
+         for valid in valid_usernames:
+@@ -270,7 +271,7 @@ class UsernameValidatorsTests(SimpleTestCase):
+ 
+     def test_ascii_validator(self):
+         valid_usernames = ['glenn', 'GLEnN', 'jean-marc']
+-        invalid_usernames = ["o'connell", 'Éric', 'jean marc', "أحمد"]
++        invalid_usernames = ["o'connell", 'Éric', 'jean marc', "أحمد", 'trailingnewline\n']
+         v = validators.ASCIIUsernameValidator()
+         for valid in valid_usernames:
+             with self.subTest(valid=valid):
+```
+
+Note: Since I could not see the exact original contents of `django/contrib/auth/validators.py`, the diff above is my best reconstruction based on the problem statement (which specifies the exact regex `r'^[\w.@+-]+$'` and file location). The test file changes are precise against the provided contents.

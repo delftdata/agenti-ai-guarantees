@@ -1,0 +1,99 @@
+# Analysis of sqrt(sin(x)**2) Simplification in trigsimp.py
+
+## Problem Summary
+The issue is that `trigsimp(cos(x) + sqrt(sin(x)**2))` incorrectly simplifies to `cos(x) + sin(x)` for general complex `x`, when it should remain as `cos(x) + sqrt(sin(x)**2)` or simplify to `cos(x) + Abs(sin(x))` for real `x`.
+
+## Code Paths in trigsimp.py
+
+### Primary Entry Points
+
+1. **trigsimp() function (lines 305-351)**
+   - Dispatcher that routes to different simplification methods
+   - Default method is 'matching' which calls `futrig(x)`
+   - Also supports 'groebner', 'combined', and 'fu' methods
+   - The 'matching' and 'fu' methods both eventually use Fu transformations
+
+2. **futrig() function (lines 841-869)**
+   - Calls `_futrig()` helper function via `bottom_up()`
+   - Handles hyperbolic functions if `hyper=True` (default)
+   - This is a critical path for the default 'matching' method
+
+3. **_futrig() function (lines 872-920)**
+   - Core simplification logic for the matching method
+   - Constructs a transformation tree using Fu transformations
+   - Lines 875-920 define the sequence of transformations applied
+   - The tree applies multiple TR (transformation) functions in sequence
+   - Key transformations include TR5 (sin-pow -> cos_pow), TR6 (cos powers), etc.
+
+### Potential Problem Areas in _futrig()
+
+The transformation tree (lines 882-917) contains several power-related transformations:
+
+- **Line 905-907**: `TR5` - converts sin to cos powers
+- **Line 906-908**: `TR15` - handles pos/neg powers of sin
+- **Line 910-912**: `TR6` - handles cos powers  
+- **Line 911-913**: `TR16` - handles pos/neg powers of cos
+
+These transformations are imported from `sympy/simplify/fu.py` and could potentially convert `sqrt(sin(x)**2)` to `sin(x)` without checking if `x` is real.
+
+### Secondary Code Paths
+
+4. **_trigsimp() function (lines 598-601)**
+   - Cache wrapper that checks if expression has trig functions
+   - Calls `__trigsimp()` 
+
+5. **__trigsimp() function (lines 604-769)**
+   - The old/legacy trigsimp implementation
+   - Used when `old=True` option is passed
+   - Contains pattern matching with `matchers_division`, `matchers_add`, `matchers_identity`
+   - Lines 649-769 handle pattern matching but don't directly address sqrt simplification
+
+6. **trigsimp_old() function (lines 546-597)**
+   - Wrapper for old trigsimp when `old=True`
+   - Eventually calls `_trigsimp()` or `groebnersimp()`
+
+### Pattern Matching System
+
+Lines 662-791 define pattern matching rules:
+- `matchers_division` (lines 663-682) - for division patterns
+- `matchers_add` (lines 684-691) - for addition patterns
+- `matchers_identity` (lines 693-706) - for identity patterns
+- `artifacts` (lines 708-730) - for cleanup patterns
+
+None of these explicitly handle square roots, but they don't prevent other transformations from being applied.
+
+## Import of Fu Module
+
+Line 7 imports: `from sympy.simplify.fu import ...`
+
+The actual TR transformation functions (TR1-TR22, etc.) are imported from `fu.py`, not defined in `trigsimp.py`.
+
+## Fix Location Analysis
+
+### Evidence that Fix Belongs in fu.py
+
+1. **TR5, TR15, TR6, TR16 transformations**: These power-related transformations are defined in `fu.py`, not `trigsimp.py`. The simplification of `sqrt(sin(x)**2)` to `sin(x)` likely occurs through these transformations.
+
+2. **_futrig tree construction**: While the transformation tree is constructed in `_futrig()`, the actual transformation implementations are in `fu.py`. The tree just sequences their application.
+
+3. **No direct sqrt handling in trigsimp.py**: Neither `trigsimp.py` nor its pattern matching rules explicitly handle square roots or radical expressions.
+
+4. **Core issue is in transformation logic**: The problem is that TR5/TR15/TR6/TR16 transformations rewrite powers without checking domain assumptions (i.e., whether the variable is real).
+
+### Potential Secondary Changes in trigsimp.py
+
+However, **_futrig() at lines 875-920 may need modification** if the fix requires:
+
+1. **Conditional application of transformations**: Adding logic to skip certain TR transformations for complex variables
+2. **Domain-aware simplification**: Checking assumptions about the variable before applying power transformations
+3. **Assumptions propagation**: Ensuring domain information is passed through the transformation tree
+
+The `_futrig()` function would need to wrap TR5, TR15, TR6, and TR16 calls with conditional logic that checks if the expression involves radicals of potentially negative quantities.
+
+## Conclusion
+
+**Primary fix location**: `sympy/simplify/fu.py` - The TR transformation functions (especially TR5, TR15, TR6, TR16) need to be fixed to avoid simplifying `sqrt(sin(x)**2)` to `sin(x)` for general complex `x`.
+
+**Secondary fix location**: `sympy/simplify/trigsimp.py` - The `_futrig()` function (lines 875-920) may need modification to conditionally apply power transformations based on domain assumptions, or the transformation tree may need restructuring to handle assumptions properly.
+
+**Pattern matching in __trigsimp()**: Lines 649-769 don't appear to be the source of the problem, as they don't handle radicals, but they might benefit from a pass-through of domain assumptions if implemented.

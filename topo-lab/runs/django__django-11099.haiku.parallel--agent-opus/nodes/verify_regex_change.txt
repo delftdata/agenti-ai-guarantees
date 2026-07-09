@@ -1,0 +1,22 @@
+The current contents of `django/contrib/auth/validators.py` already show both validators using the corrected regex pattern `r'\A[\w.@+-]+\Z'`.
+
+Verification:
+
+1. **ASCIIUsernameValidator** — `regex = r'\A[\w.@+-]+\Z'` ✓
+   - Uses `\A` (start of string anchor) and `\Z` (end of string anchor).
+   - No longer uses `^` and `$`.
+
+2. **UnicodeUsernameValidator** — `regex = r'\A[\w.@+-]+\Z'` ✓
+   - Uses `\A` (start of string anchor) and `\Z` (end of string anchor).
+   - No longer uses `^` and `$`.
+
+Both validators have been correctly changed. The `\A` and `\Z` anchors match only the absolute start and end of the string, so a trailing newline (which `$` would otherwise permit) will now be rejected.
+
+The upstream node output (`update_validators`) matches the current file contents exactly, confirming the change is consistent and complete.
+
+Note on the deliverable: The task asks for a unified diff that resolves the problem. However, the file already contains the fix — both validators already use `\A` and `\Z`. There is no textual difference between the current contents and the desired/upstream output. Therefore an empty diff (no changes needed) is the correct result, as the fix has already been applied.
+
+```diff
+```
+
+No changes are required; the regex patterns in both `ASCIIUsernameValidator` and `UnicodeUsernameValidator` already correctly use `\A` and `\Z` anchors instead of `^` and `$`.

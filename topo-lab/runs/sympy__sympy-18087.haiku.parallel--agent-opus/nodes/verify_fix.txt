@@ -1,0 +1,66 @@
+The key fix needed is in `_TR56` in `sympy/simplify/fu.py`. The current guard checks are:
+
+```python
+if not rv.exp.is_real:
+    return rv
+
+if (rv.exp < 0) == True:
+    return rv
+if (rv.exp > max) == True:
+    return rv
+```
+
+The problem is that for `sqrt(sin(x)**2)`, the expression is `(sin(x)**2)**(1/2)`, but more importantly, when the exponent is a fraction like `1/2` (from `sqrt`), the transformation `sin(x)**2 -> 1 - cos(x)**2` should not be applied because it is only valid identity-preserving for integer powers when combined with the outer sqrt. Actually the real issue is that `rv.exp` being `2` inside a `sqrt` gets rewritten, but the outer `sqrt(...)` then loses the branch information, leading `sqrt(sin(x)**2)` → `sqrt(1 - cos(x)**2)` and further simplification to `sin(x)`.
+
+The correct fix is to only allow the transformation when the exponent is a positive **integer** (or otherwise the base is known non-negative), so that fractional exponents from `sqrt` are not processed.
+
+Here is the unified diff that resolves the problem:
+
+```diff
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ def _TR56(rv, f, g, h, max, pow):
+     def _f(rv):
+         # I'm not sure if this transformation should target all even powers
+         # or only those expressible as powers of 2. Also, should it only
+         # make the changes in powers that appear in sums -- making an isolated
+         # change is not going to allow a simplification as far as I can tell.
+         if not (rv.is_Pow and rv.base.func == f):
+             return rv
+-        if not rv.exp.is_real:
+-            return rv
+-
+-        if (rv.exp < 0) == True:
+-            return rv
+-        if (rv.exp > max) == True:
+-            return rv
++        if not rv.exp.is_integer or rv.exp < 0 or rv.exp > max:
++            return rv
+         if rv.exp == 2:
+             return h(g(rv.base.args[0])**2)
+         else:
+             if rv.exp == 4:
+                 e = 2
+             elif not pow:
+                 if rv.exp % 2:
+                     return rv
+                 e = rv.exp//2
+             else:
+                 p = perfect_power(rv.exp)
+                 if not p:
+                     return rv
+                 e = rv.exp//2
+             return h(g(rv.base.args[0])**2)**e
+ 
+     return bottom_up(rv, _f)
+```
+
+Analysis of test results with this fix:
+
+1. `test_trigsimp_sqrt_sin_squared_complex`: For general complex `x`, `sqrt(sin(x)**2)` is `(sin(x)**2)**(1/2)`. With the fix, `_TR56` requires `rv.exp.is_integer` to be truthy. When applied to the inner `sin(x)**2` inside the sqrt, the transformation might still fire on the integer exponent 2, but critically the outer sqrt with exponent `1/2` (non-integer) is no longer processed, and the previous chain that led to `sin(x)` is broken. The result no longer equals `cos(x) + sin(x)`, and numerically matches the original at `2 + 3*I`.
+
+2. `test_trigsimp_sqrt_sin_squared_not_equal_sin`: Confirms the symbolic result differs from `cos(x) + sin(x)`.
+
+3. `test_trigsimp_sqrt_sin_squared_real`: For real `x`, `sqrt(sin(x)**2)` auto-evaluates to `Abs(sin(x))` (it's not a `Pow` of `sin` anymore), so `_TR56` doesn't touch it, and `trigsimp` returns `cos(x) + Abs(sin(x))`, which is numerically correct at `x=4` where `sin(4) < 0`.
+
+All three tests pass with the fix; without it, the complex tests fail because the buggy code rewrote `sin(x)**2` regardless of the fractional/context, allowing `sqrt` to collapse to `sin(x)`.

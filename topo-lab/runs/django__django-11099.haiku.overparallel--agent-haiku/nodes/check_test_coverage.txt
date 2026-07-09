@@ -1,0 +1,104 @@
+# Analysis of Username Validator Tests
+
+## File Location
+`tests/auth_tests/test_validators.py`
+
+## Current Tests for Username Validators
+
+### Existing Username Validator Tests
+
+1. **ASCIIUsernameValidator Tests:**
+   - Valid usernames with alphanumeric characters
+   - Valid usernames with allowed special characters (., @, +, -)
+   - Invalid usernames with disallowed characters
+   - Invalid usernames with spaces
+   - Invalid usernames starting with numbers (in some cases)
+
+2. **UnicodeUsernameValidator Tests:**
+   - Valid usernames with unicode characters
+   - Valid usernames with allowed special characters
+   - Invalid usernames with disallowed unicode characters
+   - Invalid usernames with spaces
+
+### Gap Analysis: Newline Handling Tests
+
+**Critical Finding:** The current test suite does NOT include tests for newline character handling in username validators.
+
+**Problem Identified:**
+- No tests verify that usernames ending with `\n` (newline) are rejected
+- No tests verify that usernames containing embedded newlines are rejected
+- No tests verify that usernames starting with newlines are rejected
+
+## Required New Tests
+
+### Test Cases Needed for ASCIIUsernameValidator:
+
+1. **Username with trailing newline:**
+   - Input: `"validuser\n"`
+   - Expected: Should be INVALID (currently passes due to regex quirk)
+   - Test: `test_ascii_username_with_trailing_newline()`
+
+2. **Username with leading newline:**
+   - Input: `"\nvaliduser"`
+   - Expected: Should be INVALID
+   - Test: `test_ascii_username_with_leading_newline()`
+
+3. **Username with embedded newline:**
+   - Input: `"valid\nuser"`
+   - Expected: Should be INVALID
+   - Test: `test_ascii_username_with_embedded_newline()`
+
+4. **Username with multiple trailing newlines:**
+   - Input: `"validuser\n\n"`
+   - Expected: Should be INVALID
+   - Test: `test_ascii_username_with_multiple_trailing_newlines()`
+
+### Test Cases Needed for UnicodeUsernameValidator:
+
+Same four test cases as above, but applied to unicode validator:
+
+1. `test_unicode_username_with_trailing_newline()`
+2. `test_unicode_username_with_leading_newline()`
+3. `test_unicode_username_with_embedded_newline()`
+4. `test_unicode_username_with_multiple_trailing_newlines()`
+
+## Additional Edge Cases to Consider
+
+1. **Windows-style line endings:**
+   - Input: `"validuser\r\n"`
+   - Expected: Should be INVALID
+
+2. **Tab characters:**
+   - Input: `"validuser\t"`
+   - Expected: Should be INVALID (related whitespace issue)
+
+3. **Other whitespace characters:**
+   - Vertical tab, form feed, etc.
+   - Expected: Should be INVALID
+
+## Current Test Structure Pattern
+
+The existing tests use Django's ValidationError exception:
+```python
+with self.assertRaises(ValidationError):
+    validator.clean(invalid_username)
+```
+
+And for valid usernames:
+```python
+validator.clean(valid_username)  # Should not raise
+```
+
+## Implementation Strategy
+
+1. **Add tests immediately** to verify current (broken) behavior
+2. **Fix validators** by changing regex from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'`
+3. **Verify tests pass** after fix
+
+## Severity Assessment
+
+**HIGH PRIORITY** - This is a security/data validation issue because:
+- Usernames with trailing newlines could bypass validation
+- Could lead to data corruption or security issues in downstream systems
+- The fix is trivial (single character changes in regex patterns)
+- The problem affects both ASCII and Unicode username validators

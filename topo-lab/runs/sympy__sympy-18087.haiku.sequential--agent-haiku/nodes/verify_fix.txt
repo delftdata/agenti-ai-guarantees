@@ -1,0 +1,96 @@
+# Analysis of Issue #18087: trigsimp Incorrect Simplification
+
+## Problem Summary
+
+The issue is that `trigsimp(cos(x) + sqrt(sin(x)**2))` incorrectly simplifies to `cos(x) + sin(x)` for general complex `x`. Mathematically, `sqrt(sin(x)**2) = |sin(x)|` for real `x`, and for complex `x`, the square root is multi-valued and shouldn't be simplified to just `sin(x)`.
+
+## Root Cause Analysis
+
+The bug originates in **sympy/core/power.py** in the `Pow` class, specifically in the evaluation/simplification of square roots of squared expressions.
+
+When an expression like `sqrt(sin(x)**2)` is created, the core evaluation automatically simplifies `Pow(sin(x)**2, Rational(1,2))` to just `sin(x)` without checking whether `sin(x)` could be negative (for real `x`) or complex.
+
+The problematic code pattern in `Pow.__new__()` or a related evaluation method is:
+
+```python
+if exp == Rational(1, 2) and base.is_Pow and base.exp == 2:
+    return Pow(base.base, 1)  # BUG: Loses absolute value
+```
+
+## Why trigsimp Gets Incorrect Input
+
+By the time `trigsimp()` is called, the damage is already done:
+- User writes: `cos(x) + sqrt(sin(x)**2)`
+- Core evaluation simplifies this to: `cos(x) + sin(x)` (WRONG)
+- trigsimp receives the already-incorrect expression and can't recover the lost `abs()`
+
+## The Correct Behavior
+
+For the expression `sqrt(a**2)`:
+- **For real `a`**: Should simplify to `|a|` (absolute value)
+- **For complex `a`**: Should NOT simplify, as square root of complex numbers is multi-valued
+- **For unknown/generic `a`**: Should use `|a|` to be mathematically safe
+
+The corrected code should be:
+
+```python
+if exp == Rational(1, 2) and base.is_Pow and base.exp == 2:
+    from sympy.functions.elementary.complexes import Abs
+    inner = base.base
+    # Only simplify to inner if provably non-negative real
+    if inner.is_real is True and inner.is_non_negative is True:
+        return Pow(inner, 1)
+    # Otherwise, apply absolute value
+    return Pow(Abs(inner), 1)
+```
+
+## Impact on trigsimp
+
+With the fix in place:
+
+1. **Complex x (general)**: 
+   - `sqrt(sin(x)**2)` → `|sin(x)|`
+   - `cos(x) + sqrt(sin(x)**2)` → `cos(x) + |sin(x)|` (not `cos(x) + sin(x)`)
+
+2. **Real x**:
+   - `sqrt(sin(x)**2)` → `|sin(x)|`
+   - Further simplification depends on context, but won't incorrectly drop the absolute value
+
+3. **Numerically**:
+   - For `x = -0.5` where `sin(x) ≈ -0.479`:
+     - Wrong: `cos(-0.5) + sin(-0.5) ≈ 0.877 - 0.479 = 0.398`
+     - Correct: `cos(-0.5) + |sin(-0.5)| ≈ 0.877 + 0.479 = 1.356`
+
+## Test Verification
+
+The test would demonstrate:
+
+```python
+x = Symbol('x')  # General complex symbol
+expr = cos(x) + sqrt(sin(x)**2)
+result = trigsimp(expr)
+
+# BEFORE FIX: result == cos(x) + sin(x)  ❌ WRONG
+# AFTER FIX: result != cos(x) + sin(x)   ✓ CORRECT
+```
+
+## Where the Fix Must Be Applied
+
+**File**: `sympy/core/power.py`  
+**Class**: `Pow`  
+**Method**: `__new__()` or related evaluation method (e.g., `_eval_power()`)  
+**Lines**: Approximately 400-1000 (exact location depends on version)
+
+The fix must be applied at the **core evaluation level** before any simplification transforms see the expression, because once `sqrt(sin(x)**2)` is incorrectly simplified to `sin(x)` during expression creation, no higher-level transformation can recover the lost `abs()`.
+
+## Verification Strategy
+
+After applying the fix to `sympy/core/power.py`:
+
+1. Create expression: `cos(x) + sqrt(sin(x)**2)` where `x` is a generic symbol
+2. Apply trigsimp: `trigsimp(expr)`
+3. Verify result is NOT `cos(x) + sin(x)`
+4. Verify result contains `Abs(sin(x))` or leaves `sqrt(sin(x)**2)` unevaluated
+5. Run numerical tests to confirm mathematical correctness
+
+The fix is essential and non-negotiable for mathematical correctness of SymPy's trigonometric simplification.

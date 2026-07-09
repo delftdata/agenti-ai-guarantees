@@ -1,0 +1,126 @@
+{
+  "nodes": [
+    {
+      "id": "read_validators",
+      "instruction": "Read the current validators.py file to understand the existing UsernameValidator implementations and their regex patterns.",
+      "reads": [
+        "django/contrib/auth/validators.py"
+      ],
+      "writes": [],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "read_validator_tests",
+      "instruction": "Read the test_validators.py file to understand how the validators are currently tested, especially the username validation tests.",
+      "reads": [
+        "tests/auth_tests/test_validators.py"
+      ],
+      "writes": [],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "identify_issue",
+      "instruction": "Analyze the validator regex patterns from the read_validators node. Identify that ASCIIUsernameValidator and UnicodeUsernameValidator use r'^[\\w.@+-]+$' which matches trailing newlines due to $ behavior in Python regex. Document that the fix requires changing to r'\\A[\\w.@+-]+\\Z' to reject usernames with trailing newlines.",
+      "reads": [],
+      "writes": [],
+      "deps": [
+        "read_validators"
+      ],
+      "guard": null
+    },
+    {
+      "id": "check_test_coverage",
+      "instruction": "Review the test_validators.py file from read_validator_tests node to understand what tests exist for username validation. Identify if there are tests for newline handling and what new tests may be needed.",
+      "reads": [],
+      "writes": [],
+      "deps": [
+        "read_validator_tests"
+      ],
+      "guard": null
+    },
+    {
+      "id": "update_validators",
+      "instruction": "Update django/contrib/auth/validators.py by changing the regex patterns in ASCIIUsernameValidator and UnicodeUsernameValidator from r'^[\\w.@+-]+$' to r'\\A[\\w.@+-]+\\Z'. This will prevent the validators from accepting usernames with trailing newlines. Make sure to update both validators.",
+      "reads": [
+        "django/contrib/auth/validators.py"
+      ],
+      "writes": [
+        "django/contrib/auth/validators.py"
+      ],
+      "deps": [
+        "identify_issue"
+      ],
+      "guard": null
+    },
+    {
+      "id": "verify_regex_change",
+      "instruction": "Verify that the regex patterns have been correctly changed in the validators file. Confirm both ASCIIUsernameValidator and UnicodeUsernameValidator now use \\A and \\Z anchors instead of ^ and $.",
+      "reads": [
+        "django/contrib/auth/validators.py"
+      ],
+      "writes": [],
+      "deps": [
+        "update_validators"
+      ],
+      "guard": null
+    },
+    {
+      "id": "create_test_case",
+      "instruction": "Create a test case that verifies the validators now reject usernames with trailing newlines. Add a test to tests/auth_tests/test_validators.py that checks both ASCIIUsernameValidator and UnicodeUsernameValidator reject usernames ending with newline characters, and that valid usernames are still accepted.",
+      "reads": [
+        "tests/auth_tests/test_validators.py"
+      ],
+      "writes": [
+        "tests/auth_tests/test_validators.py"
+      ],
+      "deps": [
+        "check_test_coverage",
+        "verify_regex_change"
+      ],
+      "guard": null
+    },
+    {
+      "id": "generate_diff",
+      "instruction": "Generate a unified diff showing the changes made to django/contrib/auth/validators.py and tests/auth_tests/test_validators.py. The diff should show: (1) the regex pattern changes from r'^[\\w.@+-]+$' to r'\\A[\\w.@+-]+\\Z' in both validators, and (2) new test cases that verify usernames with trailing newlines are rejected. Format as a standard unified diff that can be applied with git apply.",
+      "reads": [
+        "django/contrib/auth/validators.py",
+        "tests/auth_tests/test_validators.py"
+      ],
+      "writes": [],
+      "deps": [
+        "create_test_case"
+      ],
+      "guard": null
+    }
+  ],
+  "final_node": "generate_diff",
+  "topology": "sequential",
+  "schedule": [
+    [
+      "read_validator_tests"
+    ],
+    [
+      "check_test_coverage"
+    ],
+    [
+      "read_validators"
+    ],
+    [
+      "identify_issue"
+    ],
+    [
+      "update_validators"
+    ],
+    [
+      "verify_regex_change"
+    ],
+    [
+      "create_test_case"
+    ],
+    [
+      "generate_diff"
+    ]
+  ]
+}

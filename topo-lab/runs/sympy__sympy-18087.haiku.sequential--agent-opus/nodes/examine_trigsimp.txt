@@ -1,0 +1,21 @@
+The bug in simplifying `sqrt(sin(x)**2)` to `sin(x)` for general complex `x` is caused by the `_futrig` pathway used by the default `'matching'` method in `trigsimp`.
+
+Analysis of the flow:
+
+1. `trigsimp(expr)` with default `method='matching'` calls `futrig(x)`.
+
+2. `futrig` applies `_futrig` to subexpressions via `bottom_up`, and `_futrig` runs a `greedy` tree of Fu-like transformations.
+
+3. The key culprit is **TR5** (from `sympy.simplify.fu`), which is included in the `_futrig` transformation tree:
+   ```python
+   TR5,  # sin-pow -> cos_pow
+   ```
+   `TR5` implements the identity `sin(x)**2 -> 1 - cos(x)**2`. When it operates on `sqrt(sin(x)**2)` = `(sin(x)**2)**(S.Half)`, it does not correctly handle the fact that `sqrt(sin(x)**2) != sin(x)` for complex `x` (it equals `sin(x)` only when `sin(x)` is real and nonnegative, i.e. `Abs(sin(x))` in general).
+
+4. More precisely, the underlying issue is how the half-integer power `sin(x)**2` under a `sqrt` gets rewritten. The transformations in `fu.py` (particularly `TR5`/`TR6` and the `_TR56` helper, and the `_eapply(factor, ...)` / `_mexpand` steps) treat `(sin(x)**2)**Rational` as if `sin(x)**2` could be freely converted, effectively producing `sin(x)` instead of `sqrt(sin(x)**2)`.
+
+The root cause is therefore not in `trigsimp.py` itself but in the `fu.py` module's `_TR56` / `TR5` / `TR6` machinery invoked through `_futrig`. Specifically, `_TR56` (used by both `TR5` and `TR6`) applies the Pythagorean identity to powers of `sin`/`cos` including fractional/half-integer exponents (as arise from `sqrt(sin(x)**2)`), where the rewrite `sin(x)**2 -> 1 - cos(x)**2` is only valid for even integer exponents. When it applies to `sin(x)**2` under a square root, the combination of extracting the power and re-simplifying loses the distinction between `sin(x)` and `sqrt(sin(x)**2) = Abs(sin(x))`.
+
+The reason it works correctly when `x` is declared real: with a real symbol, the assumption system and the power/`sqrt` handling can correctly determine sign behavior, so `sqrt(sin(x)**2)` is handled as `Abs(sin(x))` and the identity substitution behaves consistently — whereas for a generic complex symbol the transformation incorrectly reduces `sqrt(sin(x)**2)` to `sin(x)`.
+
+To fix it, the `_TR56` helper in `sympy/simplify/fu.py` should only apply the `sin**2 <-> 1 - cos**2` (and hyperbolic analog) rewrite when the exponent is a valid (even) integer, not for fractional exponents such as those produced by taking a square root. Guarding `_TR56` (used by `TR5` and `TR6`) to skip non-integer/half-integer powers prevents the invalid `sqrt(sin(x)**2) -> sin(x)` simplification.

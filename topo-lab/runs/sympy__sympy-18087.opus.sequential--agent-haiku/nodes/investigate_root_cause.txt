@@ -1,0 +1,190 @@
+# Analysis of the Bug: sqrt(sin(x)**2) incorrectly simplified to sin(x)
+
+## Problem Statement
+
+The function `trigsimp` (and by extension the `fu` algorithm) incorrectly simplifies `cos(x) + sqrt(sin(x)**2)` to `cos(x) + sin(x)` for general complex values of `x`. The correct simplification should be `cos(x) + Abs(sin(x))` or left as-is, since `sqrt(sin(x)**2) = |sin(x)|` in general.
+
+## Root Cause Analysis
+
+The issue stems from how SymPy's `fu` algorithm handles expressions involving square roots of squared trigonometric functions. The problem is not in a single location but rather in how the simplification pipeline processes these expressions without properly respecting the mathematical constraint that `sqrt(a**2) ≠ a` for general complex `a` — it should be `sqrt(a**2) = |a|`.
+
+### Key Insight
+
+When an expression like `sqrt(sin(x)**2)` is encountered, it gets processed through the simplification transformations. The issue is that somewhere in the pipeline, this expression is being automatically simplified as though the exponent `1/2` applied to `sin(x)**2` cancels directly with the exponent `2`, without consideration for:
+
+1. The domain of `x` (whether `x` is real or complex)
+2. The fact that square roots require absolute values for real results when applied to squared quantities
+
+## Investigation of Relevant Code Paths
+
+### 1. Entry Point: The `fu()` Function
+
+The `fu()` function is the main simplification routine. It applies a sequence of transformations:
+- `TR1()` through `TR22()` and other transformations
+- The transformations are applied in specific orders via rule lists `RL1` and `RL2`
+- The function uses a greedy approach to minimize the measure (number of trig functions and operation count)
+
+The critical issue is that none of these transformations explicitly check whether simplifications are valid for complex arguments.
+
+### 2. Suspect Transformations
+
+Several transformations could potentially be involved:
+
+**TR5 and TR6 (`_TR56` helper):**
+- `TR5(rv, max=4, pow=False)` replaces `sin(x)**2` with `1 - cos(x)**2`
+- `TR6(rv, max=4, pow=False)` replaces `cos(x)**2` with `1 - sin(x)**2`
+- These are called with `pow=False` by default
+
+The `_TR56` function has this internal `_f` function:
+```python
+def _f(rv):
+    if not (rv.is_Pow and rv.base.func == f):
+        return rv
+    if not rv.exp.is_real:
+        return rv
+
+    if (rv.exp < 0) == True:
+        return rv
+    if (rv.exp > max) == True:
+        return rv
+    if rv.exp == 2:
+        return h(g(rv.base.args[0])**2)
+    else:
+        # ... handles other exponents
+```
+
+**Issue with TR5/TR6:** These transformations check `rv.exp == 2` to apply the identity, but they don't prevent earlier simplification stages from reducing `sqrt(sin(x)**2)` to `sin(x)`.
+
+### 3. The Real Culprit: SymPy's Core Evaluation
+
+The issue is likely **NOT in `fu.py`** directly, but rather in **core SymPy's automatic simplification** that happens during expression construction.
+
+When you write `sqrt(sin(x)**2)`, this expression gets automatically evaluated in `sympy/core/power.py` or similar, where `Pow(sin(x)**2, S.Half)` might be automatically simplified to `Abs(sin(x))` or even to `sin(x)` depending on assumptions.
+
+However, given the problem statement specifically points to `fu.py`, let's investigate further.
+
+### 4. The Actual Issue in fu.py
+
+Upon closer inspection, the problem is likely in how `bottom_up()` and the various transformation rules process nested power expressions.
+
+The key issue is in **how expressions are evaluated before being passed through `fu()`**. By the time the expression reaches `fu()`, `sqrt(sin(x)**2)` may have already been "simplified" at a lower level.
+
+**However**, if we're being called with `trigsimp()`, which then calls `fu()`, the issue could be in:
+
+1. **The `TR8()` or `TR10()` functions** - which expand and manipulate trigonometric expressions
+2. **The initial expansion logic** - where `sqrt(sin(x)**2)` gets rewritten
+
+### 5. Critical Finding: The Missing Domain Check
+
+Looking at the code more carefully, **nowhere in the `fu.py` module is there a check for whether the simplifications being applied are valid for complex arguments.**
+
+The transformations assume certain identities hold, such as:
+- `sin(x)**2 + cos(x)**2 = 1` (always valid)
+- `sqrt(sin(x)**2) = sin(x)` (INVALID for complex x; should be `|sin(x)|`)
+
+### 6. The Specific Problem Code Location
+
+The issue is subtle: SymPy's automatic evaluation (not explicitly in `fu.py` but invoked during expression simplification) treats `sqrt(a**2)` as `a` when certain assumptions are made.
+
+However, **within `fu.py` itself**, the problem manifests in:
+
+**Function: `_TR56()` - The helper for TR5 and TR6**
+
+Located around line 300-330 in `fu.py`:
+
+```python
+def _f(rv):
+    if not (rv.is_Pow and rv.base.func == f):
+        return rv
+    if not rv.exp.is_real:
+        return rv
+
+    if (rv.exp < 0) == True:
+        return rv
+    if (rv.exp > max) == True:
+        return rv
+    if rv.exp == 2:
+        return h(g(rv.base.args[0])**2)
+    else:
+        if rv.exp == 4:
+            e = 2
+        elif not pow:
+            if rv.exp % 2:  # <-- THIS IS THE PROBLEM LINE
+                return rv
+            e = rv.exp//2
+        else:
+            p = perfect_power(rv.exp)
+            if not p:
+                return rv
+            e = rv.exp//2
+        return h(g(rv.base.args[0])**2)**e
+```
+
+The condition `if rv.exp % 2:` checks if the exponent is odd, but this check **only works for integer exponents**. For `rv.exp = S.Half` (i.e., `1/2`), this modulo operation may not behave as intended, or the expression may have already been simplified before reaching this point.
+
+**More likely: The actual problem is in the automatic simplification that happens BEFORE `fu()` is called.**
+
+### 7. The Pre-fu() Simplification Issue
+
+When `trigsimp()` is called on `cos(x) + sqrt(sin(x)**2)`, before `fu()` even gets involved, the expression might be simplified by:
+
+1. `sympy/core/power.py`'s `_eval_power()` or related methods
+2. `sympy/core/basic.py`'s automatic evaluation
+3. Or the `simplify()` function itself, which may call other simplification routines before `fu()`
+
+The expression `sqrt(sin(x)**2)` evaluates to `Abs(sin(x))` in the general case (complex x), but somewhere in the pipeline it's being reduced to just `sin(x)` without the absolute value.
+
+### 8. Where the Bug Actually Occurs
+
+The problem is that **SymPy's `Pow` class and core simplification doesn't properly distinguish between**:
+- Real domain assumptions (where `sqrt(a**2) = |a|`)
+- Complex domain (where `sqrt(a**2)` is multi-valued and not simply reducible)
+- The actual assumptions set on the variable
+
+**In `fu.py` specifically**, the issue is that the transformations are applied without checking the domain of applicability. The `fu()` function should:
+
+1. Check if the assumptions on the variables allow the simplifications
+2. Avoid applying identities that are only valid for real numbers when working with potentially complex expressions
+
+### 9. Precise Code Location in fu.py
+
+The offending logic is **implicit** rather than explicit. There's no single line that says "simplify sqrt(sin(x)**2) to sin(x)". Instead:
+
+1. The `fu()` function applies all transformations without domain checking
+2. The transformations don't preserve the distinction between expressions that require absolute values
+3. When TR5 or TR6 is applied, or when the expression is expanded with `TR8`, intermediate expressions lose their absolute value wrapping
+
+The actual bug location is:
+
+**Function: `fu()` (line ~1700-1750)**
+
+The problem is the **lack of a check** before and after transformations to ensure that:
+```python
+def fu(rv, measure=lambda x: (L(x), x.count_ops())):
+    # ... setup code ...
+    
+    # THE BUG: No check for whether variables are real or complex
+    # before applying domain-specific transformations
+    
+    rv = TR1(rv)
+    if rv.has(tan, cot):
+        rv1 = fRL1(rv)  # <-- These rules may invalidly simplify sqrt(sin(x)**2)
+        ...
+    if rv.has(sin, cos):
+        rv1 = fRL2(rv)  # <-- Same here
+        ...
+```
+
+## Summary of Root Cause
+
+The root cause is: **`fu()` and its transformation rules do not check whether the simplified variable(s) are assumed to be real before applying identities that are only valid for real numbers, such as treating `sqrt(a**2)` as `a` instead of `|a|`.**
+
+The specific issue is that no transformation in the `fu()` algorithm validates that `sqrt(sin(x)**2)` should retain its absolute value semantics when `x` is not explicitly assumed to be real.
+
+## Required Fix
+
+The fix requires one or both of:
+
+1. **Adding a domain/assumption check** in the `fu()` function before applying transformations that are only valid for real inputs
+2. **Modifying the transformation rules** (particularly TR5, TR6, and anything that processes square roots) to preserve absolute value operations when the argument may be complex
+3. **Ensuring that expressions like `sqrt(sin(x)**2)` are not simplified to `sin(x)` in the core evaluation** when assumptions don't guarantee real values

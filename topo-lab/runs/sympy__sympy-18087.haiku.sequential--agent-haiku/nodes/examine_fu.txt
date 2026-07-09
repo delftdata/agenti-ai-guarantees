@@ -1,0 +1,58 @@
+# Analysis of sqrt(sin(x)**2) Simplification Issue
+
+## Problem Statement
+`trigsimp(cos(x) + sqrt(sin(x)**2))` incorrectly simplifies to `cos(x) + sin(x)` for general complex `x`, when it should simplify to `cos(x) + Abs(sin(x))`. The function works correctly when `x` is assumed real.
+
+## Root Cause Analysis
+
+The issue is that `sqrt(sin(x)**2)` should simplify to `Abs(sin(x))` for general complex numbers, not to `sin(x)`. However, SymPy's trigonometric simplification is not respecting this mathematical constraint.
+
+## Key Transformations in fu.py That Are Involved
+
+1. **TR5 and TR6** (lines 449-480):
+   - `TR5`: Replaces `sin(x)**2` with `1 - cos(x)**2`
+   - `TR6`: Replaces `cos(x)**2` with `1 - sin(x)**2`
+   - These transformations use `_TR56` helper function
+   - **Problem**: When these are applied to expressions containing `sqrt(sin(x)**2)`, they first simplify `sin(x)**2` inside the square root, which can lead to incorrect simplification if the square root is not properly handled
+
+2. **TRpower** (lines 1095-1128):
+   - Converts `sin(x)**n` and `cos(x)**n` with positive n to sums
+   - Could interact poorly with square root expressions
+
+3. **Bottom-up traversal pattern** (used throughout):
+   - All transformation rules use `bottom_up(rv, f)` which processes expressions from leaves to root
+   - This means `sqrt(sin(x)**2)` gets processed before the overall expression
+   - If `sin(x)**2` is simplified without considering it's under a square root, the simplification becomes incorrect
+
+## Specific Problem Path
+
+1. When `trigsimp(cos(x) + sqrt(sin(x)**2))` is called, the `fu` function is invoked
+2. The bottom-up traversal encounters `sin(x)**2` inside `sqrt(...)`
+3. A transformation (likely TR5 or TR6) simplifies `sin(x)**2` to something without the square
+4. The square root then directly applies to this simplified form
+5. Without an assumption that `x` is real, `sqrt(...)` cannot simplify the trig function to remove the absolute value
+
+## Key Issue in Code Structure
+
+The transformation functions in fu.py are designed to simplify trigonometric identities but don't account for:
+- **Square roots of squared expressions**: `sqrt(f(x)**2)` should become `Abs(f(x))`, not `f(x)`
+- **Loss of sign information**: For complex `x`, `sqrt(sin(x)**2)` ≠ `sin(x)` in general
+
+## Where the Fix Should Apply
+
+The fix needs to be in one or more of these locations:
+1. **Before calling fu transformations**: Handle `sqrt(sin(x)**2)` patterns explicitly
+2. **In the base simplify or trigsimp function**: Ensure square roots of squared trig functions are handled correctly
+3. **In TR5/TR6 or a new transformation**: Make sure these don't apply inside square roots in ways that lose the absolute value
+
+## Why It Works for Real x
+
+When `x` is real:
+- The assumption system knows that `sin(x)` is real
+- Therefore `sqrt(sin(x)**2)` can safely simplify to `Abs(sin(x))`
+- Further assumptions about the sign of `sin(x)` may allow `Abs(sin(x))` to simplify further
+
+For complex `x`:
+- `sin(x)` can be complex
+- `sqrt(sin(x)**2)` cannot simplify to just `sin(x)`
+- Must remain as `sqrt(sin(x)**2)` or `Abs(sin(x))`

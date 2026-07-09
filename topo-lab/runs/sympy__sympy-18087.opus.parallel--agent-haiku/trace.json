@@ -1,0 +1,137 @@
+{
+  "graph": "sympy__sympy-18087.opus.parallel.json",
+  "topology": "parallel",
+  "agent": "haiku",
+  "mock": false,
+  "schedule": [
+    [
+      "inspect_trigsimp_paths",
+      "investigate_root_cause"
+    ],
+    [
+      "design_fix"
+    ],
+    [
+      "add_tests",
+      "apply_fix"
+    ],
+    [
+      "assemble_diff"
+    ]
+  ],
+  "wall_s": 240.15,
+  "total_cost_usd": 0.3917,
+  "overwrite_events": [],
+  "nodes": [
+    {
+      "node": "inspect_trigsimp_paths",
+      "wall_s": 17.24,
+      "reads": [
+        {
+          "path": "sympy/simplify/trigsimp.py",
+          "bytes": 44857,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 14903,
+      "cache_read_tokens": 17633,
+      "output_tokens": 1592,
+      "cost_usd": 0.02463,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "investigate_root_cause",
+      "wall_s": 18.03,
+      "reads": [
+        {
+          "path": "sympy/simplify/fu.py",
+          "bytes": 66787,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 23391,
+      "cache_read_tokens": 17633,
+      "output_tokens": 2024,
+      "cost_usd": 0.03527,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "design_fix",
+      "wall_s": 27.91,
+      "reads": [
+        {
+          "path": "sympy/simplify/fu.py",
+          "bytes": 66787,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 26981,
+      "cache_read_tokens": 17633,
+      "output_tokens": 3313,
+      "cost_usd": 0.04531,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "add_tests",
+      "wall_s": 68.78,
+      "reads": [
+        {
+          "path": "sympy/simplify/tests/test_fu.py",
+          "bytes": 17497,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 12062,
+      "cache_read_tokens": 17633,
+      "output_tokens": 16242,
+      "cost_usd": 0.09504,
+      "status": "failure",
+      "error": "declared writes but no parseable FILE blocks in output",
+      "files_written": []
+    },
+    {
+      "node": "apply_fix",
+      "wall_s": 187.9,
+      "reads": [
+        {
+          "path": "sympy/simplify/fu.py",
+          "bytes": 66787,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 26615,
+      "cache_read_tokens": 17633,
+      "output_tokens": 23605,
+      "cost_usd": 0.1464,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "sympy/simplify/fu.py"
+      ]
+    },
+    {
+      "node": "assemble_diff",
+      "wall_s": 6.3,
+      "reads": [],
+      "missing_deps": [],
+      "input_tokens": 39393,
+      "cache_read_tokens": 17633,
+      "output_tokens": 788,
+      "cost_usd": 0.0451,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    }
+  ]
+}

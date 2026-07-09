@@ -1,0 +1,18 @@
+The issue is not in radsimp.py. Radical simplification (`radsimp`, `rad_rationalize`, `split_surds`, etc.) in this file is concerned with rationalizing denominators containing square roots and collecting radical terms. None of the functions here would transform `sqrt(sin(x)**2)` into `sin(x)`.
+
+The bug described—`trigsimp` incorrectly simplifying `cos(x) + sqrt(sin(x)**2)` as though it were `cos(x) + sin(x)` for general complex `x`—stems from the assumption `sqrt(sin(x)**2) == sin(x)`, which is only valid when `sin(x)` is real/nonnegative (i.e., for real `x`). For general complex `x`, `sqrt(z**2) = Abs(z)`-like behavior (or should stay as `sqrt(sin(x)**2)`), not `z` itself.
+
+Key observations from reading radsimp.py:
+
+- `radsimp` only touches expressions with radicals in denominators. `cos(x) + sqrt(sin(x)**2)` has no denominator radical to rationalize, so `handle`/`_num`/`rad_rationalize` do nothing relevant.
+- `ispow2` and the collection logic here only detect powers with rational exponent `q == 2` for the purpose of denominator rationalization; they do not perform the `sqrt(a**2) -> a` reduction.
+- `split_surds`/`_split_gcd` operate on numeric surds (squares that are positive rationals), not on `sin(x)**2`.
+
+So the real culprit lies elsewhere—in the power evaluation/simplification path that reduces `sqrt(sin(x)**2)` to `sin(x)`. Specifically:
+
+1. `Pow.eval`/`_eval_power` handling of `(sin(x)**2)**(1/2)`: the rule `(b**e)**other == b**(e*other)` is only valid under conditions on the sign/reality of the base. For a base like `sin(x)**2`, sympy must not collapse `(sin(x)**2)**Rational(1,2)` to `sin(x)` unless `sin(x)` is known nonnegative. This is in `sympy/core/power.py` (the logic in `Pow._eval_power` guarding the `n*p` exponent combination against complex bases).
+2. Possibly the `trigsimp`/`futrig` machinery in `sympy/simplify/trigsimp.py` and the Fu transforms in `sympy/simplify/fu.py`, which may apply Pythagorean-identity substitutions on `sqrt(sin(x)**2)` assuming `sqrt(sin(x)**2) = sin(x)`.
+
+Recommendation: do not modify radsimp.py for this bug. The fix belongs in the power-simplification rule that governs `(x**2)**(S.Half)`. It should only reduce to `x` when `x` is real and nonnegative; otherwise it should yield `Abs(x)` (for real) or remain unevaluated / use `powdenest`-style guarding (for complex). Investigate `sympy/core/power.py`'s `_eval_power`/`Pow.eval` conditions (the `b.is_nonnegative`, `e.is_even`, `other`/`e*other` combination guards) and the `powdenest`/`powsimp` `force` behavior in `sympy/simplify/powsimp.py`, plus the trig identity application in `sympy/simplify/fu.py` / `trigsimp.py`.
+
+Conclusion: radsimp.py is not the source of the issue.

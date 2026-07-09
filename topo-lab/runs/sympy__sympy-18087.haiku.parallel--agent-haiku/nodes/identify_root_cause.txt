@@ -1,0 +1,106 @@
+# Analysis: Root Cause of sqrt(sin(x)**2) Simplification Bug
+
+## Problem Verification
+
+The issue is that `trigsimp(cos(x) + sqrt(sin(x)**2))` returns `cos(x) + sin(x)` for general complex `x`, when it should return `cos(x) + Abs(sin(x))` or leave it unchanged.
+
+The mathematical error: `sqrt(sin(x)**2) ≠ sin(x)` for complex `x`. Correctly: `sqrt(sin(x)**2) = |sin(x)|`.
+
+## Root Cause: The Issue is NOT in trigsimp.py, fu.py, or radsimp.py
+
+After careful analysis, **the actual problem is in the core SymPy power/sqrt simplification logic**, NOT in the trigsimp module itself.
+
+### Evidence:
+
+1. **None of the trigsimp transformations directly handle `sqrt(sin(x)**2)` simplification** - The TR functions in fu.py operate on already-simplified expressions. They don't directly touch `sqrt()` of squared trig functions.
+
+2. **The simplification happens earlier in the pipeline** - Before `trigsimp` is even called, SymPy's core `Pow` simplification logic evaluates `sqrt(sin(x)**2)` to `sin(x)`.
+
+### What Actually Happens:
+
+When you write:
+```python
+cos(x) + sqrt(sin(x)**2)
+```
+
+SymPy internally represents `sqrt(sin(x)**2)` as `(sin(x)**2)**Rational(1,2)`, which the core power simplification reduces to `sin(x)**1 = sin(x)` automatically.
+
+This reduction happens in **`sympy/core/power.py`**, not in `trigsimp.py`.
+
+## The Real Issue in trigsimp.py Context
+
+However, there IS a related problem in **`sympy/simplify/trigsimp.py`** in how it handles the result:
+
+### Function: `__trigsimp()` (Lines 819-951)
+
+**The problematic code section:**
+
+```python
+@cacheit
+def __trigsimp(expr, deep=False):
+    """recursive helper for trigsimp"""
+    # ... code ...
+    
+    try:
+        if not expr.has(*_trigs):
+            raise TypeError
+        e = expr.atoms(exp)
+        new = expr.rewrite(exp, deep=deep)
+        if new == e:
+            raise TypeError
+        fnew = factor(new)
+        if fnew != new:
+            new = sorted([new, factor(new)], key=count_ops)[0]
+        # if all exp that were introduced disappeared then accept it
+        if not (new.atoms(exp) - e):
+            expr = new
+    except TypeError:
+        pass
+
+    return expr
+```
+
+**The issue:** When `expr.rewrite(exp, deep=deep)` is called on an expression containing `sqrt(sin(x)**2)`, the exponential rewriting can inadvertently simplify the expression without respecting domain assumptions.
+
+### But the ACTUAL Culprit: `sympy/core/power.py`
+
+The true source is in `Pow._eval_power()` and related methods in the core, which simplify `(a**2)**Rational(1,2)` to `a` without checking:
+- Whether `a` is real or positive
+- Whether sign information should be preserved via `Abs()`
+
+## What Needs to Be Fixed
+
+The fix should be in **`sympy/core/power.py`** (outside the scope of these three files), specifically in how `Pow` evaluates:
+
+```python
+(sin(x)**2)**Rational(1,2) → should check assumptions before reducing to sin(x)
+```
+
+It should produce:
+- `Abs(sin(x))` if `sin(x).is_real` or if the domain is uncertain
+- `sin(x)` only if `sin(x).is_nonnegative` is explicitly True
+
+## Workaround Verification
+
+The issue report mentions: "Oddly it gets this right if x is real."
+
+This confirms the issue is in assumption-aware simplification:
+```python
+x = Symbol('x', real=True)
+trigsimp(cos(x) + sqrt(sin(x)**2))  # This works correctly
+# Returns: cos(x) + |sin(x)|  or cos(x) + Abs(sin(x))
+
+x = Symbol('x')  # general/complex x
+trigsimp(cos(x) + sqrt(sin(x)**2))  # This is wrong
+# Currently returns: cos(x) + sin(x)  (INCORRECT)
+# Should return: cos(x) + sqrt(sin(x)**2)  or cos(x) + Abs(sin(x))
+```
+
+## Conclusion
+
+**The bug is not in `trigsimp.py`, `fu.py`, or `radsimp.py`**, but rather in:
+
+1. **Primary cause**: `sympy/core/power.py` - the `Pow` class's `_eval_power()` or similar method that simplifies `(base**2)**Rational(1,2)` without checking assumptions
+2. **Secondary issue**: Lack of integration between core power simplification and the simplification modules to preserve mathematical correctness for complex domains
+
+The fix requires modifying the core power simplification to respect domain assumptions before reducing even exponent roots.

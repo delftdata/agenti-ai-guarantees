@@ -1,0 +1,312 @@
+diff --git a/sympy/simplify/fu.py b/sympy/simplify/fu.py
+index 1234567..abcdefg 100644
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ -45,6 +45,7 @@ from sympy import (
+     sin, cos, tan, cot, sec, csc,
+     sinh, cosh, tanh, coth, sech, csch, exp, log, sqrt, I, pi,
+     simplify, trigsimp as _trigsimp, factor, Mul, Add, Pow,
+-    symbols, expand, factor_terms, powsimp, fraction, S
++    symbols, expand, factor_terms, powsimp, fraction, S, Abs, arg, im
+ )
+ from sympy.core.compatibility import is_sequence
+ from sympy.core.mul import Mul
+@@ -600,6 +601,34 @@ def _sqrt_simplify(expr):
+     """Simplify square root expressions in trig simplification."""
+     from sympy.simplify.radsimp import sqrt_ratsimp
+     
++    # Handle sqrt of squared trig functions
++    if isinstance(expr, Pow) and expr.exp == S.Half:
++        base = expr.base
++        # Check if base is a trig function squared
++        if isinstance(base, Pow) and base.exp == 2:
++            inner = base.base
++            # For sqrt(f(x)**2), if x is not real, we should use abs(f(x))
++            # For real x, abs(f(x)) is the correct simplification
++            if inner.is_real is False:
++                # Complex variable - cannot simplify sqrt(f**2) to f
++                return Abs(inner)
++            elif inner.is_real is None:
++                # Unknown - check if the function contains symbols
++                free_symbols = inner.free_symbols
++                if free_symbols:
++                    # Has free symbols - assume they could be complex unless proven real
++                    has_nonreal_symbols = any(
++                        s.is_real is False or 
++                        (s.is_real is None and not s.is_real) 
++                        for s in free_symbols
++                    )
++                    if has_nonreal_symbols:
++                        return Abs(inner)
++                    # If all symbols are explicitly real or positive, allow simplification
++                    return inner
++            else:
++                # Explicitly real
++                return Abs(inner)
++    
+     return sqrt_ratsimp(expr)
+ 
+ 
+diff --git a/sympy/simplify/tests/test_trigsimp.py b/sympy/simplify/tests/test_trigsimp.py
+index 1234567..abcdefg 100644
+--- a/sympy/simplify/tests/test_trigsimp.py
++++ b/sympy/simplify/tests/test_trigsimp.py
+@@ -1,6 +1,6 @@
+ from sympy import (
+     symbols, sin, simplify, cos, trigsimp, tan, exptrigsimp,sinh,
+     cosh, diff, cot, Subs, exp, tanh, S, integrate, I,Matrix,
+-    Symbol, coth, pi, log, count_ops, sqrt, E, expand, Piecewise , Rational
++    Symbol, coth, pi, log, count_ops, sqrt, E, expand, Piecewise, Rational, Abs
+     )
+ 
+ from sympy.core.compatibility import long
+@@ -263,6 +263,21 @@ def test_trigsimp_issue_7761():
+     assert trigsimp(cosh(pi/4)) == cosh(pi/4)
+ 
+ 
++def test_trigsimp_issue_18087():
++    # Regression test for issue #18087
++    # sqrt(sin(x)**2) should simplify to abs(sin(x)), not sin(x)
++    # This is especially important for complex x where the distinction matters
++    
++    # For general (complex) x, sqrt(sin(x)**2) should not simplify to sin(x)
++    x = Symbol('x')
++    expr = cos(x) + sqrt(sin(x)**2)
++    result = trigsimp(expr)
++    # Should not simplify to cos(x) + sin(x)
++    assert result != cos(x) + sin(x), \
++        f"Expected not to simplify to cos(x) + sin(x), but got {result}"
++    assert Abs(sin(x)) in result.atoms(Abs) or sqrt(sin(x)**2) in str(result)
++
++
+ def test_trigsimp_noncommutative():
+     x, y = symbols('x,y')
+     A, B = symbols('A,B', commutative=False)
+```
+
+Wait, let me reconsider. The issue is more fundamental - it's about how `sqrt(sin(x)**2)` gets simplified during the trigsimp process. Let me look at the actual problem more carefully and provide a proper fix.
+
+```diff
+diff --git a/sympy/simplify/fu.py b/sympy/simplify/fu.py
+index 1234567..abcdefg 100644
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ -45,7 +45,7 @@ from sympy import (
+     sin, cos, tan, cot, sec, csc,
+     sinh, cosh, tanh, coth, sech, csch, exp, log, sqrt, I, pi,
+     simplify, trigsimp as _trigsimp, factor, Mul, Add, Pow,
+-    symbols, expand, factor_terms, powsimp, fraction, S
++    symbols, expand, factor_terms, powsimp, fraction, S, Abs
+ )
+ from sympy.core.compatibility import is_sequence
+ from sympy.core.mul import Mul
+@@ -485,6 +485,28 @@ def TR1(p):
+         p = p.rewrite(exp)
+     return p
+ 
++
++def _check_should_be_abs(expr):
++    """
++    Check if sqrt(expr**2) should be simplified to abs(expr) instead of expr.
++    
++    For complex variables, sqrt(x**2) = abs(x), not x.
++    For real variables, sqrt(x**2) = abs(x) as well.
++    We should only simplify to x if x is explicitly positive.
++    """
++    if not isinstance(expr, Pow) or expr.exp != 2:
++        return False
++    
++    base = expr.base
++    # Check if base has any symbols that are not assumed real and positive
++    for symbol in base.free_symbols:
++        if symbol.is_positive is not True:
++            # Not explicitly positive, so use abs
++            return True
++    
++    # All symbols are positive, can simplify without abs
++    return False
++
+ 
+ # order matters in this list --- rules are applied in the order given
+ _trigs = [
+@@ -568,6 +590,22 @@ def TR2(p):
+     >>> TR2(cos(x)**2)
+     (1 + cos(2*x))/2
+     """
++    from sympy import sqrt
++    
++    # Handle sqrt of squared trig functions carefully
++    # sqrt(sin(x)**2) should become abs(sin(x)) for general x
++    # not sin(x) unless x is known to be positive
++    if isinstance(p, sqrt):
++        base = p.base
++        if isinstance(base, Pow) and base.exp == 2:
++            inner = base.base
++            # Check if we should convert to abs instead of simplifying directly
++            if inner.has(sin, cos, tan, cot, sec, csc) and _check_should_be_abs(base):
++                p = Abs(inner)
++                # Don't continue with other simplifications on abs
++                return p
++    
+     if isinstance(p, Pow):
+         if isinstance(p.base, Basic) and p.exp == S(2):
+             return _TR2(p.base)
+@@ -595,6 +633,23 @@ def _TR2(p):
+             newp = _TR2(term)
+             if newp != term:
+                 p = p.subs(term, newp)
++
+     return p
+ 
+ 
++def _sqrt_simplify_handle_trig(expr):
++    """Handle sqrt of squared trig expressions properly."""
++    if not isinstance(expr, Pow) or expr.exp != S.Half:
++        return None
++    
++    base = expr.base
++    if isinstance(base, Pow) and base.exp == 2:
++        inner = base.base
++        if inner.has(sin, cos, tan, cot, sec, csc, 
++                     sinh, cosh, tanh, coth, sech, csch):
++            if _check_should_be_abs(base):
++                return Abs(inner)
++    
++    return None
++
++
+ def TR3(p):
+diff --git a/sympy/simplify/tests/test_trigsimp.py b/sympy/simplify/tests/test_trigsimp.py
+index 1234567..abcdefg 100644
+--- a/sympy/simplify/tests/test_trigsimp.py
++++ b/sympy/simplify/tests/test_trigsimp.py
+@@ -1,6 +1,6 @@
+ from sympy import (
+     symbols, sin, simplify, cos, trigsimp, tan, exptrigsimp,sinh,
+     cosh, diff, cot, Subs, exp, tanh, S, integrate, I,Matrix,
+-    Symbol, coth, pi, log, count_ops, sqrt, E, expand, Piecewise , Rational
++    Symbol, coth, pi, log, count_ops, sqrt, E, expand, Piecewise, Rational, Abs
+     )
+ 
+ from sympy.core.compatibility import long
+@@ -263,6 +263,24 @@ def test_trigsimp_issue_7761():
+     assert trigsimp(cosh(pi/4)) == cosh(pi/4)
+ 
+ 
++def test_trigsimp_issue_18087():
++    # Regression test for issue #18087
++    # sqrt(sin(x)**2) should simplify to abs(sin(x)), not sin(x)
++    # This is especially important for complex x where the distinction matters
++    
++    # For general (complex) x, the expression should not simplify incorrectly
++    x = Symbol('x')
++    expr = cos(x) + sqrt(sin(x)**2)
++    result = trigsimp(expr)
++    
++    # The result should NOT be cos(x) + sin(x)
++    # It should be cos(x) + abs(sin(x)) or remain as cos(x) + sqrt(sin(x)**2)
++    assert result != cos(x) + sin(x), \
++        f"sqrt(sin(x)**2) should not simplify to sin(x) for general x, got {result}"
++    
++    # For real x, it should simplify to abs(sin(x))
++    x_real = Symbol('x', real=True)
++    expr_real = cos(x_real) + sqrt(sin(x_real)**2)
++    result_real = trigsimp(expr_real)
++    assert result_real == cos(x_real) + Abs(sin(x_real))
++
++
+ def test_trigsimp_noncommutative():
+     x, y = symbols('x,y')
+     A, B = symbols('A,B', commutative=False)
+```
+
+Actually, I need to reconsider the approach. The real issue is in how `sqrt` of squared expressions is being simplified. Let me look at the actual root cause more carefully and provide the correct fix.
+
+The issue is that somewhere in the simplification pipeline, `sqrt(sin(x)**2)` is being simplified directly to `sin(x)` without checking if `x` could be complex. Let me provide the correct fix:
+
+```diff
+diff --git a/sympy/simplify/fu.py b/sympy/simplify/fu.py
+index 1234567..abcdefg 100644
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ -45,7 +45,7 @@ from sympy import (
+     sin, cos, tan, cot, sec, csc,
+     sinh, cosh, tanh, coth, sech, csch, exp, log, sqrt, I, pi,
+     simplify, trigsimp as _trigsimp, factor, Mul, Add, Pow,
+-    symbols, expand, factor_terms, powsimp, fraction, S
++    symbols, expand, factor_terms, powsimp, fraction, S, Abs
+ )
+ from sympy.core.compatibility import is_sequence
+ from sympy.core.mul import Mul
+@@ -484,6 +484,7 @@ def TR1(p):
+         p = p.rewrite(exp)
+     return p
+ 
++
+ def TR2(p):
+     """
+     ::
+@@ -501,6 +502,27 @@ def TR2(p):
+     >>> TR2(cos(x)**2)
+     (1 + cos(2*x))/2
+     """
++    from sympy import sqrt, arg, im
++    
++    # Handle sqrt of squared expressions carefully
++    # sqrt(f(x)**2) should become abs(f(x)) for complex x
++    # but can become f(x) for explicitly positive f
++    if isinstance(p, sqrt):
++        arg_val = p.base
++        if isinstance(arg_val, Pow) and arg_val.exp == 2:
++            inner = arg_val.base
++            # For sqrt(inner**2), simplify to abs(inner) unless
++            # inner is explicitly positive
++            if inner.is_positive is not True:
++                # Not provably positive, use abs
++                simplified = Abs(inner)
++                # If inner is real, abs is the right answer
++                # If inner is complex, abs gives the magnitude which is correct
++                return simplified
++            # If explicitly positive, can use directly
++            # (This case won't typically happen with trig functions)
++            return inner
++    
+     if isinstance(p, Pow):
+         if isinstance(p.base, Basic) and p.exp == S(2):
+             return _TR2(p.base)
+diff --git a/sympy/simplify/tests/test_trigsimp.py b/sympy/simplify/tests/test_trigsimp.py
+index 1234567..abcdefg 100644
+--- a/sympy/simplify/tests/test_trigsimp.py
++++ b/sympy/simplify/tests/test_trigsimp.py
+@@ -1,6 +1,6 @@
+ from sympy import (
+     symbols, sin, simplify, cos, trigsimp, tan, exptrigsimp,sinh,
+     cosh, diff, cot, Subs, exp, tanh, S, integrate, I,Matrix,
+-    Symbol, coth, pi, log, count_ops, sqrt, E, expand, Piecewise , Rational
++    Symbol, coth, pi, log, count_ops, sqrt, E, expand, Piecewise, Rational, Abs
+     )
+ 
+ from sympy.core.compatibility import long
+@@ -263,6 +263,21 @@ def test_trigsimp_issue_7761():
+     assert trigsimp(cosh(pi/4)) == cosh(pi/4)
+ 
+ 
++def test_trigsimp_issue_18087():
++    # Regression test for issue #18087
++    # sqrt(sin(x)**2) should simplify to abs(sin(x)), not sin(x)
++    # This is especially important for complex x where the distinction matters
++    
++    # For general (complex) x, the expression should not simplify incorrectly
++    x = Symbol('x')
++    expr = cos(x) + sqrt(sin(x)**2)
++    result = trigsimp(expr)
++    
++    # The result should NOT be cos(x) + sin(x)
++    # It should be cos(x) + abs(sin(x))
++    assert result != cos(x) + sin(x)
++    assert result == cos(x) + Abs(sin(x))
++
++
+ def test_trigsimp_noncommutative():
+     x, y = symbols('x,y')
+     A, B = symbols('A,B', commutative=False)

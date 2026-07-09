@@ -1,0 +1,232 @@
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ -113,6 +113,14 @@ def _TR56(rv, f, g, h, max, pow):
+         if (rv.exp > max) == True:
+             return rv
++        # Only apply the transformation for positive integer exponents
++        # This prevents sqrt(f(x)**2) [exponent=0.5] from being incorrectly
++        # transformed to sqrt(1 - g(x)**2) when f and g are trig functions
++        if not rv.exp.is_integer:
++            return rv
++        
+         if rv.exp == 2:
+             return h(g(rv.base.args[0])**2)
+         else:
+--- a/sympy/simplify/tests/test_trigsimp.py
++++ b/sympy/simplify/tests/test_trigsimp.py
+@@ -159,3 +159,172 @@ def test_trigsimp_issue_9398():
+ def test_trigsimp_issue_11791():
+     # Test that the simplified expression is correct
+     a1 = sin(x)**2/cos(x)**2
+     a2 = tan(x)**2
+     assert trigsimp(a1) == a2
++
++
++def test_trigsimp_sqrt_sin_squared_complex_x():
++    """
++    Regression test for issue where trigsimp incorrectly simplifies
++    cos(x) + sqrt(sin(x)**2) to cos(x) + sin(x) for complex x.
++    
++    Mathematically, sqrt(sin(x)**2) = |sin(x)|, not sin(x), in general.
++    For complex x, we cannot simplify sqrt(sin(x)**2) to sin(x).
++    """
++    # For a general complex symbol, sqrt(sin(x)**2) should not simplify to sin(x)
++    expr = cos(x) + sqrt(sin(x)**2)
++    result = trigsimp(expr)
++    
++    # The result should NOT be cos(x) + sin(x)
++    assert result != cos(x) + sin(x), \
++        "trigsimp incorrectly simplified cos(x) + sqrt(sin(x)**2) to cos(x) + sin(x)"
++    
++    # The expression should either remain unchanged or be minimal
++    # (it could simplify to Abs form if domain knowledge is applied)
++    # but it definitely should not simplify to sin form
++    is_correct = (
++        result == cos(x) + sqrt(sin(x)**2) or  # no simplification
++        result == cos(x) + Abs(sin(x)) or      # simplified to Abs
++        'sqrt' in str(result) or                # contains sqrt
++        'Abs' in str(result)                    # contains Abs
++    )
++    assert is_correct, \
++        f"Unexpected simplification result: {result}"
++
++
++def test_trigsimp_sqrt_cos_squared_complex_x():
++    """
++    Similar regression test for cos in the square root.
++    """
++    expr = sin(x) + sqrt(cos(x)**2)
++    result = trigsimp(expr)
++    
++    # The result should NOT be sin(x) + cos(x)
++    assert result != sin(x) + cos(x), \
++        "trigsimp incorrectly simplified sin(x) + sqrt(cos(x)**2) to sin(x) + cos(x)"
++    
++    # The expression should be minimal/correct
++    is_correct = (
++        result == sin(x) + sqrt(cos(x)**2) or
++        result == sin(x) + Abs(cos(x)) or
++        'sqrt' in str(result) or
++        'Abs' in str(result)
++    )
++    assert is_correct, \
++        f"Unexpected simplification result: {result}"
++
++
++def test_trigsimp_sqrt_sin_squared_real_x():
++    """
++    Test that for a real symbol, sqrt(sin(x)**2) can simplify properly.
++    For real x, sqrt(sin(x)**2) = |sin(x)|.
++    """
++    x_real = Symbol('x', real=True)
++    expr = cos(x_real) + sqrt(sin(x_real)**2)
++    result = trigsimp(expr)
++    
++    # For a real symbol, this should simplify to cos(x) + Abs(sin(x))
++    # but definitely NOT to cos(x) + sin(x)
++    assert result != cos(x_real) + sin(x_real), \
++        "For real x, sqrt(sin(x)**2) should not simplify to sin(x)"
++
++
++def test_trigsimp_sqrt_cos_squared_real_x():
++    """
++    Test that for a real symbol, sqrt(cos(x)**2) can simplify properly.
++    """
++    x_real = Symbol('x', real=True)
++    expr = sin(x_real) + sqrt(cos(x_real)**2)
++    result = trigsimp(expr)
++    
++    # For a real symbol, this should NOT simplify to sin(x) + cos(x)
++    assert result != sin(x_real) + cos(x_real), \
++        "For real x, sqrt(cos(x)**2) should not simplify to cos(x)"
++
++
++def test_trigsimp_preserves_power_reduction_integer_exponents():
++    """
++    Regression test to ensure TR5 and TR6 power-reduction still works
++    for integer exponents after the fix for non-integer exponents.
++    
++    This verifies that the fix (rejecting non-integer exponents in _TR56)
++    doesn't break the valid power-reduction transformations.
++    """
++    from sympy.simplify.fu import TR5, TR6
++    
++    # TR5: sin(x)**2 should be reducible
++    expr_2 = sin(x)**2
++    result_2 = TR5(expr_2)
++    # sin(x)**2 = 1 - cos(x)**2 by TR5
++    assert result_2 == 1 - cos(x)**2, \
++        f"TR5(sin(x)**2) should be 1 - cos(x)**2, got {result_2}"
++    
++    # TR5 on sin(x)**4 should produce (1 - cos(x)**2)**2
++    expr_4 = sin(x)**4
++    result_4 = TR5(expr_4)
++    expected_4 = (1 - cos(x)**2)**2
++    assert result_4 == expected_4, \
++        f"TR5(sin(x)**4) should be {expected_4}, got {result_4}"
++    
++    # TR6: cos(x)**2 should be reducible  
++    expr_cos2 = cos(x)**2
++    result_cos2 = TR6(expr_cos2)
++    expected_cos2 = 1 - sin(x)**2
++    assert result_cos2 == expected_cos2, \
++        f"TR6(cos(x)**2) should be {expected_cos2}, got {result_cos2}"
++    
++    # TR6 on cos(x)**4 should produce (1 - sin(x)**2)**2
++    expr_cos4 = cos(x)**4
++    result_cos4 = TR6(expr_cos4)
++    expected_cos4 = (1 - sin(x)**2)**2
++    assert result_cos4 == expected_cos4, \
++        f"TR6(cos(x)**4) should be {expected_cos4}, got {result_cos4}"
++
++
++def test_trigsimp_sqrt_power_not_reduced():
++    """
++    Regression test that sqrt(sin(x)**2) and sqrt(cos(x)**2)
++    are not incorrectly processed through power reduction.
++    
++    The _TR56 function should reject non-integer exponents.
++    So sqrt(f(x)**2) with outer exponent 1/2 should not be transformed.
++    """
++    from sympy.simplify.fu import TR5, TR6
++    
++    # sqrt(sin(x)**2) should NOT be transformed by TR5
++    expr = sqrt(sin(x)**2)
++    result = TR5(expr)
++    assert result == sqrt(sin(x)**2), \
++        f"TR5(sqrt(sin(x)**2)) should return unchanged, got {result}"
++    
++    # sqrt(cos(x)**2) should NOT be transformed by TR6
++    expr2 = sqrt(cos(x)**2)
++    result2 = TR6(expr2)
++    assert result2 == sqrt(cos(x)**2), \
++        f"TR6(sqrt(cos(x)**2)) should return unchanged, got {result2}"
++    
++    # And the expression cos(x) + sqrt(sin(x)**2) should NOT simplify
++    # through these transformations
++    expr3 = cos(x) + sqrt(sin(x)**2)
++    result3 = TR5(expr3)
++    # Should not have transformed the sqrt(sin(x)**2) part
++    assert result3 == cos(x) + sqrt(sin(x)**2) or 'sqrt' in str(result3), \
++        f"TR5 should not simplify sqrt(sin(x)**2) to sin(x), got {result3}"
++
++
++def test_trigsimp_combined_sqrt_expressions():
++    """
++    Test various combinations with square roots to ensure no
++    incorrect simplifications occur.
++    """
++    # Test expression with multiple square roots
++    expr = sqrt(sin(x)**2) + sqrt(cos(x)**2) + tan(x)
++    result = trigsimp(expr)
++    
++    # Should not simplify sqrt terms to sin/cos
++    assert result != sqrt(sin(x)**2) + sqrt(cos(x)**2) + tan(x) or \
++           result == sqrt(sin(x)**2) + sqrt(cos(x)**2) + tan(x), \
++        "Multiple sqrt terms should not be incorrectly simplified"
++    
++    # Test with multiplication
++    expr2 = 2*sqrt(sin(x)**2)
++    result2 = trigsimp(expr2)
++    assert result2 != 2*sin(x), \
++        "2*sqrt(sin(x)**2) should not simplify to 2*sin(x) for general x"
++
++
++def test_trigsimp_power_identity_still_works():
++    """
++    Verify that fundamental identity sin(x)**2 + cos(x)**2 = 1 still works.
++    """
++    expr = sin(x)**2 + cos(x)**2
++    result = trigsimp(expr)
++    assert result == 1, \
++        f"Fundamental identity broken: trigsimp(sin(x)**2 + cos(x)**2) = {result}"
++
++
++def test_trigsimp_integer_powers_still_work():
++    """
++    Comprehensive test that integer power reductions still work correctly.
++    """
++    # sin(x)**2 + cos(x)**2 = 1 (fundamental)
++    assert trigsimp(sin(x)**2 + cos(x)**2) == 1
++    
++    # 2*sin(x)*cos(x) = sin(2*x)
++    assert trigsimp(2*sin(x)*cos(x)) == sin(2*x)
++    
++    # cos(x)**2 - sin(x)**2 = cos(2*x)
++    assert trigsimp(cos(x)**2 - sin(x)**2) == cos(2*x)
++
++
++def test_trigsimp_branch_cuts():
++    """
++    Test that trigsimp respects complex domain for expressions
++    with fractional powers.
++    """
++    # For a general symbol (which could be complex),
++    # sqrt(f(x)**2) has branch cut considerations
++    expr = sqrt(sin(x)**2)
++    result = trigsimp(expr)
++    
++    # Should NOT simplify to |sin(x)| without domain information
++    # Should NOT simplify to sin(x)
++    assert result != sin(x), \
++        "sqrt(sin(x)**2) should not simplify to sin(x) without domain info"

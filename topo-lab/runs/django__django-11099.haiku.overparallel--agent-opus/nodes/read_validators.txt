@@ -1,0 +1,29 @@
+The file `django/contrib/auth/validators.py` contains two username validator classes, both subclassing `validators.RegexValidator`:
+
+**1. ASCIIUsernameValidator**
+- Decorated with `@deconstructible`
+- `regex = r'^[\w.@+-]+$'`
+- Custom error message referencing "English letters, numbers, and @/./+/-/_ characters."
+- `flags = re.ASCII` — restricts `\w` to ASCII word characters only.
+
+**2. UnicodeUsernameValidator**
+- Decorated with `@deconstructible`
+- `regex = r'^[\w.@+-]+$'` (identical regex to the ASCII one)
+- Custom error message referencing "letters, numbers, and @/./+/-/_ characters." (no "English" qualifier)
+- `flags = 0` — no special flags, so `\w` matches Unicode word characters.
+
+**The problem with the regex pattern:**
+
+Both validators use `r'^[\w.@+-]+$'`. The intent is to only allow alphanumeric/word characters plus `.`, `@`, `+`, and `-`. However, in Python regexes, `$` matches not only at the end of the string but also just before a trailing newline. This means a username like `"foo\n"` would incorrectly pass validation.
+
+**The fix:**
+
+Replace the anchors `^` and `$` with `\A` and `\Z`, which strictly match the start and end of the string (with no trailing-newline exception). The new pattern should be:
+
+```
+r'\A[\w.@+-]+\Z'
+```
+
+This change needs to be applied to the `regex` attribute of both `ASCIIUsernameValidator` and `UnicodeUsernameValidator`. The `flags`, `message`, and `@deconstructible` decorators remain unchanged.
+
+One consideration worth noting: since these validators are `@deconstructible` and referenced in migrations (via `AbstractUser.username`'s validators), changing the regex value changes the deconstructed representation. But since these validator instances are compared by their attributes in migration state and the change is intentional, this is the correct and minimal fix. The existing migration `0008_alter_user_username_max_length.py` already references these validators, so no new migration is strictly required for the regex change itself (validators aren't serialized as part of the DB schema in a way that requires a schema migration).
