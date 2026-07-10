@@ -1,0 +1,3 @@
+# Benchmark task checkouts: large and regenerable via scripts/task_setup.py.
+tasks/*
+!tasks/README.md
