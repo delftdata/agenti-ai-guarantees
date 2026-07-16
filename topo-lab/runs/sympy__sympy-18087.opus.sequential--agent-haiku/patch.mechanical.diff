@@ -1,0 +1,18 @@
+diff --git a/sympy/simplify/fu.py b/sympy/simplify/fu.py
+index 612bc0bb69..39d4760d03 100644
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ -507,6 +507,13 @@ def _f(rv):
+             return rv
+         if (rv.exp > max) == True:
+             return rv
++        
++        # Only apply the transformation for positive integer exponents
++        # This prevents sqrt(f(x)**2) [exponent=0.5] from being incorrectly
++        # transformed to sqrt(1 - g(x)**2) when f and g are trig functions
++        if not rv.exp.is_integer:
++            return rv
++        
+         if rv.exp == 2:
+             return h(g(rv.base.args[0])**2)
+         else:

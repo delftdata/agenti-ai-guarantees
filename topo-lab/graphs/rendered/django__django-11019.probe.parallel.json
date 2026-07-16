@@ -1,0 +1,68 @@
+{
+  "nodes": [
+    {
+      "id": "fix_css",
+      "instruction": "You are given the current complete contents of django/forms/widgets.py. Apply exactly the following change and reproduce every other line of the file byte-for-byte as it appears in the version you were given, including any changes already present. (1) Ensure the import line 'from collections import defaultdict' is present in the top import block; add it directly after 'import warnings' only if it is absent. (2) Replace the body of the _css property of the Media class with exactly this code:\n\n    @property\n    def _css(self):\n        css = defaultdict(list)\n        for css_list in self._css_lists:\n            for medium, sublist in css_list.items():\n                css[medium].append(sublist)\n        return {medium: self.merge(*lists) for medium, lists in css.items()}\n\nDo not modify the _js property, the merge method, or anything else: leave them exactly as they appear in the file you were given. Output the complete new file contents.",
+      "reads": [
+        "django/forms/widgets.py"
+      ],
+      "writes": [
+        "django/forms/widgets.py"
+      ],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "fix_js",
+      "instruction": "You are given the current complete contents of django/forms/widgets.py. Apply exactly the following change and reproduce every other line of the file byte-for-byte as it appears in the version you were given, including any changes already present. Replace the _js property of the Media class with exactly this code:\n\n    @property\n    def _js(self):\n        return self.merge(*self._js_lists)\n\nDo not modify the _css property, the merge method, the import block, or anything else: leave them exactly as they appear in the file you were given. Output the complete new file contents.",
+      "reads": [
+        "django/forms/widgets.py"
+      ],
+      "writes": [
+        "django/forms/widgets.py"
+      ],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "fix_merge",
+      "instruction": "You are given the current complete contents of django/forms/widgets.py. Apply exactly the following changes and reproduce every other line of the file byte-for-byte as it appears in the version you were given, including any changes already present. (1) Ensure these imports are present in the top import block, adding any that are absent in the positions described: 'from collections import defaultdict' directly after 'import warnings'; 'from django.utils.datastructures import OrderedSet' directly after 'from django.utils import datetime_safe, formats'; and directly after 'from django.utils.safestring import mark_safe' the two lines: 'from django.utils.topological_sort import (' and '    CyclicDependencyError, stable_topological_sort,' followed by ')'. (2) Replace the entire merge static method of the Media class (currently 'def merge(list_1, list_2):') with exactly this code:\n\n    @staticmethod\n    def merge(*lists):\n        \"\"\"\n        Merge lists while trying to keep the relative order of the elements.\n        Warn if the lists have the same elements in a different relative order.\n\n        For static assets it can be important to have them included in the DOM\n        in a certain order. In JavaScript you may not be able to reference a\n        global or in CSS you might want to override a style.\n        \"\"\"\n        dependency_graph = defaultdict(set)\n        all_items = OrderedSet()\n        for list_ in filter(None, lists):\n            head = list_[0]\n            # The first items depend on nothing but have to be part of the\n            # dependency graph to be included in the result.\n            dependency_graph.setdefault(head, set())\n            for item in list_:\n                all_items.add(item)\n                # No self dependencies\n                if head != item:\n                    dependency_graph[item].add(head)\n                head = item\n        try:\n            return stable_topological_sort(all_items, dependency_graph)\n        except CyclicDependencyError:\n            warnings.warn(\n                'Detected duplicate Media files in an opposite order: {}'.format(\n                    ', '.join(repr(l) for l in lists)\n                ), MediaOrderConflictWarning,\n            )\n            return list(all_items)\n\nDo not modify the _css property, the _js property, or anything else: leave them exactly as they appear in the file you were given. Output the complete new file contents.",
+      "reads": [
+        "django/forms/widgets.py"
+      ],
+      "writes": [
+        "django/forms/widgets.py"
+      ],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "make_diff",
+      "instruction": "Produce a single unified diff against the repository root capturing the changes made to django/forms/widgets.py, using the current file contents you were given. Correct diff --git/---/+++ headers with a/ and b/ prefixes, accurate hunk headers, context lines matching the file. No prose outside the diff.",
+      "reads": [
+        "django/forms/widgets.py"
+      ],
+      "writes": [
+        "django/forms/widgets.py"
+      ],
+      "deps": [
+        "fix_css",
+        "fix_js",
+        "fix_merge"
+      ],
+      "guard": null
+    }
+  ],
+  "final_node": "make_diff",
+  "topology": "parallel",
+  "schedule": [
+    [
+      "fix_css",
+      "fix_js",
+      "fix_merge"
+    ],
+    [
+      "make_diff"
+    ]
+  ]
+}

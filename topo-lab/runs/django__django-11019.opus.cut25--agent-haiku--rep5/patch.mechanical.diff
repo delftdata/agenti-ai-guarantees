@@ -1,0 +1,173 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..1af2882c37 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -59,22 +59,29 @@ class Media:
+ 
+     @property
+     def _css(self):
+-        css = self._css_lists[0]
+-        # filter(None, ...) avoids calling merge with empty dicts.
+-        for obj in filter(None, self._css_lists[1:]):
++        # Get all non-empty CSS dicts
++        non_empty_lists = [css for css in self._css_lists if css]
++        if not non_empty_lists:
++            return {}
++        
++        # Merge CSS dicts per medium
++        css = non_empty_lists[0]
++        for obj in non_empty_lists[1:]:
+             css = {
+-                medium: self.merge(css.get(medium, []), obj.get(medium, []))
++                medium: self.merge([css.get(medium, []), obj.get(medium, [])])
+                 for medium in css.keys() | obj.keys()
+             }
+         return css
+ 
+     @property
+     def _js(self):
+-        js = self._js_lists[0]
+-        # filter(None, ...) avoids calling merge() with empty lists.
+-        for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
+-        return js
++        # Get all non-empty JS lists
++        non_empty_lists = [js for js in self._js_lists if js]
++        if not non_empty_lists:
++            return []
++        
++        # Merge all JS lists at once using topological sort
++        return self.merge(non_empty_lists)
+ 
+     def render(self):
+         return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+@@ -115,39 +122,102 @@ class Media:
+         raise KeyError('Unknown media type "%s"' % name)
+ 
+     @staticmethod
+-    def merge(list_1, list_2):
++    def merge(lists_to_merge):
+         """
+-        Merge two lists while trying to keep the relative order of the elements.
+-        Warn if the lists have the same two elements in a different relative
+-        order.
++        Merge multiple lists while trying to keep the relative order of the elements.
++        Warn if there are contradictory ordering constraints.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
++        
++        Args:
++            lists_to_merge: A list of lists to merge, or two lists for backward compatibility.
++                           If a single list is passed, it's treated as two lists to merge.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++        # Handle backward compatibility: if lists_to_merge is two items and both are lists,
++        # treat it as merge(list1, list2)
++        if (isinstance(lists_to_merge, list) and 
++            len(lists_to_merge) == 2 and 
++            isinstance(lists_to_merge[0], list) and 
++            isinstance(lists_to_merge[1], list) and
++            not (isinstance(lists_to_merge[0], list) and isinstance(lists_to_merge[0][0], list) if lists_to_merge[0] else True)):
++            # This looks like old-style merge(list1, list2) - convert to new style
++            lists_to_merge = [lists_to_merge[0], lists_to_merge[1]]
++        elif not isinstance(lists_to_merge[0], list):
++            # Assume old-style merge(list1, list2) was called - shouldn't happen
++            # but handle it for safety
++            return lists_to_merge
++        
++        # Filter out empty lists
++        non_empty_lists = [lst for lst in lists_to_merge if lst]
++        if not non_empty_lists:
++            return []
++        if len(non_empty_lists) == 1:
++            return list(non_empty_lists[0])
++        
++        # Build a dependency graph from all input lists
++        # Each list defines an ordering constraint for adjacent elements
++        dependencies = {}  # element -> set of elements that must come before it
++        dependents = {}    # element -> set of elements that must come after it
++        all_items = set()
++        
++        for lst in non_empty_lists:
++            for item in lst:
++                all_items.add(item)
++                if item not in dependencies:
++                    dependencies[item] = set()
++                if item not in dependents:
++                    dependents[item] = set()
++            
++            # Add ordering constraints from this list
++            for i in range(len(lst) - 1):
++                curr = lst[i]
++                next_item = lst[i + 1]
++                # curr must come before next_item
++                dependencies[next_item].add(curr)
++                dependents[curr].add(next_item)
++        
++        # Topological sort with cycle detection
++        result = []
++        visited = set()
++        visiting = set()  # For cycle detection
++        
++        def visit(item):
++            if item in visited:
++                return True
++            if item in visiting:
++                # Cycle detected - genuine conflict
++                warnings.warn(
++                    'Detected duplicate Media files in an opposite order:\n'
++                    '%s\n%s' % (item, next(iter(dependents.get(item, [])), item)),
++                    MediaOrderConflictWarning,
++                )
++                return False
++            
++            visiting.add(item)
++            
++            # Visit all dependencies first
++            for dep in dependencies.get(item, set()):
++                if not visit(dep):
++                    visiting.discard(item)
++                    return False
++            
++            visiting.discard(item)
++            visited.add(item)
++            result.append(item)
++            return True
++        
++        # Visit all items in the order they first appear
++        seen = set()
++        for lst in non_empty_lists:
++            for item in lst:
++                if item not in seen:
++                    if not visit(item):
++                        pass  # Cycle detected and warned, but continue
++                    seen.add(item)
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()

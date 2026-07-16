@@ -1,0 +1,98 @@
+# Analysis of Media Merge Tests and Expected Changes
+
+## (A) Tests That Must Still Pass Unchanged
+
+1. **test_construction** - Basic Media object construction and string representation
+2. **test_media_dsl** - Class-based media definitions
+3. **test_combine_media** - Basic combining of media objects (first three assertions)
+4. **test_media_property** - Property-based media definitions
+5. **test_media_property_parent_references** - Parent media references via properties
+6. **test_media_inheritance** - Inheritance of media between widgets
+7. **test_media_inheritance_from_property** - Inheritance with property-based parents
+8. **test_media_inheritance_extends** - Explicit extend=True inheritance
+9. **test_media_inheritance_single_type** - Selective media type inheritance
+10. **test_multi_media** - CSS media type handling
+11. **test_multi_widget** - MultiWidget media aggregation
+12. **test_form_media** - Form media collection and combination
+13. **test_html_safe** - HTML safe output
+14. **test_merge_js_three_way** - Three-way JS merge preserving relative order
+15. **test_merge_css_three_way** - Three-way CSS merge (currently passes)
+
+---
+
+## (B) Tests Whose Expected Values May Need Updating
+
+### test_merge
+```python
+def test_merge(self):
+    test_values = (
+        (([1, 2], [3, 4]), [1, 2, 3, 4]),
+        (([1, 2], [2, 3]), [1, 2, 3]),
+        (([2, 3], [1, 2]), [1, 2, 3]),
+        (([1, 3], [2, 3]), [1, 2, 3]),
+        (([1, 2], [1, 3]), [1, 2, 3]),
+        (([1, 2], [3, 2]), [1, 3, 2]),
+    )
+```
+
+**Expected change**: The last test case `(([1, 2], [3, 2]), [1, 3, 2])` may need revision. With topological sorting, if 1 must come before 2, and 3 must come before 2, the result should be `[1, 3, 2]` which is already correct. However, all cases should be re-validated with a topological sort implementation.
+
+### test_merge_warning
+```python
+def test_merge_warning(self):
+    msg = 'Detected duplicate Media files in an opposite order:\n1\n2'
+    with self.assertWarnsMessage(RuntimeWarning, msg):
+        self.assertEqual(Media.merge([1, 2], [2, 1]), [1, 2])
+```
+
+**Expected change**: This test MUST be removed or significantly revised. With correct topological sorting, merging `[1, 2]` and `[2, 1]` where there's no real dependency (just ordering constraints in opposite directions) should NOT produce a warning. This is a false positive that the bug report identifies.
+
+---
+
+## (C) New Test Scenario Matching Bug Report
+
+The following test case should be added to validate the fix for the reported issue:
+
+```python
+def test_merge_three_or_more_with_dependencies(self):
+    """
+    Test the bug scenario: Merging 3+ media objects where some have dependencies
+    should not throw unnecessary MediaOrderConflictWarnings.
+    
+    Scenario: text-editor-extras.js depends on text-editor.js
+    - ColorPicker: ['color-picker.js']
+    - SimpleTextWidget: ['text-editor.js']
+    - FancyTextWidget: ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+    
+    Expected: text-editor.js, text-editor-extras.js, color-picker.js
+    No warning should be raised.
+    """
+    color_picker_media = Media(js=['color-picker.js'])
+    simple_text_media = Media(js=['text-editor.js'])
+    fancy_text_media = Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
+    
+    # Merge in the order they would be combined (ColorPicker + SimpleTextWidget + FancyTextWidget)
+    merged = color_picker_media + simple_text_media + fancy_text_media
+    
+    # Should not raise MediaOrderConflictWarning
+    # Expected order respects the dependency: text-editor.js before text-editor-extras.js
+    self.assertEqual(
+        merged._js,
+        ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+    )
+```
+
+---
+
+## Summary of Changes Required
+
+**Tests to remove/modify:**
+- `test_merge_warning`: Assumes false-positive warning will occur; must be removed or replaced with a test showing NO warning is raised for the corrected implementation
+
+**Tests to validate/verify:**
+- `test_merge`: All six cases should be re-verified with topological sort implementation
+- `test_merge_js_three_way`: Should continue to pass but warrants verification
+- `test_merge_css_three_way`: Currently passes; should continue to pass
+
+**Tests to add:**
+- New test for the three-widget scenario from the bug report demonstrating the fix

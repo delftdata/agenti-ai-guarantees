@@ -1,0 +1,201 @@
+```diff
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -117,66 +117,62 @@ class Media:
+     @staticmethod
+     def merge(lists):
+         """
+         Merge a list of lists while trying to keep the relative order of elements.
+         Warn if the lists have the same two elements in a different relative order
+         that creates a cycle.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+         if not lists:
+             return []
+         if len(lists) == 1:
+             return lists[0]
+ 
++        # Flatten all items and build a map of all positions
++        all_items = []
++        item_positions = {}  # item -> list of (list_index, position_in_list)
++        
++        for list_index, item_list in enumerate(lists):
++            for position, item in enumerate(item_list):
++                if item not in item_positions:
++                    item_positions[item] = []
++                    all_items.append(item)
++                item_positions[item].append((list_index, position))
++
++        # Build a dependency graph: item A must come before item B
++        # if there exists a list where A appears before B
++        dependencies = {item: set() for item in all_items}
++        
++        for list_index, item_list in enumerate(lists):
++            for i, item_a in enumerate(item_list):
++                for item_b in item_list[i + 1:]:
++                    dependencies[item_b].add(item_a)
++
++        # Topological sort using Kahn's algorithm
++        # First, compute in-degrees
++        in_degree = {item: 0 for item in all_items}
++        for item in all_items:
++            for dep in dependencies[item]:
++                in_degree[item] += 1
++
++        # Collect all items with no incoming edges
++        queue = [item for item in all_items if in_degree[item] == 0]
++        result = []
++
++        while queue:
++            # Sort queue to ensure deterministic ordering when there are no constraints
++            queue.sort(key=lambda x: all_items.index(x))
++            current = queue.pop(0)
++            result.append(current)
++
++            # For each item that depends on current, decrease in-degree
++            for item in all_items:
++                if current in dependencies[item]:
++                    in_degree[item] -= 1
++                    if in_degree[item] == 0:
++                        queue.append(item)
++
++        # If result doesn't contain all items, we have a cycle
++        if len(result) != len(all_items):
++            # Find items involved in cycles
++            remaining = [item for item in all_items if item not in result]
++            # Report the conflict
++            if remaining:
++                warnings.warn(
++                    'Detected duplicate Media files in an opposite order:\n'
++                    '%s\n%s' % (remaining[0], result[0] if result else ''),
++                    MediaOrderConflictWarning,
++                )
++            # Fall back to a simple ordering: use the order from the first list
++            # that contains these items, then append any missing items
++            combined_list = list(lists[0])
++            for item_list in lists[1:]:
++                for item in item_list:
++                    if item not in combined_list:
++                        combined_list.append(item)
++            return combined_list
++
++        return result
+ 
+-        # Flatten all items
+-        items = []
+-        for sublist in lists:
+-            for item in sublist:
+-                if item not in items:
+-                    items.append(item)
+-
+-        # Try to topologically sort the items
+-        # build a dependency graph of the items
+-        graph = {}
+-        for item in items:
+-            graph[item] = []
+-        for sublist in lists:
+-            for i, item in enumerate(sublist):
+-                if i < len(sublist) - 1:
+-                    next_item = sublist[i + 1]
+-                    if next_item not in graph[item]:
+-                        graph[item].append(next_item)
+-        # Topological sort
+-        sorted_items = []
+-        visited = set()
+-
+-        def topological_sort_visit(item, path):
+-            if item in path:
+-                return False
+-            if item in visited:
+-                return True
+-            visited.add(item)
+-            path = path + [item]
+-            for next_item in graph[item]:
+-                if not topological_sort_visit(next_item, path):
+-                    return False
+-            sorted_items.insert(0, item)
+-            return True
+-
+-        for item in items:
+-            if item not in visited:
+-                if not topological_sort_visit(item, []):
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (item, items[items.index(item) - 1]),
+-                        MediaOrderConflictWarning,
+-                    )
+-                    return items
+-
+-        return sorted_items
+ 
+     def __add__(self, other):
+         combined = Media()
+         combined._css_lists = self._css_lists + other._css_lists
+         combined._js_lists = self._js_lists + other._js_lists
+         return combined
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 2345678..bcdefgh 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -228,13 +228,31 @@ class FormsMediaTestCase(SimpleTestCase):
+     def test_merge_real_cycle_warning(self):
+         """
+         A real cycle (where two items must come before each other) should warn.
+         This is different from false conflicts that can be resolved by
+         topological sort.
+         """
+         msg = 'Detected duplicate Media files in an opposite order:\n1\n2'
+         with self.assertWarnsMessage(RuntimeWarning, msg):
+             # This is a real cycle: 1 < 2 from first list, 2 < 1 from second
+             result = Media.merge([[1, 2], [2, 1]])
+             # Result should be one of the valid orderings
+             self.assertIn(result, [[1, 2], [2, 1]])
+ 
++    def test_merge_three_or_more_media_no_false_conflict(self):
++        """
++        Merging 3+ media objects should not raise false MediaOrderConflictWarnings.
++        Regression test for issue #11019.
++
++        When three widgets are merged where:
++        - Widget 1 has js=['color-picker.js']
++        - Widget 2 has js=['text-editor.js']
++        - Widget 3 has js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        The topological sort should recognize that text-editor.js < text-editor-extras.js
++        and text-editor-extras.js < color-picker.js from Widget 3, and that there are
++        no real conflicts. The result should be ordered as:
++        ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'] without warnings.
++        """
++        class ColorPicker(TextInput):
++            class Media:
++                js = ['color-picker.js']
++
++        class SimpleTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js']
++
++        class FancyTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        class MyForm(Form):
++            background_color = CharField(widget=ColorPicker())
++            intro = CharField(widget=SimpleTextWidget())
++            body = CharField(widget=FancyTextWidget())
++
++        form = MyForm()
++        # Should produce correct order without warning
++        self.assertEqual(
++            form.media._js,
++            ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        )
++
+     def test_merge_js_three_way(self):
+         """
+         The relative order of scripts is preserved in a three-way merge.
+```

@@ -1,0 +1,78 @@
+```diff
+diff --git a/django/contrib/auth/validators.py b/django/contrib/auth/validators.py
+index original..updated 100644
+--- a/django/contrib/auth/validators.py
++++ b/django/contrib/auth/validators.py
+@@ -6,7 +6,7 @@ from django.utils.translation import gettext_lazy as _
+ 
+ @deconstructible
+ class ASCIIUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only English letters, '
+         'numbers, and @/./+/-/_ characters.'
+@@ -16,7 +16,7 @@ class ASCIIUsernameValidator(validators.RegexValidator):
+ 
+ @deconstructible
+ class UnicodeUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only letters, '
+         'numbers, and @/./+/-/_ characters.'
+diff --git a/tests/auth_tests/test_validators.py b/tests/auth_tests/test_validators.py
+index original..updated 100644
+--- a/tests/auth_tests/test_validators.py
++++ b/tests/auth_tests/test_validators.py
+@@ -217,6 +217,26 @@ class UsernameValidatorsTests(SimpleTestCase):
+                 with self.assertRaises(ValidationError):
+                     v(invalid)
+ 
++    def test_unicode_validator_rejects_trailing_newline(self):
++        """Verify that UnicodeUsernameValidator rejects usernames with trailing newlines."""
++        v = validators.UnicodeUsernameValidator()
++        # Test with single newline
++        with self.assertRaises(ValidationError):
++            v('valid_username\n')
++        # Test with multiple newlines
++        with self.assertRaises(ValidationError):
++            v('valid_username\n\n')
++        # Verify that the base username still validates
++        v('valid_username')
++
++    def test_unicode_validator_rejects_leading_newline(self):
++        """Verify that UnicodeUsernameValidator rejects usernames with leading newlines."""
++        v = validators.UnicodeUsernameValidator()
++        with self.assertRaises(ValidationError):
++            v('\nvalid_username')
++
+     def test_ascii_validator(self):
+         valid_usernames = ['glenn', 'GLEnN', 'jean-marc']
+         invalid_usernames = ["o'connell", 'Éric', 'jean marc', "أحمد"]
+@@ -228,3 +248,25 @@ class UsernameValidatorsTests(SimpleTestCase):
+             with self.subTest(invalid=invalid):
+                 with self.assertRaises(ValidationError):
+                     v(invalid)
++
++    def test_ascii_validator_rejects_trailing_newline(self):
++        """Verify that ASCIIUsernameValidator rejects usernames with trailing newlines."""
++        v = validators.ASCIIUsernameValidator()
++        # Test with single newline
++        with self.assertRaises(ValidationError):
++            v('validusername\n')
++        # Test with multiple newlines
++        with self.assertRaises(ValidationError):
++            v('validusername\n\n')
++        # Test with carriage return and newline (Windows-style)
++        with self.assertRaises(ValidationError):
++            v('validusername\r\n')
++        # Verify that the base username still validates
++        v('validusername')
++
++    def test_ascii_validator_rejects_leading_newline(self):
++        """Verify that ASCIIUsernameValidator rejects usernames with leading newlines."""
++        v = validators.ASCIIUsernameValidator()
++        with self.assertRaises(ValidationError):
++            v('\nvalidusername')
+```

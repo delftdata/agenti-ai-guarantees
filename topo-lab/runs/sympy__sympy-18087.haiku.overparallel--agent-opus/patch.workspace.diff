@@ -1,0 +1,43 @@
+diff --git a/sympy/simplify/fu.py b/sympy/simplify/fu.py
+index 612bc0bb69..0983788b69 100644
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ -1,3 +1,4 @@
++```python
+ """
+ Implementation of the trigsimp algorithm by Fu et al.
+ 
+@@ -500,7 +501,7 @@ def _f(rv):
+         # change is not going to allow a simplification as far as I can tell.
+         if not (rv.is_Pow and rv.base.func == f):
+             return rv
+-        if not rv.exp.is_real:
++        if not rv.exp.is_Integer:
+             return rv
+ 
+         if (rv.exp < 0) == True:
+@@ -2215,3 +2216,4 @@ def sincos_to_sum(expr):
+         return expr
+     else:
+         return TR8(expand_mul(TRpower(expr)))
++```
+diff --git a/sympy/simplify/tests/test_trigsimp.py b/sympy/simplify/tests/test_trigsimp.py
+index bf15ee07a9..3f0f42a840 100644
+--- a/sympy/simplify/tests/test_trigsimp.py
++++ b/sympy/simplify/tests/test_trigsimp.py
+@@ -199,6 +199,15 @@ def test_trigsimp_issues():
+     assert trigsimp(-sin(x)**4 - 2*sin(x)**2*cos(x)**2 - cos(x)**4) == -1
+ 
+ 
++def test_trigsimp_issued_18087():
++    # cos(x) + sqrt(sin(x)**2) should not simplify to cos(x) + sin(x)
++    # for general (complex) x, since sqrt(sin(x)**2) != sin(x) in general.
++    x = symbols('x')
++    e = cos(x) + sqrt(sin(x)**2)
++    assert trigsimp(e) != cos(x) + sin(x)
++    assert trigsimp(e) == e
++
++
+ def test_trigsimp_issue_2515():
+     x = Symbol('x')
+     assert trigsimp(x*cos(x)*tan(x)) == x*sin(x)

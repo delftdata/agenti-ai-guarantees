@@ -1,0 +1,187 @@
+# Analysis of Media Class Implementation and MediaOrderConflictWarning Issue
+
+## Current Implementation Summary
+
+### Media.__init__ (Lines 42-51)
+```python
+def __init__(self, media=None, css=None, js=None):
+    if media is not None:
+        css = getattr(media, 'css', {})
+        js = getattr(media, 'js', [])
+    else:
+        if css is None:
+            css = {}
+        if js is None:
+            js = []
+    self._css_lists = [css]
+    self._js_lists = [js]
+```
+
+The `__init__` method stores CSS and JS as lists of lists: `_css_lists` and `_js_lists`. Each is initialized with a single element (the provided css/js).
+
+### Media._css and Media._js properties (Lines 57-73)
+```python
+@property
+def _css(self):
+    css = self._css_lists[0]
+    # filter(None, ...) avoids calling merge with empty dicts.
+    for obj in filter(None, self._css_lists[1:]):
+        css = {
+            medium: self.merge(css.get(medium, []), obj.get(medium, []))
+            for medium in css.keys() | obj.keys()
+        }
+    return css
+
+@property
+def _js(self):
+    js = self._js_lists[0]
+    # filter(None, ...) avoids calling merge() with empty lists.
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+These properties iterate through accumulated lists (set by `__add__`) and merge them **pairwise** left-to-right. The `_js` property calls `self.merge(js, obj)` sequentially for each new object.
+
+### Media.merge static method (Lines 120-147)
+```python
+@staticmethod
+def merge(list_1, list_2):
+    """
+    Merge two lists while trying to keep the relative order of the elements.
+    Warn if the lists have the same two elements in a different relative
+    order.
+
+    For static assets it can be important to have them included in the DOM
+    in a certain order. In JavaScript you may not be able to reference a
+    global or in CSS you might want to override a style.
+    """
+    # Start with a copy of list_1.
+    combined_list = list(list_1)
+    last_insert_index = len(list_1)
+    # Walk list_2 in reverse, inserting each element into combined_list if
+    # it doesn't already exist.
+    for path in reversed(list_2):
+        try:
+            # Does path already exist in the list?
+            index = combined_list.index(path)
+        except ValueError:
+            # Add path to combined_list since it doesn't exist.
+            combined_list.insert(last_insert_index, path)
+        else:
+            if index > last_insert_index:
+                warnings.warn(
+                    'Detected duplicate Media files in an opposite order:\n'
+                    '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+                    MediaOrderConflictWarning,
+                )
+            # path already exists in the list. Update last_insert_index so
+            # that the following elements are inserted in front of this one.
+            last_insert_index = index
+    return combined_list
+```
+
+The algorithm:
+1. Starts with a copy of `list_1`
+2. Iterates through `list_2` in reverse order
+3. For each element in `list_2`, if it doesn't exist in `combined_list`, it inserts it at `last_insert_index`
+4. If the element already exists, it checks if `index > last_insert_index`; if so, it warns of a conflict
+5. It updates `last_insert_index = index` to maintain relative ordering
+
+**Critical flaw**: This pairwise merge with reverse iteration can produce spurious warnings when merging 3+ lists because intermediate merge results create artificial constraints.
+
+### Media.__add__ method (Lines 149-153)
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+This concatenates the `_css_lists` and `_js_lists` from both Media objects. These accumulated lists are then merged pairwise in the `_css` and `_js` properties.
+
+## Root Cause of Spurious Warnings
+
+### The Text-Editor/Color-Picker Example
+
+Given:
+- `ColorPicker().media` = `Media(js=['color-picker.js'])`
+- `SimpleTextWidget().media` = `Media(js=['text-editor.js'])`
+- `FancyTextWidget().media` = `Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])`
+
+When merging via `ColorPicker().media + SimpleTextWidget().media + FancyTextWidget().media`:
+
+**Step 1**: `ColorPicker().media + SimpleTextWidget().media`
+- Calls `merge(['color-picker.js'], ['text-editor.js'])`
+- Result: `['color-picker.js', 'text-editor.js']`
+- This **artificially constrains** color-picker.js before text-editor.js
+
+**Step 2**: `['color-picker.js', 'text-editor.js'] + FancyTextWidget().media`
+- `_js_lists` becomes `[['color-picker.js'], ['text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']]`
+- During property evaluation, properties call `merge(['color-picker.js', 'text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])`
+- The merge walks list_2 in reverse: `['color-picker.js', 'text-editor-extras.js', 'text-editor.js']`
+  - Processes 'color-picker.js': found at index 0, `last_insert_index = 2` (len of list_1), so `0 < 2` → no warning, set `last_insert_index = 0`
+  - Processes 'text-editor-extras.js': not found, inserts at index 0 → `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`
+  - Processes 'text-editor.js': found at index 2, `last_insert_index = 0`, so `2 > 0` → **WARNING** (spurious!)
+- Final result: `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']` (worse than naive!)
+
+The warning is spurious because:
+1. The constraint "color-picker.js before text-editor.js" was artificially created in step 1
+2. There is no genuine dependency conflict between these files
+3. The warning reports the wrong pair (says text-editor-extras.js and text-editor.js are in opposite order, but the actual problem is the artificial constraint from step 1)
+
+## Required Changes
+
+### 1. Replace Pairwise Merge with Topological-Sort-Based Merge (Lines 120-147)
+
+The `merge()` static method must be redesigned to:
+- Accept a list of lists (all accumulated JS/CSS lists)
+- Build a dependency graph from all lists simultaneously
+- Use topological sorting to resolve ordering
+- Only warn on genuine conflicts (cycles in the dependency graph)
+
+**Key insight**: A genuine conflict exists only when two files have a mutual ordering dependency (e.g., file A must come before B AND B must come before A). Pairwise merging incorrectly treats transitive constraints as hard constraints.
+
+### 2. Modify _js and _css properties (Lines 57-73)
+
+Currently calls `self.merge(js, obj)` sequentially. Must instead:
+- Pass all accumulated lists at once to merge
+- Call `self.merge(self._js_lists)` or similar (variadic)
+- Avoid sequential pairwise merging
+
+### 3. Modify __add__ method (Lines 149-153)
+
+No direct change needed, but the properties it relies on must be updated.
+
+## Code Blocks Requiring Changes
+
+1. **Lines 120-147**: Entire `merge()` static method
+   - Change signature from `merge(list_1, list_2)` to `merge(list_of_lists)` (or keep signature but completely rewrite logic)
+   - Implement topological sort instead of sequential insertion
+   - Track genuine dependencies only
+
+2. **Lines 57-73**: `_css` and `_js` properties
+   - Change from sequential pairwise merge to all-at-once merge
+   - For `_js`: change `self.merge(js, obj)` loop to single call like `self.merge(self._js_lists)`
+   - For `_css`: similar approach for each medium
+
+3. **MediaOrderConflictWarning logic (Lines 131-137 in merge)**
+   - Move warning trigger from "index > last_insert_index" to genuine cycle detection
+   - Warn only when topological sort detects impossible ordering constraints
+
+## Intended Fix Strategy
+
+1. **Build dependency graph**: For each pair of distinct files that appear together in any list, record their relative order constraint.
+
+2. **Detect cycles**: Use DFS or Kahn's algorithm to detect if the dependency graph is acyclic. If acyclic, a valid ordering exists; if cyclic, warn about genuine conflicts.
+
+3. **Perform topological sort**: Use the acyclic graph to produce a valid ordering that respects all constraints.
+
+4. **Warn only on cycles**: Only emit `MediaOrderConflictWarning` when the topological sort detects a cycle (genuine conflict), not on every pairwise contradiction.
+
+This ensures:
+- Files with explicit dependencies (from within a single widget's Media) are respected
+- Multiple widgets can be merged without spurious warnings if no genuine conflict exists
+- The final order is intuitive and deterministic
+- Warnings are only emitted for true, unresolvable ordering conflicts

@@ -1,0 +1,39 @@
+Let me analyze the problem and the instruction:
+
+The issue is that Python regex `$` matches before a trailing newline, not just at the end of the string. The fix is to use `\A` and `\Z` instead of `^` and `$` to match the absolute beginning and end of the string.
+
+According to the instruction, I need to:
+1. Replace the regex in ASCIIUsernameValidator from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'`
+2. Leave UnicodeUsernameValidator and everything else unchanged
+
+However, I notice the problem statement mentions both validators should be fixed. Let me re-read the instruction carefully - it says "Do not modify the UnicodeUsernameValidator class or anything else: leave every other line exactly as it appears in the file you were given."
+
+So I'm only modifying ASCIIUsernameValidator per the instruction.
+
+===FILE: django/contrib/auth/validators.py===
+import re
+
+from django.core import validators
+from django.utils.deconstruct import deconstructible
+from django.utils.translation import gettext_lazy as _
+
+
+@deconstructible
+class ASCIIUsernameValidator(validators.RegexValidator):
+    regex = r'\A[\w.@+-]+\Z'
+    message = _(
+        'Enter a valid username. This value may contain only English letters, '
+        'numbers, and @/./+/-/_ characters.'
+    )
+    flags = re.ASCII
+
+
+@deconstructible
+class UnicodeUsernameValidator(validators.RegexValidator):
+    regex = r'^[\w.@+-]+$'
+    message = _(
+        'Enter a valid username. This value may contain only letters, '
+        'numbers, and @/./+/-/_ characters.'
+    )
+    flags = 0
+===END===

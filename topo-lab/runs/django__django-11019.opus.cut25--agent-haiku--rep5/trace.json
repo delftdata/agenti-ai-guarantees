@@ -1,0 +1,128 @@
+{
+  "graph": "django__django-11019.opus.cut25.json",
+  "topology": "cut25",
+  "agent": "haiku",
+  "mock": false,
+  "schedule": [
+    [
+      "analyze_media",
+      "study_tests"
+    ],
+    [
+      "implement_merge"
+    ],
+    [
+      "update_tests"
+    ],
+    [
+      "assemble_diff"
+    ]
+  ],
+  "wall_s": 176.84,
+  "total_cost_usd": 0.2581,
+  "overwrite_events": [],
+  "nodes": [
+    {
+      "node": "analyze_media",
+      "wall_s": 23.26,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 37371,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 10557,
+      "cache_read_tokens": 32333,
+      "output_tokens": 2745,
+      "cost_usd": 0.02752,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "study_tests",
+      "wall_s": 18.08,
+      "reads": [
+        {
+          "path": "tests/forms_tests/tests/test_media.py",
+          "bytes": 26171,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 8193,
+      "cache_read_tokens": 32333,
+      "output_tokens": 2081,
+      "cost_usd": 0.02183,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "implement_merge",
+      "wall_s": 80.1,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 37371,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 15551,
+      "cache_read_tokens": 32333,
+      "output_tokens": 11619,
+      "cost_usd": 0.07688,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "django/forms/widgets.py"
+      ]
+    },
+    {
+      "node": "update_tests",
+      "wall_s": 52.4,
+      "reads": [
+        {
+          "path": "tests/forms_tests/tests/test_media.py",
+          "bytes": 26171,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 22002,
+      "cache_read_tokens": 32333,
+      "output_tokens": 9592,
+      "cost_usd": 0.0732,
+      "status": "failure",
+      "error": "declared writes but no parseable FILE blocks in output",
+      "files_written": []
+    },
+    {
+      "node": "assemble_diff",
+      "wall_s": 21.07,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 39991,
+          "writer": "implement_merge"
+        },
+        {
+          "path": "tests/forms_tests/tests/test_media.py",
+          "bytes": 26171,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 40444,
+      "cache_read_tokens": 32333,
+      "output_tokens": 2995,
+      "cost_usd": 0.05865,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    }
+  ]
+}

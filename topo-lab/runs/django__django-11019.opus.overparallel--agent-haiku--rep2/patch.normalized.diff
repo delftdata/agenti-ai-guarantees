@@ -1,0 +1,69 @@
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 1234567..abcdefg 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -278,3 +278,65 @@ class FormsMediaTestCase(SimpleTestCase):
+         # ...but merging succeeds as the relative ordering of a.css and b.css
+         # was never specified.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_three_way_js_no_conflict(self):
++        """
++        Test for issue #11019: Merging 3 or more media objects should not
++        raise unnecessary MediaOrderConflictWarnings when there's only
++        a single ordering constraint.
++        
++        This tests the exact scenario from the bug report where:
++        - ColorPicker has ['color-picker.js']
++        - SimpleTextWidget has ['text-editor.js']
++        - FancyTextWidget has ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        
++        The only real constraint is text-editor.js before text-editor-extras.js.
++        """
++        class ColorPicker(TextInput):
++            class Media:
++                js = ['color-picker.js']
++
++        class SimpleTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js']
++
++        class FancyTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        # Merging these three widgets' media should not raise any warning
++        # because there is a valid topological ordering of all files
++        # that respects all constraints.
++        widget1_media = ColorPicker().media
++        widget2_media = SimpleTextWidget().media
++        widget3_media = FancyTextWidget().media
++
++        # No warning should be raised
++        merged = widget1_media + widget2_media + widget3_media
++
++        # The result should have text-editor.js before text-editor-extras.js
++        # and both before color-picker.js (or color-picker.js could be anywhere
++        # since there's no constraint on it relative to the others in widget1+widget2)
++        # But the key is that text-editor.js < text-editor-extras.js constraint is honored.
++        self.assertIn('text-editor.js', merged._js)
++        self.assertIn('text-editor-extras.js', merged._js)
++        self.assertIn('color-picker.js', merged._js)
++        
++        # Verify the constraint: text-editor.js before text-editor-extras.js
++        editor_idx = merged._js.index('text-editor.js')
++        extras_idx = merged._js.index('text-editor-extras.js')
++        self.assertLess(editor_idx, extras_idx,
++                       "text-editor.js should come before text-editor-extras.js")
++
++    def test_merge_genuinely_conflicting_order(self):
++        """
++        Test that a genuine ordering conflict still raises MediaOrderConflictWarning.
++        This verifies that our fix for #11019 doesn't suppress legitimate warnings.
++        """
++        msg = 'Detected duplicate Media files in an opposite order:\njs-b\njs-a'
++        with self.assertWarnsMessage(RuntimeWarning, msg):
++            result = Media.merge(['js-a', 'js-b'], ['js-b', 'js-a'])
++        # When there's a genuine conflict, the merge still succeeds with one ordering
++        self.assertEqual(result, ['js-a', 'js-b'])

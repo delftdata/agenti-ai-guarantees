@@ -1,0 +1,86 @@
+```diff
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -69,7 +69,7 @@ class Media:
+     @property
+     def _js(self):
+         # Collect all non-empty js lists and merge them together
+         js_lists = [js for js in self._js_lists if js]
+         if not js_lists:
+             return []
+         if len(js_lists) == 1:
+             return list(js_lists[0])
+-        return self.merge(js_lists)
++        return self.merge(js_lists)
+ 
+     def render(self):
+         return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 2345678..bcdefgh 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -340,6 +340,52 @@ class FormsMediaTestCase(SimpleTestCase):
+         # was never specified.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_three_way_no_false_conflict_warning(self):
++        """
++        Test for regression #11019: merging 3+ media objects should not raise
++        spurious MediaOrderConflictWarning when combining widgets with independent
++        and dependent JS files.
++        
++        The scenario:
++        - ColorPicker widget has: ['color-picker.js']
++        - SimpleTextWidget has: ['text-editor.js']
++        - FancyTextWidget has: ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++          (implying text-editor-extras.js depends on text-editor.js)
++        
++        When merging all three, the algorithm should recognize that:
++        - text-editor.js must come before text-editor-extras.js (from FancyTextWidget)
++        - color-picker.js has no ordering constraint with text-editor.js
++        
++        This should produce the correct order without a warning.
++        """
++        class ColorPicker(TextInput):
++            class Media:
++                js = ['color-picker.js']
++
++        class SimpleTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js']
++
++        class FancyTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        class MyForm(Form):
++            background_color = CharField(widget=ColorPicker())
++            intro = CharField(widget=SimpleTextWidget())
++            body = CharField(widget=FancyTextWidget())
++
++        # This should NOT raise a warning
++        form = MyForm()
++        form_media_js = form.media._js
++
++        # Assert correct ordering: text-editor.js before text-editor-extras.js
++        text_editor_idx = form_media_js.index('text-editor.js')
++        extras_idx = form_media_js.index('text-editor-extras.js')
++        self.assertLess(
++            text_editor_idx, extras_idx,
++            "text-editor.js must come before text-editor-extras.js"
++        )
+ 
+         # Assert all three files are present
+         self.assertIn('text-editor.js', form_media_js)
+         self.assertIn('text-editor-extras.js', form_media_js)
+         self.assertIn('color-picker.js', form_media_js)
++
++        # Verify the complete expected order
++        self.assertEqual(
++            form_media_js,
++            ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        )
+```

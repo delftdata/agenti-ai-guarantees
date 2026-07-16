@@ -1,0 +1,34 @@
+# Analysis of Username Validator Regex Anchors
+
+## Current State
+Examining the current `django/contrib/auth/validators.py` file:
+
+- **ASCIIUsernameValidator** uses regex: `r'^[\w.@+-]+$'`
+- **UnicodeUsernameValidator** uses regex: `r'^[\w.@+-]+$'`
+
+Both validators are currently using `^` (start of string) and `$` (end of string) anchors.
+
+## Problem Identified
+As stated in the issue, Python regex `$` has a quirk where it matches both:
+1. The end of the string
+2. A position before a trailing newline character
+
+This means usernames ending with a newline character would incorrectly pass validation.
+
+## Required Change
+The regex patterns should be changed from:
+- `r'^[\w.@+-]+$'` 
+
+To:
+- `r'\A[\w.@+-]+\Z'`
+
+The `\A` and `\Z` anchors provide stricter matching:
+- `\A` matches only at the absolute start of the string
+- `\Z` matches only at the absolute end of the string (not before a trailing newline)
+
+## Verification Result
+**FAILED** - The validators file has NOT been updated yet. Both validators still use the problematic `^` and `$` anchors.
+
+The file requires the following changes:
+1. ASCIIUsernameValidator.regex must change from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'`
+2. UnicodeUsernameValidator.regex must change from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'`

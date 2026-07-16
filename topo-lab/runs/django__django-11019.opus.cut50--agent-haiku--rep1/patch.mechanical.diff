@@ -1,0 +1,148 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..744c87a0b4 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -48,6 +48,8 @@ class Media:
+                 css = {}
+             if js is None:
+                 js = []
++        # Store css as a list of dicts and js as a list of lists.
++        # This allows accumulation without eager merging.
+         self._css_lists = [css]
+         self._js_lists = [js]
+ 
+@@ -59,21 +61,23 @@ class Media:
+ 
+     @property
+     def _css(self):
++        """Merge all accumulated CSS dicts into a single dict."""
+         css = self._css_lists[0]
+         # filter(None, ...) avoids calling merge with empty dicts.
+         for obj in filter(None, self._css_lists[1:]):
+             css = {
+-                medium: self.merge(css.get(medium, []), obj.get(medium, []))
++                medium: self.merge([css.get(medium, []), obj.get(medium, [])])
+                 for medium in css.keys() | obj.keys()
+             }
+         return css
+ 
+     @property
+     def _js(self):
++        """Merge all accumulated JS lists into a single list."""
+         js = self._js_lists[0]
+         # filter(None, ...) avoids calling merge() with empty lists.
+         for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
++            js = self.merge([js, obj])
+         return js
+ 
+     def render(self):
+@@ -115,39 +119,85 @@ class Media:
+         raise KeyError('Unknown media type "%s"' % name)
+ 
+     @staticmethod
+-    def merge(list_1, list_2):
++    def merge(lists):
+         """
+-        Merge two lists while trying to keep the relative order of the elements.
+-        Warn if the lists have the same two elements in a different relative
+-        order.
++        Merge a list of lists while trying to keep the relative order of elements.
++        Warn if there are genuine ordering conflicts.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
++        
++        Uses a topological-sort-like approach: build ordering constraints from
++        all input lists, detect cycles/conflicts, and only warn on genuine issues.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
++        # Handle edge cases
++        if not lists:
++            return []
++        if len(lists) == 1:
++            return lists[0]
++        
++        # Flatten all lists and collect them
++        all_items = []
++        for lst in lists:
++            all_items.extend(lst)
++        
++        # Remove duplicates while preserving first occurrence
++        seen = set()
++        unique_items = []
++        for item in all_items:
++            if item not in seen:
++                seen.add(item)
++                unique_items.append(item)
++        
++        if not unique_items:
++            return []
++        
++        # Build a dependency graph: for each item, track what items must come before it
++        # by examining the order in each input list
++        dependencies = {item: set() for item in unique_items}
++        
++        for lst in lists:
++            for i, item in enumerate(lst):
++                # All items that appear before this item in this list
++                # should come before it in the final result
++                for prev_item in lst[:i]:
++                    if prev_item != item:
++                        dependencies[item].add(prev_item)
++        
++        # Topological sort with conflict detection
++        result = []
++        remaining = set(unique_items)
++        
++        while remaining:
++            # Find items with no remaining dependencies
++            ready = [item for item in remaining if not dependencies[item] & remaining]
++            
++            if not ready:
++                # Cycle detected - we have a genuine conflict
++                # Find which items are in conflict and warn
++                conflicting = list(remaining)
++                if len(conflicting) >= 2:
+                     warnings.warn(
+                         'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
++                        '%s\n%s' % (conflicting[0], conflicting[1]),
+                         MediaOrderConflictWarning,
+                     )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++                # Break the cycle by taking the first remaining item
++                result.append(conflicting[0])
++                remaining.discard(conflicting[0])
++            else:
++                # Sort ready items by their first appearance in the original lists
++                # to maintain stability
++                ready.sort(key=lambda x: min(
++                    (i for i, lst in enumerate(lists) if x in lst),
++                    default=float('inf')
++                ))
++                for item in ready:
++                    result.append(item)
++                    remaining.discard(item)
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()

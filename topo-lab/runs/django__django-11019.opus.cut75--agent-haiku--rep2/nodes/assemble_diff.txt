@@ -1,0 +1,215 @@
+```diff
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -115,9 +115,9 @@ class Media:
+         raise KeyError('Unknown media type "%s"' % name)
+ 
+     @staticmethod
+     def merge(list_of_lists):
+         """
+         Merge multiple lists while trying to keep the relative order of the elements.
+         Warn if any two lists have the same two elements in a different relative order
+         (i.e., a genuine conflict).
+ 
+         For static assets it can be important to have them included in the DOM
+@@ -125,46 +125,82 @@ class Media:
+         global or in CSS you might want to override a style.
+         
+         list_of_lists: a list of lists to merge, e.g. [['a', 'b'], ['b', 'c']]
+         """
+-        def _merge(list1, list2):
+-            """
+-            Merge two lists while maintaining order.
+-            """
+-            merged = []
+-            list1_index = 0
+-            list2_index = 0
+-            while list1_index < len(list1) and list2_index < len(list2):
+-                if list1[list1_index] in list2[list2_index:]:
+-                    merged.append(list1[list1_index])
+-                    list1_index += 1
+-                else:
+-                    merged.append(list2[list2_index])
+-                    list2_index += 1
+-            # Append remaining items
+-            merged.extend(list1[list1_index:])
+-            merged.extend(list2[list2_index:])
+-            return merged
+-
+-        def _merge_check(list1, list2):
+-            """
+-            Check if the order of items in list1 and list2 is consistent, and
+-            report any conflicts.
+-            """
+-            # Ignore empty lists
+-            if not list1 or not list2:
+-                return _merge(list1, list2)
+-            conflicts = []
+-            for item1 in list1:
+-                if item1 in list2:
+-                    for item2 in list1[list1.index(item1) + 1:]:
+-                        if item2 in list2 and list2.index(item2) < list2.index(item1):
+-                            conflicts.append((item2, item1))
+-            for item2 in list2:
+-                if item2 in list1:
+-                    for item1 in list2[list2.index(item2) + 1:]:
+-                        if item1 in list1 and list1.index(item1) < list1.index(item2):
+-                            conflicts.append((item1, item2))
+-            if conflicts:
++        # Handle edge cases
++        if not list_of_lists:
++            return []
++        
++        # Filter out empty lists
++        list_of_lists = [lst for lst in list_of_lists if lst]
++        
++        if not list_of_lists:
++            return []
++        
++        if len(list_of_lists) == 1:
++            return list(list_of_lists[0])
++        
++        # Build a set of all unique items and their positions in each list
++        all_items = set()
++        item_positions = {}  # item -> list of (list_index, position) tuples
++        
++        for list_idx, lst in enumerate(list_of_lists):
++            for pos, item in enumerate(lst):
++                all_items.add(item)
++                if item not in item_positions:
++                    item_positions[item] = []
++                item_positions[item].append((list_idx, pos))
++        
++        # Build ordering constraints from each list
++        # constraint: (a, b) means a must come before b
++        constraints = set()
++        for lst in list_of_lists:
++            for i in range(len(lst) - 1):
++                for j in range(i + 1, len(lst)):
++                    constraints.add((lst[i], lst[j]))
++        
++        # Check for genuine conflicts: if (a, b) is in constraints and (b, a) is too
++        genuine_conflicts = set()
++        for a, b in constraints:
++            if (b, a) in constraints:
++                genuine_conflicts.add((a, b))
++        
++        if genuine_conflicts:
++            # Report the conflict
++            a, b = next(iter(genuine_conflicts))
+             warnings.warn(
+                 'Detected duplicate Media files in an opposite order:\n'
+-                '%s\n%s' % (item2, item1),
++                '%s\n%s' % (a, b),
+                 MediaOrderConflictWarning,
+             )
+-            return _merge(list1, list2)
+-
+-        if not list_of_lists:
+-            return []
+-        result = list_of_lists[0]
+-        for lst in list_of_lists[1:]:
+-            if lst:
+-                result = _merge_check(result, lst)
++        
++        # Build result using topological sort with only genuine constraints
++        # Remove conflicting constraints to allow sorting to proceed
++        valid_constraints = constraints - genuine_conflicts
++        
++        # Topological sort
++        result = []
++        remaining = set(all_items)
++        
++        while remaining:
++            # Find items with no incoming edges from remaining items
++            ready = []
++            for item in remaining:
++                has_incoming = False
++                for a, b in valid_constraints:
++                    if b == item and a in remaining:
++                        has_incoming = True
++                        break
++                if not has_incoming:
++                    ready.append(item)
++            
++            if not ready:
++                # Cycle detected (shouldn't happen after removing genuine conflicts)
++                # Just take the first remaining item
++                ready = [next(iter(remaining))]
++            
++            # Sort ready items by their first appearance in the input lists
++            # to maintain stability
++            def sort_key(item):
++                positions = item_positions[item]
++                return min((list_idx, pos) for list_idx, pos in positions)
++            
++            ready.sort(key=sort_key)
++            
++            for item in ready:
++                result.append(item)
++                remaining.remove(item)
++        
+         return result
+ 
+     def __add__(self, other):
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 1234567..abcdefg 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -387,3 +387,54 @@ class FormsMediaTestCase(SimpleTestCase):
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
+ 
++    def test_merge_three_widgets_no_false_conflict(self):
++        """
++        Regression test for issue where merging 3+ media objects could raise
++        unnecessary MediaOrderConflictWarnings when topological sort can resolve
++        the order without genuine conflicts.
++
++        This test reproduces the scenario from the bug report:
++        - ColorPickerWidget has: ['color-picker.js']
++        - SimpleTextWidget has: ['text-editor.js']
++        - FancyTextWidget has: ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++                               (enforcing: text-editor < text-editor-extras < color-picker)
++
++        When merged together in a form, the correct topological order should be:
++        ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        
++        No MediaOrderConflictWarning should be raised because there are no genuine
++        conflicts—only one consistent ordering constraint from FancyTextWidget.
++        """
++        class ColorPickerWidget(TextInput):
++            class Media:
++                js = ['color-picker.js']
++
++        class SimpleTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js']
++
++        class FancyTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        class TestForm(Form):
++            background_color = CharField(widget=ColorPickerWidget())
++            intro = CharField(widget=SimpleTextWidget())
++            body = CharField(widget=FancyTextWidget())
++
++        form = TestForm()
++        
++        # Should NOT raise MediaOrderConflictWarning
++        with warnings.catch_warnings(record=True) as w:
++            warnings.simplefilter("always")
++            js_list = form.media._js
++            # Verify no MediaOrderConflictWarning was raised
++            from django.forms.widgets import MediaOrderConflictWarning
++            media_warnings = [warning for warning in w if issubclass(warning.category, MediaOrderConflictWarning)]
++            self.assertEqual(len(media_warnings), 0, 
++                           f"Unexpected MediaOrderConflictWarning raised: {[str(warning.message) for warning in media_warnings]}")
++        
++        # Verify correct topological ordering
++        expected_js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        self.assertEqual(js_list, expected_js)
+```

@@ -1,0 +1,163 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -119,8 +119,130 @@ class Media:
+         raise KeyError('Unknown media type "%s"' % name)
+ 
+     @staticmethod
+-    def merge(list_1, list_2):
++    def merge_list_of_lists(lists):
+         """
++        Merge multiple lists while respecting ordering constraints from each list.
++        
++        Uses a topological sort approach:
++        1. Build a dependency graph where each item maps to items that must come after it
++        2. Track which items appear directly in which lists for conflict detection
++        3. Use topological sort to produce valid ordering
++        4. Warn only on genuine conflicts (direct opposite orderings in source lists)
++        """
++        # Flatten to get all unique items
++        all_items = []
++        seen = set()
++        for lst in lists:
++            for item in lst:
++                if item not in seen:
++                    all_items.append(item)
++                    seen.add(item)
++        
++        if not all_items:
++            return []
++        
++        if len(all_items) == 1:
++            return all_items
++        
++        # Build dependency graph: item -> set of items that must come after it
++        # Also track: (item_a, item_b) -> list indices where a comes before b
++        dependencies = {item: set() for item in all_items}
++        direct_orderings = {}  # (item_a, item_b) -> [list_indices where a before b]
++        
++        for list_idx, lst in enumerate(lists):
++            # For each pair of items in this list where i < j,
++            # item at position i must come before item at position j
++            for i, item_i in enumerate(lst):
++                for item_j in lst[i + 1:]:
++                    # item_i must come before item_j
++                    dependencies[item_i].add(item_j)
++                    key = (item_i, item_j)
++                    if key not in direct_orderings:
++                        direct_orderings[key] = []
++                    direct_orderings[key].append(list_idx)
++        
++        # Check for direct conflicts: if both (a,b) and (b,a) are direct orderings
++        # in different lists, that's a genuine conflict
++        for item_a in all_items:
++            for item_b in dependencies[item_a]:
++                reverse_key = (item_b, item_a)
++                if reverse_key in direct_orderings:
++                    # Both a->b and b->a exist as direct orderings in source lists
++                    warnings.warn(
++                        'Detected duplicate Media files in an opposite order:\n'
++                        '%s\n%s' % (item_a, item_b),
++                        MediaOrderConflictWarning,
++                    )
++        
++        # Topological sort using Kahn's algorithm
++        in_degree = {item: 0 for item in all_items}
++        for item in all_items:
++            for dependent in dependencies[item]:
++                in_degree[dependent] += 1
++        
++        queue = [item for item in all_items if in_degree[item] == 0]
++        result = []
++        
++        while queue:
++            # Sort queue to ensure stable, deterministic output when there are
++            # multiple valid orderings (no dependency between items)
++            queue.sort(key=lambda x: all_items.index(x))
++            node = queue.pop(0)
++            result.append(node)
++            
++            for dependent in dependencies[node]:
++                in_degree[dependent] -= 1
++                if in_degree[dependent] == 0:
++                    queue.append(dependent)
++        
++        if len(result) != len(all_items):
++            # Cycle detected - this shouldn't happen if conflict detection above worked
++            # Fall back to returning what we have
++            return result
++        
++        return result
++
++    @staticmethod
++    def merge(list_1, list_2):
++        """
+         Merge two lists while trying to keep the relative order of the elements.
+         Warn if the lists have the same two elements in a different relative
+         order.
+@@ -128,7 +250,9 @@ class Media:
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
++        
++        Note: This method is kept for backwards compatibility. It delegates to
++        merge_list_of_lists for consistency.
+         """
+-        return self.merge_list_of_lists([list_1, list_2])
++        return Media.merge_list_of_lists([list_1, list_2])
+ 
+     def __add__(self, other):
+         combined = Media()
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 1234567..abcdefg 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -272,3 +272,44 @@ class FormsMediaTestCase(SimpleTestCase):
+         # was never specified (no direct conflict). Topological sort picks a
+         # stable order that respects dependencies.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_no_spurious_warning_with_three_way_merge(self):
++        """
++        Test for issue #11019: Merging 3+ media objects should not raise
++        spurious MediaOrderConflictWarnings when there's no actual conflict.
++        
++        The scenario:
++        - ColorPicker provides: ['color-picker.js']
++        - SimpleTextWidget provides: ['text-editor.js']
++        - FancyTextWidget provides: ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++          where text-editor-extras.js depends on text-editor.js
++        
++        When combined in a form, the intermediate merge of ColorPicker + SimpleTextWidget
++        creates a false ordering constraint, but the final merge should resolve this
++        correctly without warning, resulting in:
++        ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        """
++        class ColorPicker(TextInput):
++            class Media:
++                js = ['color-picker.js']
++
++        class SimpleTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js']
++
++        class FancyTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        class MyForm(Form):
++            background_color = CharField(widget=ColorPicker())
++            intro = CharField(widget=SimpleTextWidget())
++            body = CharField(widget=FancyTextWidget())
++
++        # This should not raise MediaOrderConflictWarning
++        form = MyForm()
++        result = form.media._js
++        
++        # Verify the correct order is maintained
++        self.assertEqual(
++            result,
++            ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        )

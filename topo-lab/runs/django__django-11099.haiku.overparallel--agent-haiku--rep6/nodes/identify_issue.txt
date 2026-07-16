@@ -1,0 +1,118 @@
+# Analysis of Django Username Validator Regex Patterns
+
+## Current Implementation Issue
+
+### Location
+`django/contrib/auth/validators.py` - Contains `ASCIIUsernameValidator` and `UnicodeUsernameValidator`
+
+### Current Regex Pattern
+Both validators use: `r'^[\w.@+-]+$'`
+
+### Problem Description
+The current regex pattern has a critical security/validation flaw:
+
+1. **Pattern Breakdown:**
+   - `^` - Start of string anchor
+   - `[\w.@+-]+` - Matches one or more word characters, periods, @, +, or minus signs
+   - `$` - End of string anchor
+
+2. **The Issue with `$`:**
+   - In Python regex (without `re.MULTILINE` flag), `$` matches **before a trailing newline**
+   - This means the pattern `^[\w.@+-]+$` will accept usernames like:
+     - `"validuser\n"`
+     - `"admin@example.com\n"`
+     - `"user.name\n"`
+   - The trailing newline is NOT rejected as intended
+
+3. **Why This Matters:**
+   - Username validation should be strict to prevent injection attacks
+   - A trailing newline could bypass intended validation logic
+   - User input with trailing whitespace/newlines may cause authentication issues
+   - Could be exploited in form submissions or API requests
+
+### Root Cause
+Python's `$` anchor is **context-sensitive**:
+- `$` matches at the end of the string OR before a final newline character
+- This behavior differs from intended strict end-of-string matching
+
+## Proposed Solution
+
+### New Regex Pattern
+Replace with: `r'\A[\w.@+-]+\Z'`
+
+### Pattern Analysis
+- `\A` - Absolute start of string (ignores any leading context)
+- `[\w.@+-]+` - Matches one or more allowed characters (unchanged)
+- `\Z` - Absolute end of string (before final newline, if present)
+
+### Why `\A` and `\Z` Work
+- `\A` and `\Z` are **string anchors**, not line anchors
+- They do NOT match before/after newlines
+- `\Z` specifically matches at the very end of the string, before any trailing newline
+- This ensures strict validation regardless of newline presence
+
+### Alternative: Using `\z`
+- `\z` matches at the absolute end (after trailing newline)
+- `\Z` is preferred as it matches before the final newline (more intuitive)
+- Both work for this use case
+
+## Affected Code Locations
+
+1. **ASCIIUsernameValidator class**
+   - File: `django/contrib/auth/validators.py`
+   - Current regex: `r'^[\w.@+-]+$'`
+   - Fix: Change to `r'\A[\w.@+-]+\Z'`
+
+2. **UnicodeUsernameValidator class**
+   - File: `django/contrib/auth/validators.py`
+   - Current regex: `r'^[\w.@+-]+$'`
+   - Fix: Change to `r'\A[\w.@+-]+\Z'`
+
+## Testing Considerations
+
+### Current Behavior (Will Accept)
+```
+validator.clean('validuser\n')  # Currently PASSES (should fail)
+validator.clean('admin@test\n')  # Currently PASSES (should fail)
+```
+
+### After Fix (Will Reject)
+```
+validator.clean('validuser\n')  # Will FAIL (correct)
+validator.clean('admin@test\n')  # Will FAIL (correct)
+```
+
+### Valid Cases (Still Pass)
+```
+validator.clean('validuser')     # PASSES
+validator.clean('admin@test')    # PASSES
+validator.clean('user.name')     # PASSES
+validator.clean('user+tag')      # PASSES
+validator.clean('user-name')     # PASSES
+```
+
+## Impact Assessment
+
+### Security Impact
+- **High**: Prevents bypassing username validation with trailing newlines
+- Reduces potential for injection attacks or authentication bypass
+- Hardens input validation across Django auth system
+
+### Backward Compatibility
+- **Low Impact**: Legitimate usernames without newlines are unaffected
+- Only rejects invalid input (usernames with trailing newlines)
+- No valid use case for usernames with embedded newlines
+
+### Performance Impact
+- **None**: Regex compilation and matching performance unchanged
+- Both patterns have similar computational complexity
+
+## Files Requiring Changes
+
+1. `django/contrib/auth/validators.py`
+   - ASCIIUsernameValidator regex definition
+   - UnicodeUsernameValidator regex definition
+
+2. `tests/auth_tests/test_validators.py` (potentially)
+   - May need test updates to verify new validation behavior
+   - Should add test cases for newline rejection

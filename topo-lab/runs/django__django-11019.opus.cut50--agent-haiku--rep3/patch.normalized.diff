@@ -1,0 +1,205 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -113,35 +113,110 @@ class Media:
+     @staticmethod
+     def merge(lists):
+         """
+-        Merge a list of lists while trying to keep the relative order of elements.
+-        Warn if any two lists have the same two elements in a different relative order.
++        Merge a list of lists while trying to keep the relative order of elements.
++        Warn if any two lists have the same two elements in a different relative order.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
++        
++        Args:
++            lists: A list of lists to merge (e.g., [[a, b], [b, c, a]])
++        
++        Returns:
++            A single merged list with all unique elements in a consistent order.
+         """
+-        # Start with the first list.
+-        dependency_graph = {}
+-        all_items = set()
+-
+-        # Build the dependency graph
+-        for item_list in lists:
+-            for index, item in enumerate(item_list[:-1]):
+-                if item not in dependency_graph:
+-                    dependency_graph[item] = set()
+-                dependency_graph[item].add(item_list[index + 1])
+-            all_items.update(item_list)
+-
+-        # Start with the items that have no dependencies
+-        sorted_items = []
+-        while all_items:
+-            # Get the first item from the first list in the lists that has no dependencies
+-            # in the graph
+-            for item_list in lists:
+-                for item in item_list:
+-                    if item in all_items:
+-                        if item not in dependency_graph or not (dependency_graph[item] & all_items):
+-                            sorted_items.append(item)
+-                            all_items.discard(item)
+-                            # Remove this item from the dependency graph.
+-                            for _, dep_set in dependency_graph.items():
+-                                dep_set.discard(item)
+-                            break
+-            else:
+-                # If there's an item left in all_items and we haven't found any, then we have a
+-                # circular dependency
+-                item = all_items.pop()
+-                sorted_items.append(item)
+-                for _, dep_set in dependency_graph.items():
+-                    dep_set.discard(item)
++        if not lists:
++            return []
++        
++        # Flatten to get all unique items while preserving first occurrence
++        combined_list = []
++        seen = set()
++        for item_list in lists:
++            for item in item_list:
++                if item not in seen:
++                    combined_list.append(item)
++                    seen.add(item)
++        
++        # Build ordering constraints from all input lists
++        # For each list, consecutive items impose an ordering constraint
++        constraints = {}  # item -> set of items that must come after it
++        for item_list in lists:
++            for i, item in enumerate(item_list):
++                if item not in constraints:
++                    constraints[item] = set()
++                # This item must come before all following items in this list
++                for j in range(i + 1, len(item_list)):
++                    constraints[item].add(item_list[j])
++        
++        # Now perform a topological sort with constraint checking
++        # We'll use a greedy approach: at each step, pick an item with no remaining dependencies
++        result = []
++        remaining = set(combined_list)
++        in_degree = {item: 0 for item in combined_list}
++        
++        # Calculate in-degrees based on constraints
++        for item in combined_list:
++            for follower in constraints.get(item, set()):
++                if follower in remaining:
++                    in_degree[follower] += 1
++        
++        while remaining:
++            # Find an item with no dependencies
++            candidates = [item for item in remaining if in_degree[item] == 0]
++            
++            if not candidates:
++                # Cycle detected - there's a genuine conflict
++                # Report the first conflict we find
++                for item in remaining:
++                    for follower in constraints.get(item, set()):
++                        if follower in remaining:
++                            # Found a cycle: item should come before follower,
++                            # but follower also has a path back to item
++                            warnings.warn(
++                                'Detected duplicate Media files in an opposite order:\n'
++                                '%s\n%s' % (item, follower),
++                                MediaOrderConflictWarning,
++                            )
++                            # Break the cycle by removing this constraint
++                            # and continuing with the sort
++                            constraints[item].discard(follower)
++                            in_degree[follower] -= 1
++                            break
++                    else:
++                        continue
++                    break
++                continue
++            
++            # Pick the first candidate (maintains relative order when possible)
++            item = candidates[0]
++            result.append(item)
++            remaining.remove(item)
++            
++            # Update in-degrees for items that depended on this one
++            for follower in constraints.get(item, set()):
++                if follower in remaining:
++                    in_degree[follower] -= 1
+         
+         return sorted_items
+ 
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 1234567..abcdefg 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -279,6 +279,72 @@ class FormsMediaTestCase(SimpleTestCase):
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
+ 
++    def test_merge_three_widgets_with_dependencies(self):
++        """
++        Regression test for issue #11019:
++        Merging three or more media objects where one has a dependency
++        should not produce false MediaOrderConflictWarnings.
++
++        In this scenario:
++        - ColorPicker provides: ['color-picker.js']
++        - SimpleTextWidget provides: ['text-editor.js']
++        - FancyTextWidget provides: ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++          (where text-editor-extras.js depends on text-editor.js)
++
++        When merged in the order ColorPicker + SimpleTextWidget + FancyTextWidget,
++        the correct order is: text-editor.js, text-editor-extras.js, color-picker.js
++        without any warning, because the dependency is expressible in topological order.
++        """
++        class ColorPicker(TextInput):
++            class Media:
++                js = ['color-picker.js']
++
++        class SimpleTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js']
++
++        class FancyTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        # Merge in the order: ColorPicker, SimpleTextWidget, FancyTextWidget
++        # This previously produced a false MediaOrderConflictWarning
++        media = ColorPicker().media + SimpleTextWidget().media + FancyTextWidget().media
++
++        # Should NOT produce a warning - all constraints are satisfiable
++        # Expected order respects: text-editor.js < text-editor-extras.js < color-picker.js
++        self.assertEqual(
++            media._js,
++            ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        )
++
++    def test_merge_three_widgets_with_conflict(self):
++        """
++        Test that an actual ordering conflict still produces a warning.
++
++        This tests a scenario where the dependency constraints genuinely conflict
++        and cannot be resolved (create a cycle in the dependency graph).
++        """
++        class Widget1(TextInput):
++            class Media:
++                js = ['a.js', 'b.js']  # a must come before b
++
++        class Widget2(TextInput):
++            class Media:
++                js = ['b.js', 'a.js']  # b must come before a
++
++        # This creates a genuine cycle: a→b from Widget1, b→a from Widget2
++        msg = 'Detected duplicate Media files in an opposite order:'
++        with self.assertWarnsMessage(RuntimeWarning, msg):
++            media = Widget1().media + Widget2().media
++            # One of the constraints must be broken to resolve the conflict
++            # The result should still be a valid list with both files
++            self.assertIn('a.js', media._js)
++            self.assertIn('b.js', media._js)
++
+     def test_merge_warning(self):
+         """
+         Test that a genuine ordering conflict (cycle) produces a warning

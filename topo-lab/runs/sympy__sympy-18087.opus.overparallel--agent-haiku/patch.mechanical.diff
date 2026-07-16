@@ -1,0 +1,22 @@
+diff --git a/sympy/simplify/fu.py b/sympy/simplify/fu.py
+index 612bc0bb69..bbee761b05 100644
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ -507,6 +507,12 @@ def _f(rv):
+             return rv
+         if (rv.exp > max) == True:
+             return rv
++        # Only apply the transformation for positive even integer exponents
++        # This prevents issues with sqrt(sin(x)**2) being incorrectly simplified
++        if not rv.exp.is_integer:
++            return rv
++        if not rv.exp.is_positive:
++            return rv
+         if rv.exp == 2:
+             return h(g(rv.base.args[0])**2)
+         else:
+@@ -2215,3 +2221,4 @@ def sincos_to_sum(expr):
+         return expr
+     else:
+         return TR8(expand_mul(TRpower(expr)))
++

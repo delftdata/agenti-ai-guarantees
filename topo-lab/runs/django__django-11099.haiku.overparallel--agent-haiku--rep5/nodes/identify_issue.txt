@@ -1,0 +1,81 @@
+# Analysis of UsernameValidator Regex Issue
+
+## Problem Statement
+The ASCIIUsernameValidator and UnicodeUsernameValidator in Django's authentication module use a regex pattern that inadvertently allows usernames ending with newline characters.
+
+## Current Implementation
+
+**File:** `django/contrib/auth/validators.py`
+
+**Current Regex Pattern:** `r'^[\w.@+-]+$'`
+
+Both validators use this pattern:
+- ASCIIUsernameValidator
+- UnicodeUsernameValidator
+
+## Root Cause
+
+In Python's regex engine, the `$` anchor matches:
+1. The end of the string
+2. **Also matches before a trailing newline character**
+
+This is a documented quirk of Python regex behavior. For example:
+- The regex `^[\w.@+-]+$` would match a username like `"john\n"` because:
+  - `^` matches the start
+  - `[\w.@+-]+` matches "john"
+  - `$` matches before the `\n` (not strictly at the string end)
+
+## Solution
+
+Replace the regex anchors with `\A` and `\Z`:
+
+**Proposed Regex Pattern:** `r'\A[\w.@+-]+\Z'`
+
+### Why This Works
+
+- `\A` - Matches only at the absolute start of the string (not affected by multiline mode)
+- `\Z` - Matches only at the absolute end of the string, after all characters (including not before a trailing newline)
+
+This ensures:
+1. No leading whitespace or newlines are accepted
+2. No trailing newlines or whitespace are accepted
+3. The validation is strict and unambiguous
+
+## Files to Modify
+
+**Primary:** `django/contrib/auth/validators.py`
+
+This file contains:
+1. `ASCIIUsernameValidator` class - uses the vulnerable pattern
+2. `UnicodeUsernameValidator` class - uses the vulnerable pattern
+
+## Test Impact
+
+**File:** `tests/auth_tests/test_validators.py`
+
+Test cases should be added to verify:
+1. Usernames with trailing newlines are rejected
+2. Valid usernames without newlines still pass validation
+3. Edge cases with leading/trailing whitespace are handled correctly
+
+## Risk Assessment
+
+**Low Risk** - This is a security/correctness fix that:
+- Tightens validation (makes it stricter)
+- Does not break legitimate use cases
+- Only rejects invalid input that shouldn't have been accepted
+- Matches the documented intent of the validator
+
+## Implementation Details
+
+For each validator class, change:
+```
+pattern = r'^[\w.@+-]+$'
+```
+
+To:
+```
+pattern = r'\A[\w.@+-]+\Z'
+```
+
+This single character substitution (`^` → `\A`, `$` → `\Z`) resolves the issue completely.

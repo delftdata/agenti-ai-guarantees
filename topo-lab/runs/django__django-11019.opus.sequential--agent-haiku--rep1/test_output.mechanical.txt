@@ -1,0 +1,329 @@
+===== test_combine_media (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_combine_media (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\tests\forms_tests\tests\test_media.py", line 121, in test_combine_media
+    self.assertEqual(
+AssertionError: '<script type="text/javascript" src="/path/[242 chars]ipt>' != '<link href="http://media.example.com/stati[495 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.010s
+
+FAILED (failures=1)
+
+
+===== test_construction (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+OK
+
+
+===== test_form_media (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_form_media (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\tests\forms_tests\tests\test_media.py", line 469, in test_form_media
+    self.assertEqual(
+AssertionError: '<script type="text/javascript" src="/path/[242 chars]ipt>' != '<link href="http://media.example.com/stati[495 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)
+
+
+===== test_media_deduplication (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_media_deduplication (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\tests\forms_tests\tests\test_media.py", line 162, in test_media_deduplication
+    self.assertEqual(str(media), """<link href="/path/to/css1" type="text/css" media="all" rel="stylesheet">
+AssertionError: '<lin[66 chars]">\n<link href="/path/to/css1" type="text/css"[148 chars]ipt>' != '<lin[66 chars]">\n<script type="text/javascript" src="/path/[13 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)
+
+
+===== test_media_inheritance (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_media_inheritance (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\tests\forms_tests\tests\test_media.py", line 236, in test_media_inheritance
+    self.assertEqual(
+AssertionError: '<script type="text/javascript" src="/path/[181 chars]ipt>' != '<link href="http://media.example.com/stati[360 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)
+
+
+===== test_media_inheritance_extends (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_media_inheritance_extends (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\tests\forms_tests\tests\test_media.py", line 329, in test_media_inheritance_extends
+    self.assertEqual(
+AssertionError: '<script type="text/javascript" src="/path/[242 chars]ipt>' != '<link href="/path/to/css3" type="text/css"[495 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)
+
+
+===== test_media_property_parent_references (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_media_property_parent_references (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\tests\forms_tests\tests\test_media.py", line 208, in test_media_property_parent_references
+    self.assertEqual(
+AssertionError: '<script type="text/javascript" src="/path/[239 chars]ipt>' != '<link href="http://media.example.com/stati[490 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)
+
+
+===== test_merge (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+
+======================================================================
+FAIL: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=([1, 2], [3, 4]))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+AssertionError: Lists differ: [1, 2, 3, 4] != [1, 3, 2, 4]
+
+First differing element 1:
+2
+3
+
+- [1, 2, 3, 4]
+?        ---
+
++ [1, 3, 2, 4]
+?     +++
+
+
+======================================================================
+FAIL: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=[[1, 2], [1, 3], [2, 3], [5, 7], [5, 6], [6, 7, 9], [8, 9]])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+AssertionError: Lists differ: [1, 2, 3, 5, 6, 7, 8, 9] != [1, 5, 8, 2, 6, 3, 7, 9]
+
+First differing element 1:
+2
+5
+
+- [1, 2, 3, 5, 6, 7, 8, 9]
++ [1, 5, 8, 2, 6, 3, 7, 9]
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=2)
+
+
+===== test_merge_css_three_way (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_merge_js_three_way (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_merge_js_three_way2 (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_merge_warning (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_merge_warning (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\tests\forms_tests\tests\test_media.py", line 558, in test_merge_warning
+    self.assertEqual(Media.merge([1, 2], [2, 1]), [1, 2])
+  File "C:\Users\Asus TUF\AppData\Local\Programs\Python\Python38\lib\contextlib.py", line 120, in __exit__
+    next(self.gen)
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\django\test\testcases.py", line 676, in _assert_raises_or_warns_cm
+    self.assertIn(expected_message, str(getattr(cm, cm_attr)))
+AssertionError: 'Detected duplicate Media files in an opposite order: [1, 2], [2, 1]' not found in 'Detected duplicate Media files in an opposite order:\n1\n2'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.005s
+
+FAILED (failures=1)
+
+
+===== test_multi_widget (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_multi_widget (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\tests\forms_tests\tests\test_media.py", line 427, in test_multi_widget
+    self.assertEqual(
+AssertionError: '<script type="text/javascript" src="/path/[242 chars]ipt>' != '<link href="http://media.example.com/stati[495 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (failures=1)
+
+
+===== test_media (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.018s
+
+OK
+Destroying test database for alias 'default'...
+
+
+
+===== test_render_options (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.069s
+
+OK
+Destroying test database for alias 'default'...
+
+
+
+===== test_inline_media_only_inline (admin_inlines.tests.TestInlineMedia): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+F
+======================================================================
+FAIL: test_inline_media_only_inline (admin_inlines.tests.TestInlineMedia)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmph7ftdakq\wt\tests\admin_inlines\tests.py", line 496, in test_inline_media_only_inline
+    self.assertEqual(
+AssertionError: Lists differ: ['adm[32 chars]s', 'admin/js/jquery.init.js', 'admin/js/inlin[58 chars].js'] != ['adm[32 chars]s', 'my_awesome_inline_scripts.js', 'custom_nu[58 chars].js']
+
+First differing element 1:
+'admin/js/jquery.init.js'
+'my_awesome_inline_scripts.js'
+
+  ['admin/js/vendor/jquery/jquery.min.js',
++  'my_awesome_inline_scripts.js',
++  'custom_number.js',
+   'admin/js/jquery.init.js',
+-  'admin/js/inlines.min.js',
+?                           ^
+
++  'admin/js/inlines.min.js']
+?                           ^
+
+-  'my_awesome_inline_scripts.js',
+-  'custom_number.js']
+
+----------------------------------------------------------------------
+Ran 1 test in 0.275s
+
+FAILED (failures=1)
+Destroying test database for alias 'default'...
+

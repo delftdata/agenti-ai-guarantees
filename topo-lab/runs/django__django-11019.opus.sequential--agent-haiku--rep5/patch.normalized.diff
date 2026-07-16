@@ -1,0 +1,151 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -14,6 +14,7 @@ from django.utils.dates import MONTHS
+ from django.utils.formats import get_format
+ from django.utils.html import format_html, html_safe
+ from django.utils.safestring import mark_safe
++from django.utils.topological_sort import topological_sort
+ from django.utils.translation import gettext_lazy as _
+ 
+ from .renderers import get_default_renderer
+@@ -119,36 +120,57 @@ class Media:
+     @staticmethod
+     def merge(list_1, list_2):
+         """
+-        Merge two lists while trying to keep the relative order of the elements.
+-        Warn if the lists have the same two elements in a different relative
+-        order.
++        Merge two lists while trying to keep the relative order of the elements.
++        Warn only if the lists have the same two elements in a different relative
++        order in the source data (genuine ordering conflict).
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
++        # Build a dependency graph from both lists.
++        # An edge a -> b means a must come before b.
++        dependencies = {}
++        
++        # Collect all unique items
++        all_items = []
++        seen = set()
++        for item in list_1:
++            if item not in seen:
++                all_items.append(item)
++                seen.add(item)
++        for item in list_2:
++            if item not in seen:
++                all_items.append(item)
++                seen.add(item)
++        
++        # Initialize dependencies for all items
++        for item in all_items:
++            dependencies[item] = set()
++        
++        # Add dependencies from list_1
++        for i, item1 in enumerate(list_1):
++            for item2 in list_1[i + 1:]:
++                dependencies[item1].add(item2)
++        
++        # Add dependencies from list_2, but check for conflicts
++        for i, item1 in enumerate(list_2):
++            for item2 in list_2[i + 1:]:
++                # Check if there's already a constraint in the opposite direction
++                if item2 in dependencies and item1 in dependencies[item2]:
++                    # Genuine conflict: item2 must come before item1 (from list_1)
++                    # but item1 must come before item2 (from list_2)
++                    warnings.warn(
++                        'Detected duplicate Media files in an opposite order:\n'
++                        '%s\n%s' % (item2, item1),
++                        MediaOrderConflictWarning,
++                    )
++                else:
++                    # No conflict, add the dependency
++                    dependencies[item1].add(item2)
++        
++        # Topologically sort the items
++        try:
++            result = topological_sort(dependencies)
++            return list(result)
++        except ValueError:
++            # Circular dependency detected, shouldn't happen with our conflict detection
++            # Fall back to list_1 + new items from list_2
++            combined = list(list_1)
++            for item in list_2:
++                if item not in combined:
++                    combined.append(item)
++            return combined
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
+ 
+     def __add__(self, other):
+         combined = Media()
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 1234567..abcdefg 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -271,6 +271,40 @@ class FormsMediaTestCase(SimpleTestCase):
+         # was never specified in the original source lists.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_no_spurious_conflict_with_three_way_merge(self):
++        """
++        Test for issue #11019: Merging 3+ media objects should not produce
++        spurious MediaOrderConflictWarnings when there are no genuine conflicts.
++        
++        In this scenario:
++        - ColorPicker requires: ['color-picker.js']
++        - SimpleTextWidget requires: ['text-editor.js']
++        - FancyTextWidget requires: ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        
++        The topological sort should determine the correct order without false warnings.
++        Correct order: text-editor.js, text-editor-extras.js, color-picker.js
++        """
++        class ColorPicker(TextInput):
++            class Media:
++                js = ['color-picker.js']
++
++        class SimpleTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js']
++
++        class FancyTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        class MyForm(Form):
++            background_color = CharField(widget=ColorPicker())
++            intro = CharField(widget=SimpleTextWidget())
++            body = CharField(widget=FancyTextWidget())
++
++        # This should NOT produce a warning
++        form = MyForm()
++        self.assertEqual(
++            form.media._js,
++            ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        )

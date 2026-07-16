@@ -1,0 +1,45 @@
+# Analysis of Username Validator Regex Patterns
+
+## Current State
+
+Examining the validators file, I can confirm:
+
+### ASCIIUsernameValidator
+- **Current regex**: `r'^[\w.@+-]+$'`
+- **Uses**: `^` and `$` anchors
+- **Status**: NOT FIXED
+
+### UnicodeUsernameValidator
+- **Current regex**: `r'^[\w.@+-]+$'`
+- **Uses**: `^` and `$` anchors
+- **Status**: NOT FIXED
+
+## Problem Analysis
+
+Both validators currently use `^` and `$` anchors, which have the problematic behavior described in the issue:
+- `^` matches at the start of the string
+- `$` matches at the end of the string OR before a trailing newline character
+
+This means usernames ending with a newline character (e.g., `"username\n"`) would incorrectly pass validation.
+
+## Required Fix
+
+Both regex patterns need to be changed from:
+```python
+regex = r'^[\w.@+-]+$'
+```
+
+To:
+```python
+regex = r'\A[\w.@+-]+\Z'
+```
+
+### Why This Fix Works
+
+- `\A` matches only at the absolute start of the string (not before newlines)
+- `\Z` matches only at the absolute end of the string (not before newlines)
+- This prevents usernames with trailing newlines from being validated as correct
+
+## Verification Status
+
+**VERIFICATION FAILED**: The regex patterns have NOT been corrected yet. Both validators still use the problematic `^` and `$` anchors instead of the required `\A` and `\Z` anchors.

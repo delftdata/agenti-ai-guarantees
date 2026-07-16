@@ -15,7 +15,9 @@ Artifacts per run, under runs/<graph>--agent-<model>[--mock]/ :
 import argparse
 import json
 import re
+import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Annotated, TypedDict
@@ -29,6 +31,11 @@ RATES = {"opus": (5.0, 25.0), "haiku": (1.0, 5.0)}
 MAX_TOKENS = 32000
 
 FILE_BLOCK = re.compile(r"===FILE: (.*?)===\n(.*?)===END===", re.DOTALL)
+
+
+def wtext(path: Path, text: str):
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
 
 OVERWRITE_EVENTS = []  # (path, prev_writer, new_writer)
 
@@ -137,7 +144,7 @@ def make_node(spec, task_context, agent, mock, is_final, run_dir):
                 status = "failure"
                 error = "declared writes but no parseable FILE blocks in output"
         (run_dir / "nodes").mkdir(exist_ok=True, parents=True)
-        (run_dir / "nodes" / f"{spec['id']}.txt").write_text(text, encoding="utf-8")
+        wtext(run_dir / "nodes" / f"{spec['id']}.txt", text)
         inp, out = RATES[agent]
         cost = (usage["input_tokens"] * inp + usage["output_tokens"] * out
                 + usage["cache_read"] * inp * 0.1) / 1e6
@@ -189,6 +196,22 @@ def build_graph(graph_spec, task_context, agent, mock, run_dir):
         else:
             g.add_edge(START, final)
         g.add_edge(final, END)
+    elif topo.startswith("cut"):
+        # kept ordering deps schedule the non-final nodes; the final node is
+        # barriered behind every non-final node, as in overparallel
+        order = graph_spec["order_deps"]
+        non_final = sorted(n for n in specs if n != final)
+        for nid in non_final:
+            preds = sorted(d for d in order.get(nid, []) if d != final)
+            if preds:
+                g.add_edge(preds, nid)
+            else:
+                g.add_edge(START, nid)
+        if non_final:
+            g.add_edge(non_final, final)
+        else:
+            g.add_edge(START, final)
+        g.add_edge(final, END)
     else:
         sys.exit(f"unknown topology {topo}")
     return g.compile()
@@ -199,6 +222,8 @@ def main():
     ap.add_argument("graph", type=Path)
     ap.add_argument("--agent", choices=list(MODELS), required=True)
     ap.add_argument("--mock", action="store_true")
+    ap.add_argument("--tag", default="",
+                    help="suffix for the run dir, e.g. rep1..rep10")
     args = ap.parse_args()
 
     graph_spec = json.loads(args.graph.read_text(encoding="utf-8"))
@@ -207,7 +232,9 @@ def main():
     task_context = (task_dir / "task_context.md").read_text(encoding="utf-8")
     repo = task_dir / "repo"
 
-    run_name = f"{args.graph.stem}--agent-{args.agent}" + ("--mock" if args.mock else "")
+    run_name = (f"{args.graph.stem}--agent-{args.agent}"
+                + ("--mock" if args.mock else "")
+                + (f"--{args.tag}" if args.tag else ""))
     run_dir = ROOT / "runs" / run_name
     run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -228,13 +255,13 @@ def main():
     wall = round(time.time() - t0, 2)
 
     final_out = final_state["node_outputs"].get(graph_spec["final_node"], {})
-    (run_dir / "patch.diff").write_text(final_out.get("text", ""), encoding="utf-8")
+    wtext(run_dir / "patch.diff", final_out.get("text", ""))
     after = run_dir / "files_after"
     for p, entry in final_state["files"].items():
         if entry["writer"] != "__seed__":
             dest = after / p
             dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_text(entry["content"], encoding="utf-8")
+            wtext(dest, entry["content"])
 
     trace = {
         "graph": args.graph.name, "topology": graph_spec["topology"],

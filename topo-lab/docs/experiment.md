@@ -2,13 +2,13 @@
 
 ## Experiment
 
-The primary question is how the degree of parallelism in a fixed execution plan affects task outcome. The secondary question is what exactly breaks when it does: for every failed run we localize the first failing node and classify the cause - stale reads of shared state, concurrent writes to the same artifact, premature consumption of incomplete upstream output, or plain node-level error. A small side experiment varies the quality of the model that writes the plan against the quality of the model that executes it.
+The primary question is how the degree of parallelism in a fixed execution plan affects task outcome. The secondary question is what exactly breaks when it does: for every failed run we localize the first failing node and classify the cause - stale reads of shared state, concurrent writes to the same artifact, premature consumption of incomplete upstream output, or plain node-level error. A configuration grid varying harness-model and agent-model quality was run once; the follow-up gradient experiment fixes a single configuration justified from that grid.
 
 A harness model reads a frozen task description and emits a task decomposition as a dependency graph. The decomposition is rendered into three topologies: sequential (a topological serialization), parallel (execution respecting the declared dependencies), and over-parallel (dependencies deliberately cut by a fixed rule, forcing concurrency the decomposition does not license). The graph is executed as-is by an agent model, one API call per node, with no runtime replanning. Execution runs on LangGraph, whose superstep model gives concurrency deterministic semantics: all nodes scheduled in the same superstep read an identical state snapshot, and their writes commit only at the superstep boundary. Coordination failures are therefore reproducible properties of a schedule, not outcomes of API timing races. Parallelism is the only variable that changes between renderings of the same decomposition; any outcome difference across the three topologies of one graph is attributable to execution order and concurrency alone.
 
 Workers have no tools. A worker sees the task description, the current contents of the files its node declares in `reads`, the outputs of the nodes it declares in `deps`, and its instruction. Declared read and write sets are the state-access discipline under study: a stale read occurs when a sibling overwrites a file after a node's reads were resolved, and premature consumption occurs when a node runs before a declared dep has produced its output.
 
-Per node we record input and output tokens, wall-clock time, the raw model output, and which conditional branch fired. Per run we record the first failing node, the failure classification, total cost, and total time. A run is graded as resolved when the produced diff applies cleanly at the base commit and the instance's FAIL_TO_PASS tests pass in a virtual environment of the repository.
+Per node we record input and output tokens, wall-clock time, the raw model output, and which conditional branch fired. Per run we record the first failing node, the failure classification, total cost, and total time. A run is graded on the workspace state its agents produced, and is resolved when every FAIL_TO_PASS test of the instance passes in a virtual environment of the repository.
 
 ## Failure analysis
 
@@ -21,10 +21,6 @@ Failures are read from the execution trace, not from the final grade alone. Each
 - **plan defect** - the decomposition itself was wrong; no execution order could have succeeded
 
 The first three are coordination failures and should appear only in the parallel and over-parallel renderings. The last two are capability failures and should be topology-invariant. The mapping from failure to cause, correlated with parallelism level, is the core result.
-
-## Side experiment: harness quality vs agent quality
-
-Three configurations run the grid: weak harness with strong agent, strong harness with weak agent, weak harness with weak agent. Opus 4.8 is the strong model, Haiku 4.5 the weak one. The weak-harness graphs are shared between the two weak-harness configurations, so differences within those cells are attributable to the executor alone. The grid is 2 tasks x 2 harness models x 3 topologies, giving 12 distinct graphs and 18 executions.
 
 ## Task selection
 
@@ -148,44 +144,6 @@ In the diagrams below, solid arrows are enforced ordering constraints; dotted ar
 
 <!-- TOPOLOGIES:BEGIN -->
 
-### django__django-11099 - opus harness
-
-**sequential** - 3 waves, max width 1
-
-```mermaid
-flowchart TD
-    fix_validators[fix_validators]
-    add_tests[add_tests]
-    make_diff[make_diff]
-    add_tests --> fix_validators
-    fix_validators --> make_diff
-    style make_diff stroke-width:3px
-```
-
-**parallel** - 2 waves, max width 2
-
-```mermaid
-flowchart TD
-    fix_validators[fix_validators]
-    add_tests[add_tests]
-    make_diff[make_diff]
-    fix_validators --> make_diff
-    add_tests --> make_diff
-    style make_diff stroke-width:3px
-```
-
-**overparallel** - 2 waves, max width 2
-
-```mermaid
-flowchart TD
-    fix_validators[fix_validators]
-    add_tests[add_tests]
-    make_diff[make_diff]
-    fix_validators --> make_diff
-    add_tests --> make_diff
-    style make_diff stroke-width:3px
-```
-
 ### django__django-11099 - haiku harness
 
 **sequential** - 8 waves, max width 1
@@ -260,65 +218,42 @@ flowchart TD
     style generate_diff stroke-width:3px
 ```
 
-### sympy__sympy-18087 - opus harness
+### django__django-11099 - opus harness
 
-**sequential** - 6 waves, max width 1
+**sequential** - 3 waves, max width 1
 
 ```mermaid
 flowchart TD
-    investigate_root_cause[investigate_root_cause]
-    inspect_trigsimp_paths[inspect_trigsimp_paths]
-    design_fix[design_fix]
-    apply_fix[apply_fix]
+    fix_validators[fix_validators]
     add_tests[add_tests]
-    assemble_diff[assemble_diff]
-    inspect_trigsimp_paths --> investigate_root_cause
-    investigate_root_cause --> design_fix
-    design_fix --> add_tests
-    add_tests --> apply_fix
-    apply_fix --> assemble_diff
-    style assemble_diff stroke-width:3px
+    make_diff[make_diff]
+    add_tests --> fix_validators
+    fix_validators --> make_diff
+    style make_diff stroke-width:3px
 ```
 
-**parallel** - 4 waves, max width 2
+**parallel** - 2 waves, max width 2
 
 ```mermaid
 flowchart TD
-    investigate_root_cause[investigate_root_cause]
-    inspect_trigsimp_paths[inspect_trigsimp_paths]
-    design_fix[design_fix]
-    apply_fix[apply_fix]
+    fix_validators[fix_validators]
     add_tests[add_tests]
-    assemble_diff[assemble_diff]
-    investigate_root_cause --> design_fix
-    inspect_trigsimp_paths --> design_fix
-    design_fix --> apply_fix
-    design_fix --> add_tests
-    apply_fix --> assemble_diff
-    add_tests --> assemble_diff
-    style assemble_diff stroke-width:3px
+    make_diff[make_diff]
+    fix_validators --> make_diff
+    add_tests --> make_diff
+    style make_diff stroke-width:3px
 ```
 
-**overparallel** - 2 waves, max width 5
+**overparallel** - 2 waves, max width 2
 
 ```mermaid
 flowchart TD
-    investigate_root_cause[investigate_root_cause]
-    inspect_trigsimp_paths[inspect_trigsimp_paths]
-    design_fix[design_fix]
-    apply_fix[apply_fix]
+    fix_validators[fix_validators]
     add_tests[add_tests]
-    assemble_diff[assemble_diff]
-    investigate_root_cause --> assemble_diff
-    inspect_trigsimp_paths --> assemble_diff
-    design_fix --> assemble_diff
-    investigate_root_cause -.-> design_fix
-    inspect_trigsimp_paths -.-> design_fix
-    apply_fix --> assemble_diff
-    design_fix -.-> apply_fix
-    add_tests --> assemble_diff
-    design_fix -.-> add_tests
-    style assemble_diff stroke-width:3px
+    make_diff[make_diff]
+    fix_validators --> make_diff
+    add_tests --> make_diff
+    style make_diff stroke-width:3px
 ```
 
 ### sympy__sympy-18087 - haiku harness
@@ -410,38 +345,111 @@ flowchart TD
     style generate_diff stroke-width:3px
 ```
 
+### sympy__sympy-18087 - opus harness
+
+**sequential** - 6 waves, max width 1
+
+```mermaid
+flowchart TD
+    investigate_root_cause[investigate_root_cause]
+    inspect_trigsimp_paths[inspect_trigsimp_paths]
+    design_fix[design_fix]
+    apply_fix[apply_fix]
+    add_tests[add_tests]
+    assemble_diff[assemble_diff]
+    inspect_trigsimp_paths --> investigate_root_cause
+    investigate_root_cause --> design_fix
+    design_fix --> add_tests
+    add_tests --> apply_fix
+    apply_fix --> assemble_diff
+    style assemble_diff stroke-width:3px
+```
+
+**parallel** - 4 waves, max width 2
+
+```mermaid
+flowchart TD
+    investigate_root_cause[investigate_root_cause]
+    inspect_trigsimp_paths[inspect_trigsimp_paths]
+    design_fix[design_fix]
+    apply_fix[apply_fix]
+    add_tests[add_tests]
+    assemble_diff[assemble_diff]
+    investigate_root_cause --> design_fix
+    inspect_trigsimp_paths --> design_fix
+    design_fix --> apply_fix
+    design_fix --> add_tests
+    apply_fix --> assemble_diff
+    add_tests --> assemble_diff
+    style assemble_diff stroke-width:3px
+```
+
+**overparallel** - 2 waves, max width 5
+
+```mermaid
+flowchart TD
+    investigate_root_cause[investigate_root_cause]
+    inspect_trigsimp_paths[inspect_trigsimp_paths]
+    design_fix[design_fix]
+    apply_fix[apply_fix]
+    add_tests[add_tests]
+    assemble_diff[assemble_diff]
+    investigate_root_cause --> assemble_diff
+    inspect_trigsimp_paths --> assemble_diff
+    design_fix --> assemble_diff
+    investigate_root_cause -.-> design_fix
+    inspect_trigsimp_paths -.-> design_fix
+    apply_fix --> assemble_diff
+    design_fix -.-> apply_fix
+    add_tests --> assemble_diff
+    design_fix -.-> add_tests
+    style assemble_diff stroke-width:3px
+```
+
 <!-- TOPOLOGIES:END -->
+
+## Accuracy metric
+
+Each run is graded on two deliverables. The primary deliverable is mechanical: the git diff of the workspace state the agents actually produced against the base commit, computed in a throwaway worktree, with files touched by the instance's gold test patch excluded so the gold tests always apply on top. This is the state that coordination acts on - a stale read or write conflict corrupts or preserves the workspace, not a model's later description of it. The secondary deliverable is the unified diff the final node emitted from memory; grading it alone conflates diff-fabrication ability with task outcome, and it is retained for comparison under "emitted" in the grade record.
+
+Three quantities are reported per deliverable. resolved - every FAIL_TO_PASS test of the instance passes, each test executed in its own interpreter invocation in a virtual environment of the repository. f2p - the fraction of FAIL_TO_PASS tests passing, the graded correctness axis. content - the fraction of the task rubric present in the patch text (django: both anchor replacements; sympy: any modification of core/exprtools.py), independent of test outcome.
+
+The earlier 0-4 stage ladder is retained in grades.json for the record but no longer reported: for the mechanical deliverable, stages 1 and 2 are dead by construction - git generated the diff at the base commit, and gold-test files were excluded - so the ladder carries no information beyond whether a workspace diff exists at all.
+
+Before grading, the emitted diff is normalized mechanically - markdown fences stripped, line endings normalized - with the repair logged and the raw output preserved unmodified. The mechanical diff needs no repair. This is instrument repair, not data adjustment.
 
 ## Results
 
 <!-- RESULTS:BEGIN -->
 
-### Run outcomes
+### Run grid
 
-| task | harness | agent | topology | wall (s) | cost ($) | node errors | premature | stale reads | applies | gold tests apply |
-|---|---|---|---|---|---|---|---|---|---|---|
-| django | haiku | haiku | sequential | 70.89 | 0.1007 | 0 | 0 | 0 | False | False |
-| django | haiku | haiku | parallel | 52.89 | 0.0872 | 0 | 0 | 0 | False | False |
-| django | haiku | haiku | overparallel | 30.96 | 0.0844 | 0 | 5 | 3 | False | False |
-| django | haiku | opus | sequential | 123.6 | 0.5781 | 0 | 0 | 0 | False | False |
-| django | haiku | opus | parallel | 95.3 | 0.5748 | 0 | 0 | 0 | True | False |
-| django | haiku | opus | overparallel | 51.09 | 0.429 | 0 | 5 | 3 | False | False |
-| django | opus | haiku | sequential | 34.06 | 0.0483 | 0 | 0 | 0 | False | False |
-| django | opus | haiku | parallel | 33.04 | 0.0474 | 0 | 0 | 1 | False | False |
-| django | opus | haiku | overparallel | 27.52 | 0.0351 | 0 | 0 | 1 | False | False |
-| sympy | haiku | haiku | sequential | 277.5 | 0.4881 | 1 | 0 | 0 | False | False |
-| sympy | haiku | haiku | parallel | 476.91 | 0.7176 | 1 | 0 | 0 | False | False |
-| sympy | haiku | haiku | overparallel | 223.31 | 0.4623 | 0 | 5 | 5 | False | False |
-| sympy | haiku | opus | sequential | 507.35 | 3.2504 | 0 | 0 | 0 | False | False |
-| sympy | haiku | opus | parallel | 482.04 | 3.3984 | 0 | 0 | 0 | False | False |
-| sympy | haiku | opus | overparallel | 284.57 | 2.8665 | 0 | 5 | 5 | False | False |
-| sympy | opus | haiku | sequential | 366.5 | 0.405 | 0 | 0 | 0 | False | False |
-| sympy | opus | haiku | parallel | 240.15 | 0.3917 | 1 | 0 | 0 | False | False |
-| sympy | opus | haiku | overparallel | 203.9 | 0.2984 | 0 | 3 | 2 | False | False |
+content: fraction of the task rubric present in the patch. f2p: FAIL_TO_PASS tests passing / total. resolved: every FAIL_TO_PASS test passes. tokens: input + output tokens summed over nodes, prompt-cache reads excluded. All grades apply to the mechanical deliverable (the workspace diff).
+
+| task | harness | agent | topology | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p | resolved |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| django-11099 | haiku | haiku | sequential | 70.89 | 0.1007 | 31998 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | haiku | haiku | parallel | 52.89 | 0.0872 | 27679 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | haiku | haiku | overparallel | 30.96 | 0.0844 | 24448 | 0 | 5 | 3 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | haiku | opus | sequential | 123.6 | 0.5781 | 36610 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | haiku | opus | parallel | 95.3 | 0.5748 | 36428 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | haiku | opus | overparallel | 51.09 | 0.429 | 31856 | 0 | 5 | 3 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | opus | haiku | sequential | 34.06 | 0.0483 | 14990 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | opus | haiku | parallel | 33.04 | 0.0474 | 14716 | 0 | 0 | 1 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | opus | haiku | overparallel | 27.52 | 0.0351 | 12794 | 0 | 0 | 1 | 0 | 1.0 | 3/3 | yes |
+| sympy-18087 | haiku | haiku | sequential | 277.5 | 0.4881 | 321191 | 1 | 0 | 0 | 0 | 0.0 | 0/2 | no |
+| sympy-18087 | haiku | haiku | parallel | 476.91 | 0.7176 | 404133 | 1 | 0 | 0 | 0 | 0.0 | 0/2 | no |
+| sympy-18087 | haiku | haiku | overparallel | 223.31 | 0.4623 | 269945 | 0 | 5 | 5 | 0 | 0.0 | 0/2 | no |
+| sympy-18087 | haiku | opus | sequential | 507.35 | 3.2504 | 423244 | 0 | 0 | 0 | 0 | 0.0 | 0/2 | no |
+| sympy-18087 | haiku | opus | parallel | 482.04 | 3.3984 | 435050 | 0 | 0 | 0 | 0 | 0.0 | 0/2 | no |
+| sympy-18087 | haiku | opus | overparallel | 284.57 | 2.8665 | 358611 | 0 | 5 | 5 | 0 | 0.0 | 0/2 | no |
+| sympy-18087 | opus | haiku | sequential | 366.5 | 0.405 | 193834 | 0 | 0 | 0 | 0 | 0.0 | 0/2 | no |
+| sympy-18087 | opus | haiku | parallel | 240.15 | 0.3917 | 190909 | 1 | 0 | 0 | 0 | 0.0 | 0/2 | no |
+| sympy-18087 | opus | haiku | overparallel | 203.9 | 0.2984 | 153611 | 0 | 3 | 2 | 0 | 0.0 | 0/2 | no |
 
 ### Coordination events by run
 
-**django / haiku harness / haiku agent / overparallel**
+**django-11099 / haiku harness / haiku agent / overparallel**
 - stale read: `read_validator_tests` read `tests/auth_tests/test_validators.py` while `create_test_case` rewrote it in the same superstep
 - stale read: `read_validators` read `django/contrib/auth/validators.py` while `update_validators` rewrote it in the same superstep
 - stale read: `verify_regex_change` read `django/contrib/auth/validators.py` while `update_validators` rewrote it in the same superstep
@@ -451,7 +459,7 @@ flowchart TD
 - premature consumption at `update_validators`
 - premature consumption at `verify_regex_change`
 
-**django / haiku harness / opus agent / overparallel**
+**django-11099 / haiku harness / opus agent / overparallel**
 - stale read: `read_validator_tests` read `tests/auth_tests/test_validators.py` while `create_test_case` rewrote it in the same superstep
 - stale read: `read_validators` read `django/contrib/auth/validators.py` while `update_validators` rewrote it in the same superstep
 - stale read: `verify_regex_change` read `django/contrib/auth/validators.py` while `update_validators` rewrote it in the same superstep
@@ -461,19 +469,19 @@ flowchart TD
 - premature consumption at `update_validators`
 - premature consumption at `verify_regex_change`
 
-**django / opus harness / haiku agent / parallel**
+**django-11099 / opus harness / haiku agent / parallel**
 - stale read: `add_tests` read `django/contrib/auth/validators.py` while `fix_validators` rewrote it in the same superstep
 
-**django / opus harness / haiku agent / overparallel**
+**django-11099 / opus harness / haiku agent / overparallel**
 - stale read: `add_tests` read `django/contrib/auth/validators.py` while `fix_validators` rewrote it in the same superstep
 
-**sympy / haiku harness / haiku agent / sequential**
+**sympy-18087 / haiku harness / haiku agent / sequential**
 - node error at `fix_simplification`
 
-**sympy / haiku harness / haiku agent / parallel**
+**sympy-18087 / haiku harness / haiku agent / parallel**
 - node error at `fix_simplification`
 
-**sympy / haiku harness / haiku agent / overparallel**
+**sympy-18087 / haiku harness / haiku agent / overparallel**
 - stale read: `examine_fu` read `sympy/simplify/fu.py` while `fix_simplification` rewrote it in the same superstep
 - stale read: `identify_root_cause` read `sympy/simplify/fu.py` while `fix_simplification` rewrote it in the same superstep
 - stale read: `run_existing_tests` read `sympy/simplify/tests/test_trigsimp.py` while `add_regression_test` rewrote it in the same superstep
@@ -485,7 +493,7 @@ flowchart TD
 - premature consumption at `run_existing_tests`
 - premature consumption at `verify_fix`
 
-**sympy / haiku harness / opus agent / overparallel**
+**sympy-18087 / haiku harness / opus agent / overparallel**
 - stale read: `examine_fu` read `sympy/simplify/fu.py` while `fix_simplification` rewrote it in the same superstep
 - stale read: `identify_root_cause` read `sympy/simplify/fu.py` while `fix_simplification` rewrote it in the same superstep
 - stale read: `run_existing_tests` read `sympy/simplify/tests/test_trigsimp.py` while `add_regression_test` rewrote it in the same superstep
@@ -497,19 +505,570 @@ flowchart TD
 - premature consumption at `run_existing_tests`
 - premature consumption at `verify_fix`
 
-**sympy / opus harness / haiku agent / parallel**
+**sympy-18087 / opus harness / haiku agent / parallel**
 - node error at `add_tests`
 
-**sympy / opus harness / haiku agent / overparallel**
+**sympy-18087 / opus harness / haiku agent / overparallel**
 - stale read: `design_fix` read `sympy/simplify/fu.py` while `apply_fix` rewrote it in the same superstep
 - stale read: `investigate_root_cause` read `sympy/simplify/fu.py` while `apply_fix` rewrote it in the same superstep
 - premature consumption at `add_tests`
 - premature consumption at `apply_fix`
 - premature consumption at `design_fix`
 
+### Repetition study (10 runs of django-11099 / haiku harness / overparallel, haiku agent)
+
+A single run per configuration cannot distinguish behavior inherent to that configuration from sampling noise: the agent is sampled at nonzero temperature. One configuration was rerun ten times - the weak-harness django decomposition, over-parallel rendering, weak agent, chosen as the cheapest cell with the richest coordination-event set. Schedule-derived quantities (which files were read stale, which dependencies were consumed prematurely) are expected to repeat exactly; model-dependent quantities may vary.
+
+| task | harness | agent | topology | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p | resolved |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| django-11099 | haiku | haiku | overparallel | 34.22 | 0.0632 | 24455 | 0 | 5 | 3 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | haiku | haiku | overparallel | 31.82 | 0.0865 | 24845 | 0 | 5 | 3 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | haiku | haiku | overparallel | 32.04 | 0.086 | 25004 | 0 | 5 | 3 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | haiku | haiku | overparallel | 31.99 | 0.0851 | 24364 | 0 | 5 | 3 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | haiku | haiku | overparallel | 32.78 | 0.0869 | 25130 | 0 | 5 | 3 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | haiku | haiku | overparallel | 29.7 | 0.0833 | 23878 | 0 | 5 | 3 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | haiku | haiku | overparallel | 31.98 | 0.0882 | 25308 | 0 | 5 | 3 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | haiku | haiku | overparallel | 32.6 | 0.0852 | 24264 | 0 | 5 | 3 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | haiku | haiku | overparallel | 32.55 | 0.0853 | 24902 | 0 | 5 | 3 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | haiku | haiku | overparallel | 31.94 | 0.0862 | 25073 | 0 | 5 | 3 | 0 | 1.0 | 3/3 | yes |
+
+Determinism summary: coordination event signatures (stale, premature, node errors) and counts: {(3, 5, 0): 10}; resolved values ['yes']; content values [1.0].
 
 <!-- RESULTS:END -->
 
-## Analysis
+## Observations
 
-(to be written from the joined tables)
+The grading instrument, not the workspace, was the earlier bottleneck. Under emitted-diff grading, no run of the 28 resolved: 26 stopped at a diff that does not apply, one applied but conflicted with the gold test patch, and the single run whose diff fully applied fails its tests 0/3 because the agent-written diff is not the workspace the agents built. Under mechanical grading of the same 28 runs, every django run resolves at 3/3 and every sympy run fails at 0/2. That one run scores 0/3 emitted and 3/3 mechanical - the two graders measure different objects, and only the mechanical one measures the state that coordination acts on.
+
+The ten repetitions confirm the split between schedule-derived and sampled quantities: identical stale-read and premature-consumption sets at the same nodes and files in all ten runs, content 1.0 and resolved in all ten, wall time 29.7 to 34.2 seconds, cost $0.063 to $0.088. Under mechanical grading the repetition cell has no outcome variance at all; the stage flapping reported earlier was fabrication luck in the deprecated deliverable.
+
+The two tasks bracket the topology axis instead of spanning it. django resolves under every topology including over-parallel: its stale readers were inspection nodes whose outputs nothing downstream needed, and the last-write-wins state reducer preserved the correct edit. sympy fails under every topology: the plan is mis-localized before execution starts. One task shows coordination events without coordination damage; the other cannot be rescued by any execution order.
+
+The condition this makes precise: parallelism damages an outcome only when a cut or raced dependency was load-bearing - the downstream node needed the dependency's information and could not obtain it elsewhere. django's dependencies carry redundant information, since the fix is derivable from the problem statement alone; sympy's dependencies carry wrong information. A topology gradient can only appear on a task whose dependencies are load-bearing, and I recommend we make that the selection criterion for the next instance.
+
+## Gradient experiment
+
+The bracket result motivates a third task. Both bracket tasks are topology-flat under graded accuracy - django-11099 at ceiling because no dependency is load-bearing, sympy-18087 at floor because the plan is wrong before execution starts - so a topology gradient can only appear on a task whose dependencies are load-bearing: the fix must not be derivable from the problem statement, yet the statement must localize the code well enough that a frozen plan can reach it. I scanned SWE-bench Lite for instances with no fix lines quoted in the statement, a patched file named or implied by the statement, multiple edit hunks, and several FAIL_TO_PASS tests, then selected by hand from the top candidates.
+
+**Task 3 - django__django-11019.** Merging three or more Media objects raises spurious MediaOrderConflictWarnings and produces wrong asset orderings, because Media.__add__ merges pairwise and each pairwise merge imposes ordering constraints the inputs never declared. The statement reports the symptom and this diagnosis but not the fix; the reference rewrites the merge machinery in django/forms/widgets.py across three connected edit sites. The instance has 16 FAIL_TO_PASS tests, so the graded f2p axis takes 17 possible values. Two structural properties make the graded outcome cleanly attributable: the gold test patch touches every test file the plan writes, so agent test edits are excluded from grading, and the only workspace writer of django/forms/widgets.py is a single node, so the graded artifact is one node's output under varying input conditions.
+
+### Configuration
+
+The bracket grid ran three configurations: weak harness with strong agent, strong harness with weak agent, weak harness with weak agent, with Opus 4.8 strong and Haiku 4.5 weak. The gradient experiment fixes one configuration - Opus harness, Haiku agent - on three grounds read off that grid. Plan quality is the binding constraint: a mis-localized plan flattens every topology at zero, so the sequential end of a gradient needs the strongest available planner. Agent identity moved no graded outcome: under mechanical grading every paired cell of the bracket grid is identical across agents, and coordination events are schedule-derived and identical across agents by construction. The weak agent is 5-7x cheaper per run, which is what makes repeated runs per cell affordable.
+
+### Cut-fraction axis
+
+Three topologies give three points on the parallelism axis, and over-parallel is a single all-or-nothing rule. For the gradient the axis is refined into a cut fraction f. Candidates are all dependency edges whose consumer is not the final node - the final node is barriered behind every other node in every non-sequential rendering, so its edges are uncuttable in effect. Candidates are ranked lexicographically by (consumer, dep) and the first ceil(f x N) are cut. f = 0 is the declared graph (parallel) and f = 1 cuts everything (over-parallel); f in {0.25, 0.5, 0.75} adds three intermediate schedules. Cutting removes ordering only: a cut dependency still defines data flow, and its output is injected whenever the producer completed in an earlier superstep. A cut therefore removes information exactly when it races producer and consumer into the same superstep. For this decomposition that makes parallel and cut25 effectively identical schedules, and cut50 and cut75 effectively identical schedules; I kept all six points because the two identical pairs are built-in controls - their per-repetition distributions must be statistically indistinguishable if the rig is sound.
+
+### Repetitions
+
+Each of the six points runs five times. The bracket repetition study showed that schedule-derived quantities repeat exactly while model-sampled quantities vary; five repetitions per point put means and spread on the sampled quantities (f2p, content, cost, wall time) at acceptable cost.
+
+### Generated decomposition
+
+Opus harness, identical frozen prompt, temperature 0, single Workbench turn. Five nodes, no guards:
+
+```mermaid
+flowchart TD
+    analyze_media[analyze_media]
+    study_tests[study_tests]
+    implement_merge[implement_merge]
+    update_tests[update_tests]
+    assemble_diff[assemble_diff]
+    analyze_media --> implement_merge
+    study_tests --> implement_merge
+    implement_merge --> update_tests
+    study_tests --> update_tests
+    implement_merge --> assemble_diff
+    update_tests --> assemble_diff
+    style assemble_diff stroke-width:3px
+```
+
+Plan-time observations:
+
+- The harness embedded the fix design into the implementing node's instruction - "merges a LIST of lists (not just two)", "topological-sort-like algorithm" - compensating for the frozen-plan regime. Instructions survive every topology, so what a cut removes is the analyses' execution-time detail (the actual code, the exact test expectations), not the design outline.
+- Discovered at the sequential pilot run, not at plan time: the gold FAIL_TO_PASS tests pin the reference implementation's internal API - they call Media.merge(*lists) positionally. An implementation with a different signature caps below 16/16 regardless of coordination, and the instruction's "list of lists" wording steers toward a single-argument signature. The task ceiling is therefore below 16 for this plan.
+- The implementing node depends on both analysis nodes; the test-updating node depends on the implementation and the test analysis. Four dependency edges are cuttable.
+
+## Rendered gradient topologies
+
+<!-- TOPOLOGIES2:BEGIN -->
+
+### django__django-11019 - opus harness
+
+**sequential** - 5 waves, max width 1
+
+```mermaid
+flowchart TD
+    analyze_media[analyze_media]
+    study_tests[study_tests]
+    implement_merge[implement_merge]
+    update_tests[update_tests]
+    assemble_diff[assemble_diff]
+    analyze_media --> study_tests
+    study_tests --> implement_merge
+    implement_merge --> update_tests
+    update_tests --> assemble_diff
+    style assemble_diff stroke-width:3px
+```
+
+**parallel** - 4 waves, max width 2
+
+```mermaid
+flowchart TD
+    analyze_media[analyze_media]
+    study_tests[study_tests]
+    implement_merge[implement_merge]
+    update_tests[update_tests]
+    assemble_diff[assemble_diff]
+    analyze_media --> implement_merge
+    study_tests --> implement_merge
+    implement_merge --> update_tests
+    study_tests --> update_tests
+    implement_merge --> assemble_diff
+    update_tests --> assemble_diff
+    style assemble_diff stroke-width:3px
+```
+
+**cut25** - 4 waves, max width 2
+
+```mermaid
+flowchart TD
+    analyze_media[analyze_media]
+    study_tests[study_tests]
+    implement_merge[implement_merge]
+    update_tests[update_tests]
+    assemble_diff[assemble_diff]
+    analyze_media -.-> implement_merge
+    study_tests --> implement_merge
+    implement_merge --> update_tests
+    study_tests --> update_tests
+    implement_merge --> assemble_diff
+    update_tests --> assemble_diff
+    analyze_media --> assemble_diff
+    style assemble_diff stroke-width:3px
+```
+
+**cut50** - 3 waves, max width 3
+
+```mermaid
+flowchart TD
+    analyze_media[analyze_media]
+    study_tests[study_tests]
+    implement_merge[implement_merge]
+    update_tests[update_tests]
+    assemble_diff[assemble_diff]
+    analyze_media -.-> implement_merge
+    study_tests -.-> implement_merge
+    implement_merge --> update_tests
+    study_tests --> update_tests
+    implement_merge --> assemble_diff
+    update_tests --> assemble_diff
+    analyze_media --> assemble_diff
+    style assemble_diff stroke-width:3px
+```
+
+**cut75** - 3 waves, max width 3
+
+```mermaid
+flowchart TD
+    analyze_media[analyze_media]
+    study_tests[study_tests]
+    implement_merge[implement_merge]
+    update_tests[update_tests]
+    assemble_diff[assemble_diff]
+    analyze_media -.-> implement_merge
+    study_tests -.-> implement_merge
+    implement_merge -.-> update_tests
+    study_tests --> update_tests
+    implement_merge --> assemble_diff
+    update_tests --> assemble_diff
+    analyze_media --> assemble_diff
+    style assemble_diff stroke-width:3px
+```
+
+**overparallel** - 2 waves, max width 4
+
+```mermaid
+flowchart TD
+    analyze_media[analyze_media]
+    study_tests[study_tests]
+    implement_merge[implement_merge]
+    update_tests[update_tests]
+    assemble_diff[assemble_diff]
+    analyze_media --> assemble_diff
+    study_tests --> assemble_diff
+    implement_merge --> assemble_diff
+    analyze_media -.-> implement_merge
+    study_tests -.-> implement_merge
+    update_tests --> assemble_diff
+    implement_merge -.-> update_tests
+    study_tests -.-> update_tests
+    style assemble_diff stroke-width:3px
+```
+
+### django__django-11019 - probe harness
+
+**sequential** - 4 waves, max width 1
+
+```mermaid
+flowchart TD
+    fix_css[fix_css]
+    fix_js[fix_js]
+    fix_merge[fix_merge]
+    make_diff[make_diff]
+    fix_css --> fix_js
+    fix_js --> fix_merge
+    fix_merge --> make_diff
+    style make_diff stroke-width:3px
+```
+
+**parallel** - 2 waves, max width 3
+
+```mermaid
+flowchart TD
+    fix_css[fix_css]
+    fix_js[fix_js]
+    fix_merge[fix_merge]
+    make_diff[make_diff]
+    fix_css --> make_diff
+    fix_js --> make_diff
+    fix_merge --> make_diff
+    style make_diff stroke-width:3px
+```
+
+**cut25** - 2 waves, max width 3
+
+```mermaid
+flowchart TD
+    fix_css[fix_css]
+    fix_js[fix_js]
+    fix_merge[fix_merge]
+    make_diff[make_diff]
+    fix_css --> make_diff
+    fix_js --> make_diff
+    fix_merge --> make_diff
+    style make_diff stroke-width:3px
+```
+
+**cut50** - 2 waves, max width 3
+
+```mermaid
+flowchart TD
+    fix_css[fix_css]
+    fix_js[fix_js]
+    fix_merge[fix_merge]
+    make_diff[make_diff]
+    fix_css --> make_diff
+    fix_js --> make_diff
+    fix_merge --> make_diff
+    style make_diff stroke-width:3px
+```
+
+**cut75** - 2 waves, max width 3
+
+```mermaid
+flowchart TD
+    fix_css[fix_css]
+    fix_js[fix_js]
+    fix_merge[fix_merge]
+    make_diff[make_diff]
+    fix_css --> make_diff
+    fix_js --> make_diff
+    fix_merge --> make_diff
+    style make_diff stroke-width:3px
+```
+
+**overparallel** - 2 waves, max width 3
+
+```mermaid
+flowchart TD
+    fix_css[fix_css]
+    fix_js[fix_js]
+    fix_merge[fix_merge]
+    make_diff[make_diff]
+    fix_css --> make_diff
+    fix_js --> make_diff
+    fix_merge --> make_diff
+    style make_diff stroke-width:3px
+```
+
+### django__django-11099 - probe harness
+
+**sequential** - 3 waves, max width 1
+
+```mermaid
+flowchart TD
+    fix_ascii[fix_ascii]
+    fix_unicode[fix_unicode]
+    make_diff[make_diff]
+    fix_ascii --> fix_unicode
+    fix_unicode --> make_diff
+    style make_diff stroke-width:3px
+```
+
+**parallel** - 2 waves, max width 2
+
+```mermaid
+flowchart TD
+    fix_ascii[fix_ascii]
+    fix_unicode[fix_unicode]
+    make_diff[make_diff]
+    fix_ascii --> make_diff
+    fix_unicode --> make_diff
+    style make_diff stroke-width:3px
+```
+
+**cut25** - 2 waves, max width 2
+
+```mermaid
+flowchart TD
+    fix_ascii[fix_ascii]
+    fix_unicode[fix_unicode]
+    make_diff[make_diff]
+    fix_ascii --> make_diff
+    fix_unicode --> make_diff
+    style make_diff stroke-width:3px
+```
+
+**cut50** - 2 waves, max width 2
+
+```mermaid
+flowchart TD
+    fix_ascii[fix_ascii]
+    fix_unicode[fix_unicode]
+    make_diff[make_diff]
+    fix_ascii --> make_diff
+    fix_unicode --> make_diff
+    style make_diff stroke-width:3px
+```
+
+**cut75** - 2 waves, max width 2
+
+```mermaid
+flowchart TD
+    fix_ascii[fix_ascii]
+    fix_unicode[fix_unicode]
+    make_diff[make_diff]
+    fix_ascii --> make_diff
+    fix_unicode --> make_diff
+    style make_diff stroke-width:3px
+```
+
+**overparallel** - 2 waves, max width 2
+
+```mermaid
+flowchart TD
+    fix_ascii[fix_ascii]
+    fix_unicode[fix_unicode]
+    make_diff[make_diff]
+    fix_ascii --> make_diff
+    fix_unicode --> make_diff
+    style make_diff stroke-width:3px
+```
+
+### django__django-11099 - probeordered harness
+
+**sequential** - 3 waves, max width 1
+
+```mermaid
+flowchart TD
+    fix_ascii[fix_ascii]
+    fix_unicode[fix_unicode]
+    make_diff[make_diff]
+    fix_ascii --> fix_unicode
+    fix_unicode --> make_diff
+    style make_diff stroke-width:3px
+```
+
+**parallel** - 3 waves, max width 1
+
+```mermaid
+flowchart TD
+    fix_ascii[fix_ascii]
+    fix_unicode[fix_unicode]
+    make_diff[make_diff]
+    fix_ascii --> fix_unicode
+    fix_ascii --> make_diff
+    fix_unicode --> make_diff
+    style make_diff stroke-width:3px
+```
+
+**cut25** - 2 waves, max width 2
+
+```mermaid
+flowchart TD
+    fix_ascii[fix_ascii]
+    fix_unicode[fix_unicode]
+    make_diff[make_diff]
+    fix_ascii -.-> fix_unicode
+    fix_ascii --> make_diff
+    fix_unicode --> make_diff
+    style make_diff stroke-width:3px
+```
+
+**cut50** - 2 waves, max width 2
+
+```mermaid
+flowchart TD
+    fix_ascii[fix_ascii]
+    fix_unicode[fix_unicode]
+    make_diff[make_diff]
+    fix_ascii -.-> fix_unicode
+    fix_ascii --> make_diff
+    fix_unicode --> make_diff
+    style make_diff stroke-width:3px
+```
+
+**cut75** - 2 waves, max width 2
+
+```mermaid
+flowchart TD
+    fix_ascii[fix_ascii]
+    fix_unicode[fix_unicode]
+    make_diff[make_diff]
+    fix_ascii -.-> fix_unicode
+    fix_ascii --> make_diff
+    fix_unicode --> make_diff
+    style make_diff stroke-width:3px
+```
+
+**overparallel** - 2 waves, max width 2
+
+```mermaid
+flowchart TD
+    fix_ascii[fix_ascii]
+    fix_unicode[fix_unicode]
+    make_diff[make_diff]
+    fix_ascii --> make_diff
+    fix_unicode --> make_diff
+    fix_ascii -.-> fix_unicode
+    style make_diff stroke-width:3px
+```
+
+<!-- TOPOLOGIES2:END -->
+
+## Gradient results
+
+<!-- RESULTS2:BEGIN -->
+
+### Gradient runs
+
+content: fraction of the task rubric present in the patch. f2p: FAIL_TO_PASS tests passing / total. resolved: every FAIL_TO_PASS test passes. tokens: input + output tokens summed over nodes, prompt-cache reads excluded. All grades apply to the mechanical deliverable (the workspace diff).
+
+| task | harness | agent | topology | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p | resolved |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| django-11019 | opus | haiku | sequential | 185.11 | 0.2496 | 124306 | 0 | 0 | 0 | 0 | 1.0 | 6/16 | no |
+| django-11019 | opus | haiku | sequential | 179.1 | 0.2455 | 123124 | 0 | 0 | 0 | 0 | 1.0 | 2/16 | no |
+| django-11019 | opus | haiku | sequential | 185.8 | 0.2458 | 121050 | 0 | 0 | 0 | 0 | 1.0 | 4/16 | no |
+| django-11019 | opus | haiku | sequential | 266.49 | 0.3221 | 148344 | 0 | 0 | 0 | 0 | 1.0 | 6/16 | no |
+| django-11019 | opus | haiku | sequential | 252.35 | 0.3075 | 142229 | 0 | 0 | 0 | 0 | 0.0 | no workspace | no |
+| django-11019 | opus | haiku | parallel | 159.36 | 0.172 | 84333 | 1 | 0 | 0 | 0 | 1.0 | 6/16 | no |
+| django-11019 | opus | haiku | parallel | 168.55 | 0.2573 | 126763 | 0 | 0 | 0 | 0 | 1.0 | 4/16 | no |
+| django-11019 | opus | haiku | parallel | 169.78 | 0.2562 | 126173 | 0 | 0 | 0 | 0 | 1.0 | 4/16 | no |
+| django-11019 | opus | haiku | parallel | 172.61 | 0.2573 | 126609 | 0 | 0 | 0 | 0 | 1.0 | 5/16 | no |
+| django-11019 | opus | haiku | parallel | 160.95 | 0.2385 | 119640 | 0 | 0 | 0 | 0 | 1.0 | 3/16 | no |
+| django-11019 | opus | haiku | cut25 | 171.53 | 0.2523 | 124656 | 0 | 0 | 0 | 0 | 1.0 | 4/16 | no |
+| django-11019 | opus | haiku | cut25 | 184.64 | 0.2617 | 127309 | 0 | 0 | 0 | 0 | 1.0 | 6/16 | no |
+| django-11019 | opus | haiku | cut25 | 177.69 | 0.25 | 123109 | 0 | 0 | 0 | 0 | 1.0 | 7/16 | no |
+| django-11019 | opus | haiku | cut25 | 178.0 | 0.2604 | 127448 | 0 | 0 | 0 | 0 | 1.0 | 7/16 | no |
+| django-11019 | opus | haiku | cut25 | 176.84 | 0.2581 | 125779 | 1 | 0 | 0 | 0 | 1.0 | 3/16 | no |
+| django-11019 | opus | haiku | cut50 | 160.47 | 0.2559 | 121589 | 0 | 1 | 1 | 0 | 1.0 | 7/16 | no |
+| django-11019 | opus | haiku | cut50 | 151.33 | 0.2489 | 119940 | 0 | 1 | 1 | 0 | 1.0 | 1/16 | no |
+| django-11019 | opus | haiku | cut50 | 147.49 | 0.2574 | 122905 | 0 | 1 | 1 | 0 | 1.0 | 5/16 | no |
+| django-11019 | opus | haiku | cut50 | 144.6 | 0.2463 | 119111 | 1 | 1 | 1 | 0 | 1.0 | 3/16 | no |
+| django-11019 | opus | haiku | cut50 | 142.53 | 0.2456 | 118246 | 0 | 1 | 1 | 0 | 1.0 | 1/16 | no |
+| django-11019 | opus | haiku | cut75 | 156.37 | 0.2612 | 122415 | 0 | 1 | 1 | 0 | 1.0 | 1/16 | no |
+| django-11019 | opus | haiku | cut75 | 146.35 | 0.2497 | 120335 | 0 | 1 | 1 | 0 | 1.0 | 6/16 | no |
+| django-11019 | opus | haiku | cut75 | 220.7 | 0.3119 | 140489 | 0 | 1 | 1 | 0 | 1.0 | 2/16 | no |
+| django-11019 | opus | haiku | cut75 | 139.59 | 0.2465 | 119218 | 0 | 1 | 1 | 0 | 1.0 | 4/16 | no |
+| django-11019 | opus | haiku | cut75 | 143.46 | 0.2403 | 117564 | 0 | 1 | 1 | 0 | 1.0 | 3/16 | no |
+| django-11019 | opus | haiku | overparallel | 95.29 | 0.2275 | 104580 | 0 | 2 | 2 | 0 | 1.0 | 5/16 | no |
+| django-11019 | opus | haiku | overparallel | 83.21 | 0.2293 | 104731 | 0 | 2 | 2 | 0 | 1.0 | 6/16 | no |
+| django-11019 | opus | haiku | overparallel | 92.34 | 0.2316 | 105518 | 0 | 2 | 2 | 0 | 1.0 | 4/16 | no |
+| django-11019 | opus | haiku | overparallel | 90.25 | 0.2278 | 104375 | 0 | 2 | 2 | 0 | 1.0 | 6/16 | no |
+| django-11019 | opus | haiku | overparallel | 96.75 | 0.2337 | 105806 | 0 | 2 | 2 | 0 | 1.0 | 2/16 | no |
+
+### Coordination events by topology
+
+**sequential** (5 runs) - no events
+
+**parallel** (4 runs) - no events
+
+**parallel** (1 run)
+- node error at `update_tests`
+
+**cut25** (4 runs) - no events
+
+**cut25** (1 run)
+- node error at `update_tests`
+
+**cut50** (1 run)
+- node error at `update_tests`
+- premature consumption at `implement_merge`
+- stale read: `analyze_media` read `django/forms/widgets.py` while `implement_merge` rewrote it in the same superstep
+
+**cut50** (4 runs, identical event set)
+- premature consumption at `implement_merge`
+- stale read: `analyze_media` read `django/forms/widgets.py` while `implement_merge` rewrote it in the same superstep
+
+**cut75** (5 runs, identical event set)
+- premature consumption at `implement_merge`
+- stale read: `analyze_media` read `django/forms/widgets.py` while `implement_merge` rewrote it in the same superstep
+
+**overparallel** (5 runs, identical event set)
+- premature consumption at `implement_merge`
+- premature consumption at `update_tests`
+- stale read: `analyze_media` read `django/forms/widgets.py` while `implement_merge` rewrote it in the same superstep
+- stale read: `study_tests` read `tests/forms_tests/tests/test_media.py` while `update_tests` rewrote it in the same superstep
+
+
+### Means per topology
+
+| topology | runs | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p frac | resolved |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| sequential | 5 | 213.8 | 0.2741 | 131811.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.8 | 0.281 | 0/5 |
+| parallel | 5 | 166.2 | 0.2363 | 116704.0 | 0.2 | 0.0 | 0.0 | 0.0 | 1.0 | 0.275 | 0/5 |
+| cut25 | 5 | 177.7 | 0.2565 | 125660.0 | 0.2 | 0.0 | 0.0 | 0.0 | 1.0 | 0.338 | 0/5 |
+| cut50 | 5 | 149.3 | 0.2508 | 120358.0 | 0.2 | 1.0 | 1.0 | 0.0 | 1.0 | 0.212 | 0/5 |
+| cut75 | 5 | 161.3 | 0.2619 | 124004.0 | 0.0 | 1.0 | 1.0 | 0.0 | 1.0 | 0.2 | 0/5 |
+| overparallel | 5 | 91.6 | 0.23 | 105002.0 | 0.0 | 2.0 | 2.0 | 0.0 | 1.0 | 0.287 | 0/5 |
+
+Identical-schedule controls (pairs whose effective schedules coincide; their distributions must be indistinguishable if the rig is sound): parallel vs cut25: mean f2p 0.275 vs 0.338; cut50 vs cut75: mean f2p 0.212 vs 0.2.
+
+### Write-conflict probe
+
+The write-conflict probe isolates the coordination mechanism from worker capability. Its plan is authored rather than harness-generated, and disclosed as such: the reference fix touches two independent regions of one small file, each region assigned to one worker whose instruction contains the exact edit, so every individual worker action is correct by construction and capability is held at ceiling. The only variable left is the schedule. Sequentially, each worker receives the file with the previous edit already present and preserves it, so the edits compose. In parallel, both workers read the same snapshot and each commits a complete file containing only its own edit; the store keeps the last write and the other worker's committed correct work is destroyed - the lost update of concurrency-control theory, recorded as a write conflict in the failure vocabulary. The probe targets django-11099 because its file is small enough that whole-file reproduction is error-free, removing copy fidelity as a confound.
+
+| task | harness | agent | topology | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p | resolved |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| django-11099 | probe | haiku | sequential | 9.61 | 0.0132 | 2996 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | probe | haiku | sequential | 9.32 | 0.0166 | 3058 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | probe | haiku | sequential | 9.86 | 0.0166 | 3068 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | probe | haiku | sequential | 13.68 | 0.0162 | 2920 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | probe | haiku | sequential | 10.49 | 0.0163 | 2946 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | probe | haiku | parallel | 7.65 | 0.0177 | 3317 | 0 | 0 | 2 | 1 | 0.5 | 2/3 | no |
+| django-11099 | probe | haiku | parallel | 8.59 | 0.0174 | 3301 | 0 | 0 | 2 | 1 | 0.5 | 2/3 | no |
+| django-11099 | probe | haiku | parallel | 9.03 | 0.0167 | 2994 | 0 | 0 | 2 | 1 | 0.5 | 2/3 | no |
+| django-11099 | probe | haiku | parallel | 6.78 | 0.0165 | 3005 | 0 | 0 | 2 | 1 | 0.5 | 2/3 | no |
+| django-11099 | probe | haiku | parallel | 6.58 | 0.0167 | 2983 | 0 | 0 | 2 | 1 | 0.5 | 2/3 | no |
+
+#### Ordered arm - the primitive applied
+
+The ordered arm applies the coordination primitive to the failing schedule. Exactly one thing changes relative to the unordered probe: the plan declares a single dependency edge between the two writers (fix_unicode depends on fix_ascii). Instructions, agent model, renderer, and grading are identical. The renderer turns the declared edge into an ordering constraint, so the second writer starts only after the first has committed, receives the file with the first edit already present, and preserves it - the write sets no longer overlap within a superstep, so the lost update cannot occur. This is the standard concurrency-control remedy for a write-write conflict, applied statically: serialize exactly the conflicting pair and nothing else.
+
+| task | harness | agent | topology | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p | resolved |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| django-11099 | probeordered | haiku | parallel | 11.19 | 0.0134 | 3304 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | probeordered | haiku | parallel | 8.95 | 0.0166 | 3313 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | probeordered | haiku | parallel | 9.55 | 0.0166 | 3298 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | probeordered | haiku | parallel | 12.82 | 0.0167 | 3353 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
+| django-11099 | probeordered | haiku | parallel | 13.8 | 0.0183 | 3831 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
+
+- sequential (implicit total order): 5/5 resolved; content values [1.0]; same-superstep stale reads per run [0]; write conflicts per run [0].
+- parallel, unordered writers: 0/5 resolved; content values [0.5]; same-superstep stale reads per run [2]; write conflicts per run [1].
+- parallel, one declared ordering edge (the primitive): 5/5 resolved; content values [1.0]; same-superstep stale reads per run [0]; write conflicts per run [0].
+
+The outcome flip is schedule-derived: every unordered parallel repetition lost the same edit to the same last-write-wins conflict while the sampled worker outputs varied. The ordered arm shows the repair: one declared dependency between the conflicting writers restores resolution. In this minimal probe the conflicting pair is the entire graph, so serializing it recovers the sequential schedule; the wall-time case for parallelism rests on the gradient runs, where non-conflicting work parallelizes with no accuracy loss under the same state discipline.
+
+<!-- RESULTS2:END -->

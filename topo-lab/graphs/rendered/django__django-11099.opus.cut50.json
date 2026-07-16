@@ -1,0 +1,60 @@
+{
+  "nodes": [
+    {
+      "id": "fix_validators",
+      "instruction": "Modify django/contrib/auth/validators.py to fix the trailing newline vulnerability in the username validators. Both ASCIIUsernameValidator and UnicodeUsernameValidator currently use the regex r'^[\\w.@+-]+$'. Change both regex attributes to r'\\A[\\w.@+-]+\\Z' so that a trailing newline is rejected. Preserve all other attributes, docstrings, messages, and formatting. Output the complete updated file contents.",
+      "reads": [
+        "django/contrib/auth/validators.py"
+      ],
+      "writes": [
+        "django/contrib/auth/validators.py"
+      ],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "add_tests",
+      "instruction": "Update tests/auth_tests/test_validators.py to add test coverage verifying that ASCIIUsernameValidator and UnicodeUsernameValidator reject usernames containing a trailing newline (e.g. 'trailingnewline\n'), while still accepting valid usernames. Examine the existing test file structure and add or extend test methods/classes accordingly (for example a UsernameValidatorsTests class using assertRaises(ValidationError) for invalid inputs and no-exception for valid inputs). Import ValidationError and the validators as needed. Output the complete updated file contents.",
+      "reads": [
+        "tests/auth_tests/test_validators.py",
+        "django/contrib/auth/validators.py"
+      ],
+      "writes": [
+        "tests/auth_tests/test_validators.py"
+      ],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "make_diff",
+      "instruction": "Produce a single unified diff against the repository root that applies cleanly with 'git apply'. The diff must include the changes to django/contrib/auth/validators.py (both regexes changed from r'^[\\w.@+-]+$' to r'\\A[\\w.@+-]+\\Z') as produced by the fix_validators node, and the changes to tests/auth_tests/test_validators.py as produced by the add_tests node. Use correct diff headers with a/ and b/ prefixes and accurate hunk contents. Output only the diff, no prose.",
+      "reads": [],
+      "writes": [],
+      "deps": [
+        "fix_validators",
+        "add_tests"
+      ],
+      "guard": null
+    }
+  ],
+  "final_node": "make_diff",
+  "topology": "cut50",
+  "schedule": [
+    [
+      "add_tests",
+      "fix_validators"
+    ],
+    [
+      "make_diff"
+    ]
+  ],
+  "cut_edges": [],
+  "order_deps": {
+    "fix_validators": [],
+    "add_tests": [],
+    "make_diff": [
+      "add_tests",
+      "fix_validators"
+    ]
+  }
+}

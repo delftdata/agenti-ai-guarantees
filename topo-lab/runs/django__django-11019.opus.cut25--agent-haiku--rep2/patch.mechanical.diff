@@ -1,0 +1,173 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..7f59eec46f 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -59,22 +59,33 @@ class Media:
+ 
+     @property
+     def _css(self):
+-        css = self._css_lists[0]
+-        # filter(None, ...) avoids calling merge with empty dicts.
+-        for obj in filter(None, self._css_lists[1:]):
+-            css = {
+-                medium: self.merge(css.get(medium, []), obj.get(medium, []))
+-                for medium in css.keys() | obj.keys()
+-            }
++        # Collect all unique media types
++        all_media = set()
++        for css_dict in self._css_lists:
++            all_media.update(css_dict.keys())
++        
++        css = {}
++        for medium in all_media:
++            # Collect all lists for this medium
++            medium_lists = [
++                css_dict.get(medium, [])
++                for css_dict in self._css_lists
++            ]
++            # Filter out empty lists
++            medium_lists = [lst for lst in medium_lists if lst]
++            if medium_lists:
++                css[medium] = self.merge(medium_lists)
++            else:
++                css[medium] = []
+         return css
+ 
+     @property
+     def _js(self):
+-        js = self._js_lists[0]
+-        # filter(None, ...) avoids calling merge() with empty lists.
+-        for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
+-        return js
++        # Collect all non-empty lists
++        js_lists = [js for js in self._js_lists if js]
++        if not js_lists:
++            return []
++        return self.merge(js_lists)
+ 
+     def render(self):
+         return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+@@ -115,39 +126,95 @@ class Media:
+         raise KeyError('Unknown media type "%s"' % name)
+ 
+     @staticmethod
+-    def merge(list_1, list_2):
++    def merge(lists):
+         """
+-        Merge two lists while trying to keep the relative order of the elements.
+-        Warn if the lists have the same two elements in a different relative
+-        order.
++        Merge a list of lists while trying to keep the relative order of the elements.
++        Warn if the lists have elements in conflicting relative orders.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
++        
++        Args:
++            lists: A list of lists to merge. Each list should contain unique elements.
++        
++        Returns:
++            A merged list containing all unique elements in an order that respects
++            the ordering constraints in all input lists.
++        
++        Raises:
++            MediaOrderConflictWarning: If there are conflicting ordering constraints
++                that cannot be satisfied simultaneously.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++        if not lists:
++            return []
++        
++        # Flatten to get all unique elements
++        all_items = []
++        seen = set()
++        for lst in lists:
++            for item in lst:
++                if item not in seen:
++                    all_items.append(item)
++                    seen.add(item)
++        
++        if not all_items:
++            return []
++        
++        # Build a dependency graph: item -> set of items that must come after it
++        # (items it must come before)
++        must_come_before = {item: set() for item in all_items}
++        
++        # Also track: item -> set of items that must come before it
++        must_come_after = {item: set() for item in all_items}
++        
++        # Extract constraints from each input list
++        for lst in lists:
++            for i, item in enumerate(lst):
++                # This item must come before all later items in this list
++                for later_item in lst[i + 1:]:
++                    must_come_before[item].add(later_item)
++                    must_come_after[later_item].add(item)
++        
++        # Topological sort using Kahn's algorithm
++        # Calculate in-degree (number of items that must come before each item)
++        in_degree = {item: len(must_come_after[item]) for item in all_items}
++        
++        # Start with items that have no prerequisites
++        queue = [item for item in all_items if in_degree[item] == 0]
++        result = []
++        
++        while queue:
++            # Sort queue for deterministic ordering when there are multiple
++            # items with zero in-degree
++            queue.sort(key=lambda x: all_items.index(x))
++            current = queue.pop(0)
++            result.append(current)
++            
++            # For each item that must come after current
++            for next_item in sorted(must_come_before[current], key=lambda x: all_items.index(x)):
++                in_degree[next_item] -= 1
++                if in_degree[next_item] == 0:
++                    queue.append(next_item)
++        
++        # If we couldn't process all items, there's a cycle
++        if len(result) != len(all_items):
++            # Find which items are involved in the cycle
++            unprocessed = [item for item in all_items if item not in result]
++            # Find a pair of items with conflicting constraints
++            for item1 in unprocessed:
++                for item2 in unprocessed:
++                    if item2 in must_come_before[item1] and item1 in must_come_before[item2]:
++                        warnings.warn(
++                            'Detected duplicate Media files in an opposite order:\n'
++                            '%s\n%s' % (item1, item2),
++                            MediaOrderConflictWarning,
++                        )
++                        break
++            # Return items in original order as fallback
++            return all_items
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()

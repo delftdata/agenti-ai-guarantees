@@ -1,0 +1,9 @@
+flowchart TD
+    fix_css[fix_css]
+    fix_js[fix_js]
+    fix_merge[fix_merge]
+    make_diff[make_diff]
+    fix_css --> make_diff
+    fix_js --> make_diff
+    fix_merge --> make_diff
+    style make_diff stroke-width:3px

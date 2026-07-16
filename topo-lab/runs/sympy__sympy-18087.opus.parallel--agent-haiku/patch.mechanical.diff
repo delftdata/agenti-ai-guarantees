@@ -1,0 +1,15 @@
+diff --git a/sympy/simplify/fu.py b/sympy/simplify/fu.py
+index 612bc0bb69..63012de4fc 100644
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ -502,6 +502,10 @@ def _f(rv):
+             return rv
+         if not rv.exp.is_real:
+             return rv
++        # Ensure exponent is an integer. This prevents non-integer exponents
++        # (like 1/2 from sqrt) from being incorrectly transformed.
++        if not rv.exp.is_integer:
++            return rv
+ 
+         if (rv.exp < 0) == True:
+             return rv

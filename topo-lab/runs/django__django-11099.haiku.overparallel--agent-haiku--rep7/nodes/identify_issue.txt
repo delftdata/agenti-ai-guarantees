@@ -1,0 +1,70 @@
+# Analysis of Username Validator Regex Patterns
+
+## Problem Identification
+
+The issue concerns two validator classes in Django's authentication module:
+- `ASCIIUsernameValidator`
+- `UnicodeUsernameValidator`
+
+Located in: `django/contrib/auth/validators.py`
+
+## Current Regex Pattern
+
+Both validators currently use the pattern:
+```
+r'^[\w.@+-]+$'
+```
+
+## The Issue
+
+The `$` metacharacter in Python regex has a quirk: it matches not only at the end of the string but also before a trailing newline character. This means:
+
+- A username like `"john\n"` (with a trailing newline) would be accepted by the current regex
+- This is unintended behavior as usernames should not contain newline characters
+- The regex allows trailing whitespace/newlines to pass validation
+
+## Root Cause
+
+Python's regex `$` anchor behavior:
+- `$` matches at the end of the string OR before a final newline
+- This is consistent with line-based processing in many regex implementations
+- However, for strict validation, this behavior is problematic
+
+## The Solution
+
+Replace the regex pattern with:
+```
+r'\A[\w.@+-]+\Z'
+```
+
+## Why This Works
+
+The escape sequences `\A` and `\Z` provide stricter boundary matching:
+- `\A` matches only at the absolute start of the string (not after newlines)
+- `\Z` matches only at the absolute end of the string (not before newlines)
+- These are string-based boundaries, not line-based boundaries
+- Together, they ensure the entire username must match the pattern with no trailing or leading newlines
+
+## Changes Required
+
+In `django/contrib/auth/validators.py`:
+
+1. Locate `ASCIIUsernameValidator` class
+2. Change its regex from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'`
+3. Locate `UnicodeUsernameValidator` class
+4. Change its regex from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'`
+
+## Impact
+
+- This change makes username validation more strict
+- Usernames with trailing newlines (or leading newlines) will be rejected
+- Existing valid usernames without newlines will continue to be accepted
+- This improves security by preventing potential injection of unexpected characters
+
+## Testing Considerations
+
+After the fix, tests should verify:
+- Valid usernames (without newlines) are still accepted
+- Usernames with trailing newlines are now rejected
+- Usernames with leading newlines are now rejected
+- All other validation rules remain unchanged

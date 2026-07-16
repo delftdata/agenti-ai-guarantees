@@ -1,0 +1,46 @@
+===== test_ascii_validator (auth_tests.test_validators.UsernameValidatorsTests): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp50lzfwhk\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+
+======================================================================
+FAIL: test_ascii_validator (auth_tests.test_validators.UsernameValidatorsTests) (invalid='trailingnewline\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp50lzfwhk\wt\tests\auth_tests\test_validators.py", line 261, in test_ascii_validator
+    v(invalid)
+AssertionError: ValidationError not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (failures=1)
+
+
+===== test_unicode_validator (auth_tests.test_validators.UsernameValidatorsTests): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp50lzfwhk\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+OK
+
+
+===== test_help_text (auth_tests.test_validators.UserAttributeSimilarityValidatorTest): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp50lzfwhk\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+OK
+Destroying test database for alias 'default'...
+

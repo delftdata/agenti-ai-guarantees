@@ -1,0 +1,207 @@
+# Analysis of Media Tests and Expected Changes
+
+## Tests That Must Still Pass Unchanged
+
+1. **test_construction** - Basic Media object construction and string representation. No merge/ordering involved.
+
+2. **test_media_dsl** - Widget media definition via DSL. No merging, so unaffected.
+
+3. **test_media_property** - Property-based media definitions. No merging involved.
+
+4. **test_media_property_parent_references** - Parent media references. No three-way merge.
+
+5. **test_media_inheritance** - Inheritance patterns. No conflicting orderings.
+
+6. **test_media_inheritance_from_property** - Parent property inheritance. No conflicting orderings.
+
+7. **test_media_inheritance_extends** - Explicit extend=True. No conflicting orderings.
+
+8. **test_media_inheritance_single_type** - Selective inheritance. No conflicting orderings.
+
+9. **test_multi_media** - CSS media types (screen, print). No ordering conflicts.
+
+10. **test_multi_widget** - MultiWidget with three component widgets. Expected output:
+```python
+"""<link href="http://media.example.com/static/path/to/css1" type="text/css" media="all" rel="stylesheet">
+<link href="/path/to/css2" type="text/css" media="all" rel="stylesheet">
+<link href="/path/to/css3" type="text/css" media="all" rel="stylesheet">
+<script type="text/javascript" src="/path/to/js1"></script>
+<script type="text/javascript" src="http://media.other.com/path/to/js2"></script>
+<script type="text/javascript" src="https://secure.other.com/path/to/js3"></script>
+<script type="text/javascript" src="/path/to/js4"></script>"""
+```
+This test may need inspection but likely remains valid if topological sort handles the three-way merge correctly.
+
+11. **test_form_media** - Form combining widget media. Expected outputs for combined form media. May need inspection if multi-way merges are affected.
+
+12. **test_html_safe** - HTML safety check. Unaffected.
+
+---
+
+## Tests Whose Expected Values May Need Updating
+
+### test_merge
+```python
+def test_merge(self):
+    test_values = (
+        (([1, 2], [3, 4]), [1, 2, 3, 4]),
+        (([1, 2], [2, 3]), [1, 2, 3]),
+        (([2, 3], [1, 2]), [1, 2, 3]),
+        (([1, 3], [2, 3]), [1, 2, 3]),
+        (([1, 2], [1, 3]), [1, 2, 3]),
+        (([1, 2], [3, 2]), [1, 3, 2]),
+    )
+    for (list1, list2), expected in test_values:
+        with self.subTest(list1=list1, list2=list2):
+            self.assertEqual(Media.merge(list1, list2), expected)
+```
+**Status**: Likely UNCHANGED. These are two-way merges of abstract numbers without dependency constraints. Topological sort should produce same results for these simple cases.
+
+### test_merge_warning
+```python
+def test_merge_warning(self):
+    msg = 'Detected duplicate Media files in an opposite order:\n1\n2'
+    with self.assertWarnsMessage(RuntimeWarning, msg):
+        self.assertEqual(Media.merge([1, 2], [2, 1]), [1, 2])
+```
+**Status**: Needs careful consideration. Current behavior: warns on `[1, 2]` + `[2, 1]`. With topological sort fixing unnecessary warnings, this two-way conflict is still a true conflict (circular dependency). Should REMAIN but may need clarification on whether this is "real" conflict.
+
+### test_merge_js_three_way
+```python
+def test_merge_js_three_way(self):
+    """
+    The relative order of scripts is preserved in a three-way merge.
+    """
+    # custom_widget.js doesn't depend on jquery.js.
+    widget1 = Media(js=['custom_widget.js'])
+    widget2 = Media(js=['jquery.js', 'uses_jquery.js'])
+    form_media = widget1 + widget2
+    # The relative ordering of custom_widget.js and jquery.js has been
+    # established (but without a real need to).
+    self.assertEqual(form_media._js, ['custom_widget.js', 'jquery.js', 'uses_jquery.js'])
+    # The inline also uses custom_widget.js. This time, it's at the end.
+    inline_media = Media(js=['jquery.js', 'also_jquery.js']) + Media(js=['custom_widget.js'])
+    merged = form_media + inline_media
+    self.assertEqual(merged._js, ['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js'])
+```
+**Status**: **Potentially needs updating**. Current expected result is `['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js']`. With topological sort, the expected order might change because:
+- `form_media` establishes: custom_widget < jquery < uses_jquery
+- `inline_media` has: jquery < also_jquery and later custom_widget
+- The final result should respect all constraints without imposing false orderings
+
+The test comment explicitly states "without a real need to" - suggesting the current ordering is artificial. Topological sort may reorder this differently (possibly to `['jquery.js', 'custom_widget.js', 'uses_jquery.js', 'also_jquery.js']` or similar).
+
+### test_merge_css_three_way
+```python
+def test_merge_css_three_way(self):
+    widget1 = Media(css={'screen': ['a.css']})
+    widget2 = Media(css={'screen': ['b.css']})
+    widget3 = Media(css={'all': ['c.css']})
+    form1 = widget1 + widget2
+    form2 = widget2 + widget1
+    # form1 and form2 have a.css and b.css in different order...
+    self.assertEqual(form1._css, {'screen': ['a.css', 'b.css']})
+    self.assertEqual(form2._css, {'screen': ['b.css', 'a.css']})
+    # ...but merging succeeds as the relative ordering of a.css and b.css
+    # was never specified.
+    merged = widget3 + form1 + form2
+    self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
+```
+**Status**: **Likely UNCHANGED** for final assertion, but intermediate steps may differ. The final merged line should be stable since a.css and b.css have no declared ordering. However, topological sort might produce different intermediate `form1._css` and `form2._css` if it normalizes ordering differently. **Needs verification**.
+
+---
+
+## New Test Scenario - Bug Report Use Case
+
+The bug report describes:
+
+```python
+class ColorPicker(forms.Widget):
+    class Media:
+        js = ['color-picker.js']
+
+class SimpleTextWidget(forms.Widget):
+    class Media:
+        js = ['text-editor.js']
+
+class FancyTextWidget(forms.Widget):
+    class Media:
+        js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+
+class MyForm(forms.Form):
+    background_color = forms.CharField(widget=ColorPicker())
+    intro = forms.CharField(widget=SimpleTextWidget())
+    body = forms.CharField(widget=FancyTextWidget())
+```
+
+**Current behavior**: 
+- `ColorPicker().media + SimpleTextWidget().media` produces `Media(css={}, js=['color-picker.js', 'text-editor.js'])`
+- This incorrectly constrains `color-picker.js` < `text-editor.js`
+- Final result: `Media(css={}, js=['text-editor-extras.js', 'color-picker.js', 'text-editor.js'])` with warning
+- **Warning message**: "Detected duplicate Media files in an opposite order: text-editor-extras.js text-editor.js"
+- **Problem**: The warning is misleading (names wrong pair), and the final order is wrong
+
+**Expected behavior with fix**:
+- Should resolve to: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` (no warning)
+- OR: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` with any unordered subset permutation
+- **Key requirement**: NO `MediaOrderConflictWarning` (or only if there's true circular dependency)
+
+**Test case to add**:
+```python
+def test_merge_three_widgets_with_dependencies(self):
+    """
+    Regression test for issue #11019: Merging 3+ media objects should not
+    produce spurious MediaOrderConflictWarnings when dependencies are resolvable.
+    
+    text-editor-extras.js depends on text-editor.js (appears after it in FancyTextWidget).
+    color-picker.js is independent.
+    
+    Even though ColorPicker + SimpleTextWidget temporarily creates
+    [color-picker.js, text-editor.js], adding FancyTextWidget should resolve
+    to a valid topological order without warning.
+    """
+    class ColorPicker(TextInput):
+        class Media:
+            js = ['color-picker.js']
+    
+    class SimpleTextWidget(TextInput):
+        class Media:
+            js = ['text-editor.js']
+    
+    class FancyTextWidget(TextInput):
+        class Media:
+            js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+    
+    # These should merge without warning or errors
+    color_picker_media = ColorPicker().media
+    simple_text_media = SimpleTextWidget().media
+    fancy_text_media = FancyTextWidget().media
+    
+    merged = color_picker_media + simple_text_media + fancy_text_media
+    
+    # Expected: text-editor.js before text-editor-extras.js, other files in some valid order
+    js_list = merged._js
+    text_editor_idx = js_list.index('text-editor.js')
+    text_editor_extras_idx = js_list.index('text-editor-extras.js')
+    
+    self.assertLess(text_editor_idx, text_editor_extras_idx,
+                    "text-editor.js should appear before text-editor-extras.js")
+    self.assertIn('color-picker.js', js_list)
+```
+
+This test should pass WITHOUT any `MediaOrderConflictWarning` being raised.
+
+---
+
+## Summary
+
+| Test Category | Status | Notes |
+|---|---|---|
+| Basic construction/DSL/properties (1-9) | PASS unchanged | No merging involved |
+| test_multi_widget | VERIFY | Three-way merge, check if output changes |
+| test_form_media | VERIFY | Multi-way form merging, may change |
+| test_merge | LIKELY unchanged | Two-way merges of simple sequences |
+| test_merge_warning | NEEDS DISCUSSION | True conflict (1↔2) still exists, decide if warning appropriate |
+| test_merge_js_three_way | **LIKELY NEEDS UPDATE** | Comment says artificial ordering; topological sort may reorder |
+| test_merge_css_three_way | **VERIFY** | Final assertion probably OK, intermediate assertions uncertain |
+| **NEW: test_merge_three_widgets_with_dependencies** | **ADD** | Bug report scenario; must pass WITHOUT warning |

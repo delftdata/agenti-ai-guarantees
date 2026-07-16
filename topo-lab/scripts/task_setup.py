@@ -18,6 +18,7 @@ from datasets import load_dataset
 INSTANCE_IDS = [
     "django__django-11099",
     "sympy__sympy-18087",
+    "django__django-11019",
 ]
 
 REPO_URLS = {
@@ -38,6 +39,11 @@ def sh(args, cwd=None):
     if r.returncode != 0:
         sys.exit(f"command failed: {' '.join(args)}\n{r.stderr}")
     return r.stdout
+
+
+def wtext(path, text):
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
 
 
 def main():
@@ -62,18 +68,15 @@ def main():
         sh(["git", "clean", "-fdx"], cwd=repo_dir)
 
         # gold artifacts: for grading reference only, never model-visible
-        (gold_dir / "patch.diff").write_text(row["patch"], encoding="utf-8")
-        (gold_dir / "test_patch.diff").write_text(row["test_patch"], encoding="utf-8")
-        (gold_dir / "tests.json").write_text(
-            json.dumps(
+        wtext(gold_dir / "patch.diff", row["patch"])
+        wtext(gold_dir / "test_patch.diff", row["test_patch"])
+        wtext(gold_dir / "tests.json", json.dumps(
                 {
                     "FAIL_TO_PASS": json.loads(row["FAIL_TO_PASS"]),
                     "PASS_TO_PASS": json.loads(row["PASS_TO_PASS"]),
                 },
                 indent=2,
-            ),
-            encoding="utf-8",
-        )
+            ))
 
         # frozen model-visible context: .py files only, junk paths excluded
         tree = [
@@ -96,7 +99,7 @@ def main():
             f"A unified diff against the repository root that resolves the "
             f"problem. The diff must apply cleanly with `git apply`.\n"
         )
-        (tdir / "task_context.md").write_text(context, encoding="utf-8")
+        wtext(tdir / "task_context.md", context)
 
         # metadata for downstream scripts
         (tdir / "meta.json").write_text(

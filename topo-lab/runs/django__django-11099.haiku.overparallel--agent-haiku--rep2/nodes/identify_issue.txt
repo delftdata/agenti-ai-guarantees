@@ -1,0 +1,55 @@
+# Analysis of Django Username Validator Regex Patterns
+
+## Problem Statement
+The ASCIIUsernameValidator and UnicodeUsernameValidator in django/contrib/auth/validators.py use regex patterns that inadvertently accept usernames with trailing newlines due to a quirk in Python's regex behavior.
+
+## Current Implementation
+Location: `django/contrib/auth/validators.py`
+
+Both validators use the regex pattern:
+```
+r'^[\w.@+-]+$'
+```
+
+## Root Cause
+In Python regular expressions, the `$` anchor matches:
+1. The end of the string
+2. Just before a newline at the end of the string
+
+This means a string like `"username\n"` will match the pattern `r'^[\w.@+-]+$'` because:
+- `^` matches the start
+- `[\w.@+-]+` matches the alphanumeric characters, dots, @, +, and -
+- `$` matches just before the trailing newline
+
+This allows invalid usernames ending with newline characters to pass validation.
+
+## Intended Behavior
+The validators should only accept usernames that:
+- Begin with start of string (not after any characters)
+- Contain only alphanumeric characters, dots (.), @, +, and -
+- End without any trailing whitespace, including newlines
+
+## Solution
+Replace `^` and `$` anchors with `\A` and `\Z`:
+```
+r'\A[\w.@+-]+\Z'
+```
+
+### Why This Works
+- `\A` matches only at the absolute start of the string (never after a newline)
+- `\Z` matches only at the absolute end of the string (never before a trailing newline)
+- This prevents any string with trailing newlines from matching the pattern
+
+## Affected Validators
+Two validators in `django/contrib/auth/validators.py` require this fix:
+1. `ASCIIUsernameValidator`
+2. `UnicodeUsernameValidator`
+
+## Impact
+- **Security/Validation**: Prevents invalid usernames with trailing newlines from being accepted
+- **Backward Compatibility**: May reject previously accepted usernames containing trailing newlines (which should never have been valid)
+- **Test Coverage**: Existing tests should pass; new tests should verify rejection of trailing newlines
+
+## Implementation Files
+- Primary file: `django/contrib/auth/validators.py`
+- Test file: `tests/auth_tests/test_validators.py` (may need test additions)

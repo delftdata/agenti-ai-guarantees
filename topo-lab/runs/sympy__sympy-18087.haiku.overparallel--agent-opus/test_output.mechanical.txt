@@ -1,0 +1,46 @@
+===== test_Factors: FAIL =====
+
+--- stderr ---
+ImportError while loading conftest 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmptc2awpes\wt\conftest.py'.
+conftest.py:11: in <module>
+    from sympy.utilities.runtests import setup_pprint, _get_doctest_blacklist
+sympy\__init__.py:60: in <module>
+    from .polys import *
+sympy\polys\__init__.py:88: in <module>
+    from .numberfields import (minpoly, minimal_polynomial, primitive_element,
+sympy\polys\numberfields.py:31: in <module>
+    from sympy.polys.rootoftools import CRootOf
+sympy\polys\rootoftools.py:16: in <module>
+    from sympy.polys.polyroots import (
+sympy\polys\polyroots.py:27: in <module>
+    from sympy.simplify import simplify, powsimp
+sympy\simplify\__init__.py:11: in <module>
+    from .fu import FU, fu
+E     File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmptc2awpes\wt\sympy\simplify\fu.py", line 1
+E       ```python
+E       ^
+E   SyntaxError: invalid syntax
+
+
+===== test_fu: FAIL =====
+
+--- stderr ---
+ImportError while loading conftest 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmptc2awpes\wt\conftest.py'.
+conftest.py:11: in <module>
+    from sympy.utilities.runtests import setup_pprint, _get_doctest_blacklist
+sympy\__init__.py:60: in <module>
+    from .polys import *
+sympy\polys\__init__.py:88: in <module>
+    from .numberfields import (minpoly, minimal_polynomial, primitive_element,
+sympy\polys\numberfields.py:31: in <module>
+    from sympy.polys.rootoftools import CRootOf
+sympy\polys\rootoftools.py:16: in <module>
+    from sympy.polys.polyroots import (
+sympy\polys\polyroots.py:27: in <module>
+    from sympy.simplify import simplify, powsimp
+sympy\simplify\__init__.py:11: in <module>
+    from .fu import FU, fu
+E     File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmptc2awpes\wt\sympy\simplify\fu.py", line 1
+E       ```python
+E       ^
+E   SyntaxError: invalid syntax

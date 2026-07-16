@@ -1,0 +1,42 @@
+diff --git a/sympy/simplify/tests/test_trigsimp.py b/sympy/simplify/tests/test_trigsimp.py
+index bf15ee07a9..a23320e512 100644
+--- a/sympy/simplify/tests/test_trigsimp.py
++++ b/sympy/simplify/tests/test_trigsimp.py
+@@ -481,3 +481,37 @@ def test_trigsimp_old():
+     assert trigsimp(sin(x)/cos(x), old=True, method='groebner', hints=[tan]) == tan(x)
+ 
+     assert trigsimp(1-sin(sin(x)**2+cos(x)**2)**2, old=True, deep=True) == cos(1)**2
++
++
++def test_issue_18087_sqrt_of_square():
++    # Regression test for issue #18087
++    # trigsimp should not incorrectly simplify cos(x) + sqrt(sin(x)**2) to 
++    # cos(x) + sin(x) for general complex x
++    # For general x, sqrt(sin(x)**2) should not simplify to sin(x)
++    
++    x = Symbol('x')
++    expr = cos(x) + sqrt(sin(x)**2)
++    result = trigsimp(expr)
++    
++    # The result should NOT be cos(x) + sin(x)
++    # It should either be the original expression or cos(x) + Abs(sin(x))
++    # or something that correctly represents the absolute value behavior
++    assert result != cos(x) + sin(x), \
++        "trigsimp incorrectly simplified sqrt(sin(x)**2) to sin(x) for general x"
++    
++    # Additionally, test with a real-valued symbol to ensure behavior is correct
++    x_real = Symbol('x', real=True)
++    expr_real = cos(x_real) + sqrt(sin(x_real)**2)
++    result_real = trigsimp(expr_real)
++    
++    # For real x, the result should still not simplify to cos(x) + sin(x)
++    # since |sin(x)| != sin(x) in general
++    assert result_real != cos(x_real) + sin(x_real), \
++        "trigsimp incorrectly simplified sqrt(sin(x)**2) to sin(x) for real x"
++    
++    # Test that sqrt(sin(x)**2) itself is not simplified incorrectly to sin(x)
++    sqrt_expr = sqrt(sin(x)**2)
++    sqrt_result = trigsimp(sqrt_expr)
++    assert sqrt_result != sin(x), \
++        "trigsimp incorrectly simplified sqrt(sin(x)**2) to sin(x)"
++

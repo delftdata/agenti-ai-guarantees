@@ -1,0 +1,133 @@
+```diff
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -127,53 +127,129 @@ class Media:
+     @staticmethod
+     def merge(*lists):
+         """
+         Merge multiple lists while trying to keep the relative order of the elements.
+         Warn if the lists have elements in genuinely incompatible orders.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Handle empty case
++        # Handle empty case
+         if not lists:
+             return []
+-        
++
+         # Handle single list case
+         if len(lists) == 1:
+             return list(lists[0])
+-        
++
+         # Collect all unique elements while preserving first occurrence
+         all_elements = []
+         seen = set()
+         for lst in lists:
+             for item in lst:
+                 if item not in seen:
+                     all_elements.append(item)
+                     seen.add(item)
+-        
++
+         # Build a directed graph of ordering constraints
+         # constraints[a].set(b) means "a must come before b"
+         constraints = {elem: set() for elem in all_elements}
+-        
++
+         # Extract constraints from each input list
+         for lst in lists:
+             for i, elem in enumerate(lst):
+                 # elem must come before all subsequent elements in this list
+                 for later_elem in lst[i + 1:]:
+                     constraints[elem].add(later_elem)
+-        
++
+         # Topological sort with cycle detection
+         result = []
+         visited = set()
+         visiting = set()
+-        
++
+         def visit(elem, path):
+             if elem in visited:
+                 return True
+             if elem in visiting:
+                 # Cycle detected - find conflicting elements for warning
+                 cycle_start = path.index(elem)
+                 conflicting_pair = (path[cycle_start], elem)
+                 warnings.warn(
+                     'Detected duplicate Media files in an opposite order:\n'
+                     '%s\n%s' % conflicting_pair,
+                     MediaOrderConflictWarning,
+                 )
+                 return False
+-            
++
+             visiting.add(elem)
+             path.append(elem)
+-            
++
+             # Visit all elements that must come after this one
+             for dependent in constraints[elem]:
+                 if not visit(dependent, path):
+                     return False
+-            
++
+             path.pop()
+             visiting.remove(elem)
+             visited.add(elem)
+             result.append(elem)
+             return True
+-        
++
+         # Visit all elements
+         for elem in all_elements:
+             if elem not in visited:
+                 visit(elem, [])
+-        
++
+         return result
+ 
+     def __add__(self, other):
+         combined = Media()
+         combined._css_lists = self._css_lists + other._css_lists
+         combined._js_lists = self._js_lists + other._js_lists
+         return combined
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 2345678..bcdefgh 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -360,3 +360,25 @@ class FormsMediaTestCase(SimpleTestCase):
+         # ...but merging succeeds as the relative ordering of a.css and b.css
+         # was never specified.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_three_or_more_media_no_spurious_warning(self):
++        """
++        Merging 3+ media objects should not produce unnecessary warnings.
++        Regression test for issue where intermediate merge results created
++        false ordering constraints.
++        See: https://code.djangoproject.com/ticket/11019
++        """
++        # Create widgets with different media requirements
++        color_picker = Media(js=['color-picker.js'])
++        simple_text = Media(js=['text-editor.js'])
++        fancy_text = Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
++
++        # Merging in form field order should not produce warnings
++        # and should result in correct dependency order
++        merged = color_picker + simple_text + fancy_text
++
++        # Should resolve to correct dependency order without warning
++        self.assertEqual(
++            merged._js,
++            ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        )
+```

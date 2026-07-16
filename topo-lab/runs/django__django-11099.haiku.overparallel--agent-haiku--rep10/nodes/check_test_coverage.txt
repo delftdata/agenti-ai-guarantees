@@ -1,0 +1,69 @@
+# Analysis of Username Validator Tests
+
+## File Location
+`tests/auth_tests/test_validators.py`
+
+## Current Test Coverage for Username Validators
+
+### Existing Tests for ASCIIUsernameValidator and UnicodeUsernameValidator
+
+1. **test_ascii_validator** - Tests basic ASCII username validation
+   - Valid usernames: 'glenn', 'glenn2', 'glenn.morrison', 'user@example.com', 'user+tag'
+   - Invalid usernames: 'user name' (space), 'user-name' (hyphen allowed actually)
+   - Does NOT test trailing newline behavior
+
+2. **test_unicode_validator** - Tests Unicode username validation
+   - Valid usernames: 'იოსები', 'ñoño', '平'
+   - Invalid usernames: 'user name' (space)
+   - Does NOT test trailing newline behavior
+
+3. **General validator tests** - Cover other validators like EmailValidator, URLValidator, etc.
+   - No trailing newline tests for username validators
+
+## Gap in Test Coverage
+
+**Critical Finding:** There are NO existing tests that verify rejection of usernames ending with a newline character (`\n`).
+
+The current tests do not cover the regex quirk where `$` matches before a trailing newline, allowing invalid usernames like:
+- `'username\n'`
+- `'user@host.com\n'`
+- `'user+tag\n'`
+
+## Tests Needed
+
+The following test cases should be added to properly validate the fix:
+
+### For ASCIIUsernameValidator:
+1. Reject username with trailing newline: `'glenn\n'`
+2. Reject username with carriage return: `'glenn\r'`
+3. Reject username with CRLF: `'glenn\r\n'`
+4. Reject email-like username with trailing newline: `'user@example.com\n'`
+5. Reject plus-tagged username with trailing newline: `'user+tag\n'`
+
+### For UnicodeUsernameValidator:
+1. Reject unicode username with trailing newline: `'იოსები\n'`
+2. Reject unicode username with carriage return: `'იოსები\r'`
+3. Reject unicode username with CRLF: `'იოსები\r\n'`
+
+### Edge Cases:
+1. Newline in middle of username (should still be rejected due to space rule)
+2. Multiple trailing newlines: `'username\n\n'`
+3. Tab character: `'username\t'`
+
+## Current Validator Implementation Issue
+
+The validators in `django/contrib/auth/validators.py` use:
+```python
+r'^[\w.@+-]+$'
+```
+
+This regex allows trailing newlines because `$` matches before a terminal newline in Python regex by default.
+
+The fix requires changing to:
+```python
+r'\A[\w.@+-]+\Z'
+```
+
+Where:
+- `\A` matches only at the start of the string
+- `\Z` matches only at the end of the string (not before trailing newline)

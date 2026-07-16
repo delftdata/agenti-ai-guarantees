@@ -1,3 +1,6 @@
-# Benchmark task checkouts: large and regenerable via scripts/task_setup.py.
-tasks/*
-!tasks/README.md
+# regenerate with: python scripts/task_setup.py
+tasks/*/repo/
+.venv/
+.venv38/
+__pycache__/
+*.pyc

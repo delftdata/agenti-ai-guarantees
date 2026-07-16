@@ -1,0 +1,184 @@
+# Analysis of Media Class Implementation and MediaOrderConflictWarning Issue
+
+## Current Implementation Overview
+
+The Media class in django/forms/widgets.py (lines 40-199) manages CSS and JS dependencies for form widgets. The problem occurs when merging 3 or more media objects through repeated __add__ operations.
+
+### Key Methods and Signatures
+
+**Media.__init__** (lines 43-51):
+```python
+def __init__(self, media=None, css=None, js=None):
+    if media is not None:
+        css = getattr(media, 'css', {})
+        js = getattr(media, 'js', [])
+    else:
+        if css is None:
+            css = {}
+        if js is None:
+            js = []
+    self._css_lists = [css]
+    self._js_lists = [js]
+```
+Stores CSS and JS as lists of lists for deferred merging.
+
+**Media._js property** (lines 65-70):
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    # filter(None, ...) avoids calling merge() with empty lists.
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+Merges all accumulated JS lists sequentially via repeated pairwise merge calls.
+
+**Media.merge static method** (lines 118-150):
+```python
+@staticmethod
+def merge(list_1, list_2):
+    """
+    Merge two lists while trying to keep the relative order of the elements.
+    Warn if the lists have the same two elements in a different relative
+    order.
+    
+    For static assets it can be important to have them included in the DOM
+    in a certain order. In JavaScript you may not be able to reference a
+    global or in CSS you might want to override a style.
+    """
+    # Start with a copy of list_1.
+    combined_list = list(list_1)
+    last_insert_index = len(list_1)
+    # Walk list_2 in reverse, inserting each element into combined_list if
+    # it doesn't already exist.
+    for path in reversed(list_2):
+        try:
+            # Does path already exist in the list?
+            index = combined_list.index(path)
+        except ValueError:
+            # Add path to combined_list since it doesn't exist.
+            combined_list.insert(last_insert_index, path)
+        else:
+            if index > last_insert_index:
+                warnings.warn(
+                    'Detected duplicate Media files in an opposite order:\n'
+                    '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+                    MediaOrderConflictWarning,
+                )
+            # path already exists in the list. Update last_insert_index so
+            # that the following elements are inserted in front of this one.
+            last_insert_index = index
+    return combined_list
+```
+
+**Media.__add__** (lines 195-199):
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+Concatenates internal list-of-lists without any merging.
+
+## The Problem: Why Spurious Warnings Occur
+
+The issue is a consequence of pairwise merging via repeated __add__ operations:
+
+1. **ColorPicker().media** = Media(js=['color-picker.js'])
+2. **SimpleTextWidget().media** = Media(js=['text-editor.js'])
+3. ColorPicker + SimpleTextWidget = Media with _js_lists = [['color-picker.js'], ['text-editor.js']]
+   - When _js property is accessed, merge(['color-picker.js'], ['text-editor.js']) produces:
+     - combined_list starts as ['color-picker.js']
+     - last_insert_index = 1
+     - reversed(['text-editor.js']) → processes 'text-editor.js'
+     - 'text-editor.js' not in combined_list, so insert at position 1
+     - Result: ['color-picker.js', 'text-editor.js']
+   - **This incorrectly constraints color-picker.js before text-editor.js**
+
+4. **FancyTextWidget().media** = Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
+
+5. (ColorPicker + SimpleTextWidget) + FancyTextWidget merges:
+   - _js_lists = [['color-picker.js'], ['text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']]
+   - First merge(['color-picker.js'], ['text-editor.js']) → ['color-picker.js', 'text-editor.js']
+   - Then merge(['color-picker.js', 'text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']):
+     - combined_list = ['color-picker.js', 'text-editor.js']
+     - last_insert_index = 2
+     - reversed list processes: 'color-picker.js', 'text-editor-extras.js', 'text-editor.js'
+     - Process 'color-picker.js': index=0, 0 < last_insert_index (2), so last_insert_index = 0
+     - Process 'text-editor-extras.js': not in list, insert at 0 → ['text-editor-extras.js', 'color-picker.js', 'text-editor.js']
+     - Process 'text-editor.js': index=2, 2 > last_insert_index (0) → **WARNING!**
+     - The warning incorrectly reports 'text-editor-extras.js' and 'text-editor.js' as conflicting
+
+**Root Cause**: The pairwise merge algorithm doesn't understand that a constraint inferred from one pair (color-picker < text-editor) may be contradicted by actual dependencies in later additions. The merge algorithm treats list_1's order as a hard constraint when it's actually just a synthetic artifact of previous merges.
+
+## Code Location Summary
+
+- **Media.__init__**: Lines 43-51
+- **Media._js property**: Lines 65-70
+- **Media._css property**: Lines 57-64 (symmetrical to _js)
+- **Media.merge method**: Lines 118-150 (the problematic pairwise merge)
+- **Media.__add__ method**: Lines 195-199 (defers merging via list concatenation)
+
+## Intended Fix
+
+The fix requires two interconnected changes:
+
+### 1. Change Media Storage and Merging Strategy
+Instead of deferring all merges to the _js/_css property access (which performs sequential pairwise merges), we should:
+- Accumulate original JS/CSS lists in _js_lists/_css_lists (already done by __add__)
+- At property access time, merge all lists simultaneously using a topological sort approach
+- This allows the algorithm to see all ordering constraints at once and resolve them coherently
+
+### 2. Implement Topological-Sort-Based Merge
+Replace the pairwise merge logic with an algorithm that:
+- Extracts all ordering constraints from all input lists simultaneously
+- Detects genuine conflicts (cycles in the dependency graph)
+- Only warns when there's a true conflict between source lists (not between synthetic intermediate results)
+- Produces a valid topological ordering that respects as many constraints as possible
+
+### 3. Modify the _js and _css Properties
+Change from:
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+To something like:
+```python
+@property
+def _js(self):
+    return self.merge_all(filter(None, self._js_lists))
+```
+
+Where `merge_all` is a new static method that performs topological merging of multiple lists at once.
+
+### 4. Keep __add__ Unchanged
+The __add__ method can remain as-is, simply concatenating _js_lists and _css_lists:
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+The key insight is that __add__ should not trigger merging; merging should only happen when the final JS/CSS is needed (at property access time).
+
+## Expected Outcome
+
+With this fix applied to the problem statement example:
+- ColorPicker().media has _js_lists = [['color-picker.js']]
+- SimpleTextWidget().media has _js_lists = [['text-editor.js']]
+- FancyTextWidget().media has _js_lists = [['text-editor.js', 'text-editor-extras.js', 'color-picker.js']]
+- ColorPicker + SimpleTextWidget + FancyTextWidget has _js_lists = [['color-picker.js'], ['text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']]
+- When _js is accessed, merge_all processes all three lists simultaneously and discovers that:
+  - text-editor.js must come before text-editor-extras.js (from FancyTextWidget)
+  - No genuine conflict exists between the lists
+  - Result: ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+  - No warning is issued

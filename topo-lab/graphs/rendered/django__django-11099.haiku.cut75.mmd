@@ -1,0 +1,22 @@
+flowchart TD
+    read_validators[read_validators]
+    read_validator_tests[read_validator_tests]
+    identify_issue[identify_issue]
+    check_test_coverage[check_test_coverage]
+    update_validators[update_validators]
+    verify_regex_change[verify_regex_change]
+    create_test_case[create_test_case]
+    generate_diff[generate_diff]
+    read_validators -.-> identify_issue
+    read_validator_tests -.-> check_test_coverage
+    identify_issue -.-> update_validators
+    update_validators --> verify_regex_change
+    check_test_coverage -.-> create_test_case
+    verify_regex_change -.-> create_test_case
+    create_test_case --> generate_diff
+    read_validators --> generate_diff
+    read_validator_tests --> generate_diff
+    identify_issue --> generate_diff
+    check_test_coverage --> generate_diff
+    verify_regex_change --> generate_diff
+    style generate_diff stroke-width:3px

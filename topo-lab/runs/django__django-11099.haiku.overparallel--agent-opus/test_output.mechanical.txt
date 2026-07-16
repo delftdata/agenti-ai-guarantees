@@ -1,0 +1,38 @@
+===== test_ascii_validator (auth_tests.test_validators.UsernameValidatorsTests): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpetqdtylj\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+OK
+
+
+===== test_unicode_validator (auth_tests.test_validators.UsernameValidatorsTests): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpetqdtylj\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+OK
+
+
+===== test_help_text (auth_tests.test_validators.UserAttributeSimilarityValidatorTest): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpetqdtylj\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+OK
+Destroying test database for alias 'default'...
+

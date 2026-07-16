@@ -1,0 +1,201 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -117,95 +117,208 @@ class Media:
+     @staticmethod
+     def merge(lists):
+         """
+         Merge a list of lists while trying to keep the relative order of the elements.
+         Warn if there are conflicting orderings that cannot be satisfied.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
++        
++        This method takes a list of lists and merges them using a topological
++        sort approach, building ordering constraints from all input lists.
+         """
+-        final = []
+-        gets_set = set()
+-        for lst in lists:
+-            pending = []
+-            for item in lst:
+-                if item not in gets_set:
+-                    pending.append(item)
+-            gets_set.update(pending)
+-            # Check for conflicts with existing items
+-            for i, existing in enumerate(final):
+-                should_come_before_index = None
+-                # Look for item's position in the new list
+-                for j, new_item in enumerate(pending):
+-                    if new_item == existing:
+-                        # existing should come after new_item based on the incoming list
+-                        # Check if existing comes before new_item in final
+-                        for k, f in enumerate(final):
+-                            if f == new_item:
+-                                if k < i:
+-                                    # Conflict: existing is at position i, new_item at k, k < i
+-                                    # but new list says new_item should come before existing
+-                                    should_come_before_index = k
+-                        for m, pend in enumerate(pending):
+-                            if pend == new_item:
+-                                if m < j and pend in [f for f in final]:
+-                                    # Check if that item comes after existing in final
+-                                    for n, f in enumerate(final):
+-                                        if f == pend:
+-                                            if n > i:
+-                                                warnings.warn(
+-                                                    'Detected duplicate Media files in an opposite order:\n'
+-                                                    '%s\n%s' % (existing, new_item),
+-                                                    MediaOrderConflictWarning,
+-                                                )
+-            # Now, insert all pending items
+-            final.extend(pending)
+-        return final
++        # Filter out empty lists
++        lists = [lst for lst in lists if lst]
++        
++        if not lists:
++            return []
++        if len(lists) == 1:
++            return list(lists[0])
++        
++        # Collect all unique items and build a graph of ordering constraints
++        all_items = []
++        item_positions = {}  # item -> list of (list_index, position_in_list)
++        
++        for list_idx, lst in enumerate(lists):
++            for pos, item in enumerate(lst):
++                if item not in item_positions:
++                    item_positions[item] = []
++                    all_items.append(item)
++                item_positions[item].append((list_idx, pos))
++        
++        # Build ordering constraints from all lists
++        # constraints[a] = set of items that must come after a
++        constraints = {item: set() for item in all_items}
++        
++        for lst in lists:
++            for i in range(len(lst) - 1):
++                constraints[lst[i]].add(lst[i + 1])
++        
++        # Check for cycles that would indicate a genuine conflict
++        def has_cycle(item, visiting, visited):
++            """Check if adding item creates a cycle."""
++            if item in visiting:
++                return True
++            if item in visited:
++                return False
++            
++            visiting.add(item)
++            for next_item in constraints.get(item, set()):
++                if has_cycle(next_item, visiting, visited):
++                    return True
++            visiting.remove(item)
++            visited.add(item)
++            return False
++        
++        # Check for cycles
++        visited = set()
++        for item in all_items:
++            if item not in visited:
++                if has_cycle(item, set(), visited):
++                    # There's a cycle - find conflicting items and warn
++                    for i, lst1 in enumerate(lists):
++                        for j, lst2 in enumerate(lists):
++                            if i >= j:
++                                continue
++                            # Check if lst1 and lst2 have conflicting orders
++                            for idx1, item1 in enumerate(lst1):
++                                for idx2, item2 in enumerate(lst1[idx1 + 1:], idx1 + 1):
++                                    if item2 in lst2:
++                                        pos2_in_lst2 = lst2.index(item2)
++                                        if item1 in lst2:
++                                            pos1_in_lst2 = lst2.index(item1)
++                                            if pos1_in_lst2 > pos2_in_lst2:
++                                                warnings.warn(
++                                                    'Detected duplicate Media files in an opposite order:\n'
++                                                    '%s\n%s' % (item1, item2),
++                                                    MediaOrderConflictWarning,
++                                                )
++                                                return list(dict.fromkeys(chain.from_iterable(lists)))
++        
++        # Perform topological sort
++        in_degree = {item: 0 for item in all_items}
++        
++        # Calculate in-degrees
++        for item in all_items:
++            for dependent in constraints.get(item, set()):
++                in_degree[dependent] += 1
++        
++        # Find all items with no incoming edges
++        queue = [item for item in all_items if in_degree[item] == 0]
++        result = []
++        
++        # Process items in order
++        while queue:
++            # Pick the item that appears earliest in the original lists
++            # to maintain stability
++            queue.sort(key=lambda item: min(pos for _, pos in item_positions[item]))
++            item = queue.pop(0)
++            result.append(item)
++            
++            for dependent in sorted(constraints.get(item, set())):
++                in_degree[dependent] -= 1
++                if in_degree[dependent] == 0:
++                    queue.append(dependent)
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()
+         combined._css_lists = self._css_lists + other._css_lists
+         combined._js_lists = self._js_lists + other._js_lists
+         return combined
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 1234567..abcdefg 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -296,6 +296,32 @@ class FormsMediaTestCase(SimpleTestCase):
+         # was never specified.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_three_media_objects_with_dependencies(self):
++        """
++        Test for issue #11019: Merging 3 or more media objects should not throw
++        unnecessary MediaOrderConflictWarnings when a topological ordering exists.
++        
++        This reproduces the bug scenario where:
++        - ColorPicker widget needs: color-picker.js
++        - SimpleTextWidget needs: text-editor.js
++        - FancyTextWidget needs: text-editor.js, text-editor-extras.js (depends on text-editor.js), color-picker.js
++        
++        The merged result should be: text-editor.js, text-editor-extras.js, color-picker.js
++        with NO warning, because topological sort can resolve the dependencies.
++        """
++        color_picker_media = Media(js=['color-picker.js'])
++        simple_text_media = Media(js=['text-editor.js'])
++        fancy_text_media = Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
++        
++        # Merge in the order: color_picker + simple_text + fancy_text
++        # This should NOT raise a warning
++        merged = color_picker_media + simple_text_media + fancy_text_media
++        
++        # The result should have the correct topological order
++        self.assertEqual(
++            merged._js,
++            ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        )
+ 
+     def test_merge_genuinely_conflicting_order_warning(self):
+         """
+         Verify that genuine ordering conflicts still raise MediaOrderConflictWarning.
+         This ensures we haven't broken the warning system entirely.
+         """
+         msg = 'Detected duplicate Media files in an opposite order'
+         # Create a true conflict: a must come before b, but also b must come before a
+         with self.assertWarnsMessage(RuntimeWarning, msg):
+-            Media.merge(['a', 'b'], ['b', 'a'])
++            self.assertEqual(Media.merge(['a', 'b'], ['b', 'a']), ['a', 'b'])

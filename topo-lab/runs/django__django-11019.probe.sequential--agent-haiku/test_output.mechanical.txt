@@ -1,0 +1,718 @@
+===== test_combine_media (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 393, in <module>
+    class ClearableFileInput(FileInput):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 394, in ClearableFileInput
+    clear_checkbox_label = _('Clear')
+NameError: name '_' is not defined
+
+
+===== test_construction (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 393, in <module>
+    class ClearableFileInput(FileInput):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 394, in ClearableFileInput
+    clear_checkbox_label = _('Clear')
+NameError: name '_' is not defined
+
+
+===== test_form_media (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 393, in <module>
+    class ClearableFileInput(FileInput):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 394, in ClearableFileInput
+    clear_checkbox_label = _('Clear')
+NameError: name '_' is not defined
+
+
+===== test_media_deduplication (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 393, in <module>
+    class ClearableFileInput(FileInput):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 394, in ClearableFileInput
+    clear_checkbox_label = _('Clear')
+NameError: name '_' is not defined
+
+
+===== test_media_inheritance (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 393, in <module>
+    class ClearableFileInput(FileInput):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 394, in ClearableFileInput
+    clear_checkbox_label = _('Clear')
+NameError: name '_' is not defined
+
+
+===== test_media_inheritance_extends (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 393, in <module>
+    class ClearableFileInput(FileInput):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 394, in ClearableFileInput
+    clear_checkbox_label = _('Clear')
+NameError: name '_' is not defined
+
+
+===== test_media_property_parent_references (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 393, in <module>
+    class ClearableFileInput(FileInput):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 394, in ClearableFileInput
+    clear_checkbox_label = _('Clear')
+NameError: name '_' is not defined
+
+
+===== test_merge (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 393, in <module>
+    class ClearableFileInput(FileInput):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 394, in ClearableFileInput
+    clear_checkbox_label = _('Clear')
+NameError: name '_' is not defined
+
+
+===== test_merge_css_three_way (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 393, in <module>
+    class ClearableFileInput(FileInput):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 394, in ClearableFileInput
+    clear_checkbox_label = _('Clear')
+NameError: name '_' is not defined
+
+
+===== test_merge_js_three_way (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 393, in <module>
+    class ClearableFileInput(FileInput):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 394, in ClearableFileInput
+    clear_checkbox_label = _('Clear')
+NameError: name '_' is not defined
+
+
+===== test_merge_js_three_way2 (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 393, in <module>
+    class ClearableFileInput(FileInput):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 394, in ClearableFileInput
+    clear_checkbox_label = _('Clear')
+NameError: name '_' is not defined
+
+
+===== test_merge_warning (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 393, in <module>
+    class ClearableFileInput(FileInput):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 394, in ClearableFileInput
+    clear_checkbox_label = _('Clear')
+NameError: name '_' is not defined
+
+
+===== test_multi_widget (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 393, in <module>
+    class ClearableFileInput(FileInput):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 394, in ClearableFileInput
+    clear_checkbox_label = _('Clear')
+NameError: name '_' is not defined
+
+
+===== test_media (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 393, in <module>
+    class ClearableFileInput(FileInput):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 394, in ClearableFileInput
+    clear_checkbox_label = _('Clear')
+NameError: name '_' is not defined
+
+
+===== test_render_options (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 393, in <module>
+    class ClearableFileInput(FileInput):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 394, in ClearableFileInput
+    clear_checkbox_label = _('Clear')
+NameError: name '_' is not defined
+
+
+===== test_inline_media_only_inline (admin_inlines.tests.TestInlineMedia): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 393, in <module>
+    class ClearableFileInput(FileInput):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp4oidvdt5\wt\django\forms\widgets.py", line 394, in ClearableFileInput
+    clear_checkbox_label = _('Clear')
+NameError: name '_' is not defined

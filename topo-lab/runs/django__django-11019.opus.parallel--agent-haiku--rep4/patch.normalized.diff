@@ -1,0 +1,215 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -113,73 +113,87 @@ class Media:
+     @staticmethod
+     def merge_lists(lists):
+         """
+-        Merge multiple lists while respecting ordering constraints from all lists.
+-        Build a dependency graph across all inputs and use topological sort to
+-        detect only genuine conflicts.
+-        
++        Merge multiple lists while respecting ordering constraints.
++        For static assets, order can be important. This function deduplicates
++        items while respecting the order constraints specified in each list,
++        using topological sorting to detect genuine conflicts.
++
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Flatten and deduplicate while preserving first occurrence
++        # Flatten and deduplicate items, preserving first occurrence
+         seen = set()
+         all_items = []
+         for lst in lists:
+             for item in lst:
+                 if item not in seen:
+                     all_items.append(item)
+                     seen.add(item)
+-        
++
+         if not all_items:
+             return []
+-        
+-        # Build ordering constraints: for each list, record that item[i] must come before item[i+1]
+-        # constraints[a].add(b) means "a must come before b"
++
++        # Build a dependency graph from the input lists.
++        # For each list, item[i] must appear before item[i+1] in the result.
+         constraints = {item: set() for item in all_items}
+-        
++
+         for lst in lists:
+             for i in range(len(lst) - 1):
+-                # Only add constraint if both items are in our deduplicated list
+-                # (both should be, but be defensive)
++                # Add edge from lst[i] to lst[i+1]
+                 if lst[i] in constraints and lst[i + 1] in constraints:
+                     constraints[lst[i]].add(lst[i + 1])
+-        
+-        # Check for cycles (genuine conflicts) using DFS
++
++        # Detect cycles in the dependency graph using DFS
+         def has_cycle_from(node, visited, rec_stack):
+             visited.add(node)
+             rec_stack.add(node)
+-            
++
+             for neighbor in constraints.get(node, set()):
+                 if neighbor not in visited:
+                     if has_cycle_from(neighbor, visited, rec_stack):
+                         return True
+                 elif neighbor in rec_stack:
+-                    # Cycle detected
+                     return True
+-            
++
+             rec_stack.discard(node)
+             return False
+-        
++
+         visited = set()
+         for item in all_items:
+             if item not in visited:
+                 if has_cycle_from(item, visited, set()):
+-                    # Genuine conflict detected - find conflicting pair for warning
+-                    # Find the first pair of items in the original lists that conflict
+-                    for lst_idx, lst in enumerate(lists):
+-                        for item_idx, item in enumerate(lst):
+-                            # Check if this item has a constraint that conflicts with earlier items in another list
+-                            for other_idx, other_lst in enumerate(lists):
+-                                if other_idx <= lst_idx:
+-                                    continue
+-                                # Check if other_lst has item earlier with something that comes after it in lst
+-                                if item in other_lst:
+-                                    other_item_idx = other_lst.index(item)
+-                                    for i in range(other_item_idx):
+-                                        other_item = other_lst[i]
+-                                        # Check if there's a constraint conflict
+-                                        if other_item in lst and lst.index(other_item) > item_idx:
+-                                            # Found a conflict: other_item must come before item in other_lst
+-                                            # but item comes before other_item in lst
+-                                            warnings.warn(
+-                                                'Detected duplicate Media files in an opposite order:\n'
+-                                                '%s\n%s' % (item, other_item),
+-                                                MediaOrderConflictWarning,
+-                                            )
+-                                            # Use simpler algorithm as fallback
+-                                            return Media.merge([all_items[0:1] if all_items else [], all_items])
+-        
+-        # Topological sort using Kahn's algorithm
++                    # Genuine conflict: there is a cycle in the dependency graph.
++                    # Find and report the first conflicting pair.
++                    for lst_idx, lst in enumerate(lists):
++                        for item_idx, item in enumerate(lst):
++                            for other_idx, other_lst in enumerate(lists):
++                                if other_idx <= lst_idx:
++                                    continue
++                                if item in other_lst:
++                                    other_item_idx = other_lst.index(item)
++                                    for i in range(other_item_idx):
++                                        other_item = other_lst[i]
++                                        if (other_item in lst and
++                                                lst.index(other_item) > item_idx):
++                                            # Found conflicting pair
++                                            warnings.warn(
++                                                'Detected duplicate Media files in an opposite order:\n'
++                                                '%s\n%s' % (item, other_item),
++                                                MediaOrderConflictWarning,
++                                            )
++                                            # Fallback: return all items in dedup order
++                                            return all_items
++
++        # No cycles found; perform topological sort using Kahn's algorithm
+         in_degree = {item: 0 for item in all_items}
+         for item in all_items:
+             for neighbor in constraints[item]:
+                 in_degree[neighbor] += 1
+-        
++
+         queue = [item for item in all_items if in_degree[item] == 0]
+         result = []
+-        
++
+         while queue:
+-            # Process items in the order they first appear in the flattened list
+-            # to maintain stability
++            # Sort queue by first appearance to maintain stability
+             queue.sort(key=lambda x: all_items.index(x))
+             node = queue.pop(0)
+             result.append(node)
+-            
++
+             for neighbor in sorted(constraints[node], key=lambda x: all_items.index(x)):
+                 in_degree[neighbor] -= 1
+                 if in_degree[neighbor] == 0:
+                     queue.append(neighbor)
+-        
++
+         return result
+ 
+     @staticmethod
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 2345678..bcdefgh 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -1,6 +1,7 @@
+ from django.forms import CharField, Form, Media, MultiWidget, TextInput
+ from django.template import Context, Template
+ from django.test import SimpleTestCase, override_settings
++import warnings
+ 
+ 
+ @override_settings(
+@@ -263,3 +264,47 @@ class FormsMediaTestCase(SimpleTestCase):
+         # ...but merging succeeds as the relative ordering of a.css and b.css
+         # was never specified.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_three_or_more_widgets_without_spurious_warning(self):
++        """
++        Test for issue #11019: Merging 3 or more media objects should not throw
++        unnecessary MediaOrderConflictWarnings when dependencies are satisfiable.
++
++        Widgets:
++        - ColorPicker: js=['color-picker.js'] (no dependencies)
++        - SimpleTextWidget: js=['text-editor.js'] (no dependencies)
++        - FancyTextWidget: js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++          where text-editor-extras.js depends on text-editor.js
++
++        Expected: NO WARNING, with final order respecting the dependency:
++        text-editor.js, text-editor-extras.js, color-picker.js
++        """
++        class ColorPicker(TextInput):
++            class Media:
++                js = ['color-picker.js']
++
++        class SimpleTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js']
++
++        class FancyTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        class MyForm(Form):
++            background_color = CharField(widget=ColorPicker())
++            intro = CharField(widget=SimpleTextWidget())
++            body = CharField(widget=FancyTextWidget())
++
++        # This should NOT produce a MediaOrderConflictWarning
++        with warnings.catch_warnings(record=True) as w:
++            warnings.simplefilter("always")
++            form_media = MyForm().media
++            # Verify no MediaOrderConflictWarning was raised
++            media_warnings = [warning for warning in w
++                            if issubclass(warning.category, RuntimeWarning)]
++            self.assertEqual(len(media_warnings), 0,
++                           "Unexpected MediaOrderConflictWarning raised")
++
++        # Expected JS order respects the explicit dependency
++        expected_js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        self.assertEqual(form_media._js, expected_js)

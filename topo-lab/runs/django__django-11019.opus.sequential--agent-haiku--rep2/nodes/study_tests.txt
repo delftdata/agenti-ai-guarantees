@@ -1,0 +1,202 @@
+# Analysis of Media Tests and Merge Behavior
+
+## Tests That Must Still Pass Unchanged
+
+1. **test_construction** - Basic Media object construction and string representation. No merge ordering involved.
+
+2. **test_media_dsl** - Class-based media definitions. No merge ordering involved.
+
+3. **test_combine_media** - Basic media combination:
+   - `w1.media + w2.media + w3.media` expects specific order
+   - Tests that original objects are unaffected by addition
+   - Tests deduplication within single Media instance (test_12879 regression)
+   
+   **Key assertion:**
+   ```python
+   str(w1.media + w2.media + w3.media),
+   """<link href="http://media.example.com/static/path/to/css1"...
+   <link href="/path/to/css2"...
+   <link href="/path/to/css3"...
+   <script type="text/javascript" src="/path/to/js1"></script>
+   <script type="text/javascript" src="http://media.other.com/path/to/js2"></script>
+   <script type="text/javascript" src="https://secure.other.com/path/to/js3"></script>
+   <script type="text/javascript" src="/path/to/js4"></script>"""
+   ```
+
+4. **test_media_property** - Media defined as properties. No complex merge ordering.
+
+5. **test_media_property_parent_references** - Property-based media inheritance. No complex merge ordering.
+
+6. **test_media_inheritance** - Widget inheritance patterns. Single inheritance chain, no complex merging.
+
+7. **test_media_inheritance_from_property** - Property inheritance and extend=False. No complex ordering.
+
+8. **test_media_inheritance_extends** - Explicit extend=True. Single inheritance pattern.
+
+9. **test_media_inheritance_single_type** - extend=('css',) pattern. Single inheritance.
+
+10. **test_multi_media** - Multiple CSS media types. No merge ordering conflict.
+
+11. **test_multi_widget** - MultiWidget component media merging:
+    ```python
+    str(mymulti.media),
+    """<link href="http://media.example.com/static/path/to/css1"...
+    <link href="/path/to/css2"...
+    <link href="/path/to/css3"...
+    <script type="text/javascript" src="/path/to/js1"></script>
+    <script type="text/javascript" src="http://media.other.com/path/to/js2"></script>
+    <script type="text/javascript" src="https://secure.other.com/path/to/js3"></script>
+    <script type="text/javascript" src="/path/to/js4"></script>"""
+    ```
+
+12. **test_form_media** - Form media aggregation from multiple widgets and form-level media. Complex 3+ way merge but may need verification.
+
+13. **test_html_safe** - HTML safety check. No ordering involved.
+
+14. **test_merge** - Direct Media.merge() test with specific expected orderings:
+    ```python
+    test_values = (
+        (([1, 2], [3, 4]), [1, 2, 3, 4]),
+        (([1, 2], [2, 3]), [1, 2, 3]),
+        (([2, 3], [1, 2]), [1, 2, 3]),
+        (([1, 3], [2, 3]), [1, 2, 3]),
+        (([1, 2], [1, 3]), [1, 2, 3]),
+        (([1, 2], [3, 2]), [1, 3, 2]),
+    )
+    ```
+    **These assertions may change with topological sort implementation.**
+
+15. **test_merge_warning** - Tests that MediaOrderConflictWarning is raised for conflicting orders:
+    ```python
+    msg = 'Detected duplicate Media files in an opposite order:\n1\n2'
+    with self.assertWarnsMessage(RuntimeWarning, msg):
+        self.assertEqual(Media.merge([1, 2], [2, 1]), [1, 2])
+    ```
+    **This test directly tests current warning behavior and will need updating if warning logic changes.**
+
+## Tests Whose Expected Values May Need Updating
+
+1. **test_merge** - The expected merge results depend on the merge algorithm:
+   - Case `(([1, 3], [2, 3]), [1, 2, 3])`: Currently expects `[1, 2, 3]`
+   - Case `(([1, 2], [3, 2]), [1, 3, 2])`: Currently expects `[1, 3, 2]` (conflict case)
+   - With topological sort, these may change if dependencies can be inferred
+
+2. **test_merge_warning** - The warning message and trigger conditions may change:
+   - Currently warns on `Media.merge([1, 2], [2, 1])` 
+   - With topological sort, this may no longer trigger a warning if dependencies between files can be resolved
+   - Message format may change depending on new algorithm
+
+3. **test_merge_js_three_way** - Current assertion:
+   ```python
+   self.assertEqual(form_media._js, ['custom_widget.js', 'jquery.js', 'uses_jquery.js'])
+   ```
+   and
+   ```python
+   self.assertEqual(merged._js, ['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js'])
+   ```
+   May need adjustment if topological sorting reorders independent files.
+
+4. **test_merge_css_three_way** - Current assertion shows form1 and form2 have different orders:
+   ```python
+   self.assertEqual(form1._css, {'screen': ['a.css', 'b.css']})
+   self.assertEqual(form2._css, {'screen': ['b.css', 'a.css']})
+   # ...but merging succeeds...
+   merged = widget3 + form1 + form2
+   self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
+   ```
+   May need verification that topological sort produces `['a.css', 'b.css']` as final result.
+
+## New Test Scenario Required (from Bug Report)
+
+The bug report describes this scenario:
+
+```python
+class ColorPicker(forms.Widget):
+    class Media:
+        js = ['color-picker.js']
+
+class SimpleTextWidget(forms.Widget):
+    class Media:
+        js = ['text-editor.js']
+
+class FancyTextWidget(forms.Widget):
+    class Media:
+        js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+
+class MyForm(forms.Form):
+    background_color = forms.CharField(widget=ColorPicker())
+    intro = forms.CharField(widget=SimpleTextWidget())
+    body = forms.CharField(widget=FancyTextWidget())
+```
+
+**Current problematic behavior:**
+- `ColorPicker().media + SimpleTextWidget().media` produces `Media(css={}, js=['color-picker.js', 'text-editor.js'])`
+- This incorrectly establishes that `color-picker.js` must precede `text-editor.js`
+- Final merge produces warning and incorrect order: `Media(css={}, js=['text-editor-extras.js', 'color-picker.js', 'text-editor.js'])`
+
+**Expected correct behavior:**
+- Should produce: `Media(css={}, js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])`
+- No MediaOrderConflictWarning should be raised
+- The algorithm should recognize that `text-editor-extras.js` depends on `text-editor.js` (from FancyTextWidget)
+- And that all three files are independent/unordered in ColorPicker and SimpleTextWidget
+
+**Required test (new):**
+```python
+def test_merge_three_way_dependency_resolution(self):
+    """
+    Test merging of 3+ media objects where intermediate merges create
+    false ordering constraints that should be resolved by topological sort.
+    This is a regression test for #11019.
+    """
+    # Create widgets with specific JS dependencies
+    class ColorPicker(TextInput):
+        class Media:
+            js = ['color-picker.js']
+    
+    class SimpleTextWidget(TextInput):
+        class Media:
+            js = ['text-editor.js']
+    
+    class FancyTextWidget(TextInput):
+        class Media:
+            js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+    
+    # Create form with all three widgets
+    class MyForm(Form):
+        background_color = CharField(widget=ColorPicker())
+        intro = CharField(widget=SimpleTextWidget())
+        body = CharField(widget=FancyTextWidget())
+    
+    form = MyForm()
+    # Should produce correct order without warning
+    # text-editor.js must come before text-editor-extras.js
+    # color-picker.js can appear anywhere (independent)
+    form_media_js = form.media._js
+    
+    # Assert text-editor.js comes before text-editor-extras.js
+    self.assertLess(
+        form_media_js.index('text-editor.js'),
+        form_media_js.index('text-editor-extras.js'),
+        "text-editor.js must come before text-editor-extras.js"
+    )
+    
+    # Assert all three files are present
+    self.assertIn('text-editor.js', form_media_js)
+    self.assertIn('text-editor-extras.js', form_media_js)
+    self.assertIn('color-picker.js', form_media_js)
+    
+    # Should not raise MediaOrderConflictWarning
+    # (assertion happens during form.media access above)
+```
+
+---
+
+## Summary
+
+**Tests requiring no changes:** 1-13 (basic functionality)
+
+**Tests requiring value updates:** 14-15 (test_merge, test_merge_warning) - exact values depend on new topological sort implementation
+
+**Tests requiring investigation:** 3, 11, 16-17 (test_combine_media, test_multi_widget, test_merge_js_three_way, test_merge_css_three_way) - verify results are correct with topological sort
+
+**Tests that must be added:** New test_merge_three_way_dependency_resolution matching the bug report scenario

@@ -1,0 +1,186 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -116,70 +116,109 @@ class Media:
+     @staticmethod
+     def merge(lists):
+         """
+         Merge a list of lists while trying to keep the relative order of the elements.
+         Warn if the lists have the same two elements in a different relative order.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
++        
++        Args:
++            lists: A list of lists to merge. Can also accept two lists for backwards compatibility.
+         """
+-        # Handle backwards compatibility: if lists is actually two separate lists
+-        if lists and not isinstance(lists[0], (list, tuple)):
+-            # Old API: merge(list_1, list_2) - called with two arguments
+-            # This shouldn't happen in our new code, but keep for safety
+-            list_1 = lists if isinstance(lists, list) else list(lists)
+-            list_2 = []
+-            lists = [list_1, list_2]
++        # Filter out empty lists
++        lists = [lst for lst in lists if lst]
+         
+-        # Build a combined list that respects all constraints
+-        result = []
++        if not lists:
++            return []
++        
++        if len(lists) == 1:
++            return list(lists[0])
++        
++        # Build a combined list and track ordering constraints
++        combined_list = []
+         seen = set()
++        
++        # First pass: collect all unique items
+         for lst in lists:
+             for item in lst:
+                 if item not in seen:
+-                    result.append(item)
++                    combined_list.append(item)
+                     seen.add(item)
+         
+-        # Check for conflicts by examining pairwise orderings
+-        conflict_pairs = []
++        # Build ordering constraints: for each list, track the order dependencies
++        constraints = {}  # item -> set of items that must come before it
++        for item in combined_list:
++            constraints[item] = set()
++        
+         for lst in lists:
+             for i, item in enumerate(lst):
+-                for j, other_item in enumerate(lst[i + 1:], i + 1):
+-                    # Verify the order is consistent across all lists
+-                    for other_lst in lists:
+-                        try:
+-                            item_idx = other_lst.index(item)
+-                            other_idx = other_lst.index(other_item)
+-                            if other_idx < item_idx:
+-                                # Found a conflict: other_item comes before item here
+-                                # but item comes before other_item in lst
+-                                conflict_pairs.append((item, other_item))
+-                        except ValueError:
+-                            # One of the items is not in this list, skip
+-                            pass
++                # All items before this one in this list must come before it
++                for prev_item in lst[:i]:
++                    constraints[item].add(prev_item)
++        
++        # Topological sort with cycle detection
++        result = []
++        visited = set()
++        visiting = set()
++        
++        def visit(item):
++            if item in visited:
++                return True
++            if item in visiting:
++                # Cycle detected - genuine conflict
++                return False
++            
++            visiting.add(item)
++            for dependency in constraints[item]:
++                if not visit(dependency):
++                    return False
++            visiting.remove(item)
++            visited.add(item)
++            result.append(item)
++            return True
++        
++        # Try to visit all items
++        for item in combined_list:
++            if item not in visited:
++                if not visit(item):
++                    # Cycle detected - find the conflicting pair and warn
++                    # Find which items are in conflict
++                    for i, item1 in enumerate(combined_list):
++                        for item2 in combined_list[i+1:]:
++                            # Check if there's a constraint conflict
++                            has_item1_before_item2 = False
++                            has_item2_before_item1 = False
++                            
++                            for lst in lists:
++                                try:
++                                    idx1 = lst.index(item1)
++                                    idx2 = lst.index(item2)
++                                    if idx1 < idx2:
++                                        has_item1_before_item2 = True
++                                    if idx2 < idx1:
++                                        has_item2_before_item1 = True
++                                except ValueError:
++                                    pass
++                            
++                            if has_item1_before_item2 and has_item2_before_item1:
++                                # Found the conflict
++                                warnings.warn(
++                                    'Detected duplicate Media files in an opposite order:\n'
++                                    '%s\n%s' % (item1, item2),
++                                    MediaOrderConflictWarning,
++                                )
++                                return combined_list
++        
++        return result
+-        
+-        if conflict_pairs:
+-            for item1, item2 in conflict_pairs:
+-                warnings.warn(
+-                    'Detected duplicate Media files in an opposite order:\n'
+-                    '%s\n%s' % (item1, item2),
+-                    MediaOrderConflictWarning,
+-                )
+-                break
+-        
+-        return result
+ 
+     def __add__(self, other):
+         combined = Media()
+         combined._css_lists = self._css_lists + other._css_lists
+         combined._js_lists = self._js_lists + other._js_lists
+         return combined
+ 
+ 
+ def media_property(cls):
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 2345678..bcdefgh 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -155,22 +155,27 @@ class FormsMediaTestCase(SimpleTestCase):
+     def test_merge(self):
+-        test_values = (
+-            (([1, 2], [3, 4]), [1, 2, 3, 4]),
+-            (([1, 2], [2, 3]), [1, 2, 3]),
+-            (([2, 3], [1, 2]), [1, 2, 3]),
+-            (([1, 3], [2, 3]), [1, 2, 3]),
+-            (([1, 2], [1, 3]), [1, 2, 3]),
+-            (([1, 2], [3, 2]), [1, 3, 2]),
+-        )
++        """Test Media.merge() with list of lists as input."""
++        test_values = (
++            (([1, 2], [3, 4]), [1, 2, 3, 4]),
++            (([1, 2], [2, 3]), [1, 2, 3]),
++            (([2, 3], [1, 2]), [1, 2, 3]),
++            (([1, 3], [2, 3]), [1, 2, 3]),
++            (([1, 2], [1, 3]), [1, 2, 3]),
++            (([1, 2], [3, 2]), [1, 3, 2]),
++        )
+         for (list1, list2), expected in test_values:
+             with self.subTest(list1=list1, list2=list2):
+-                self.assertEqual(Media.merge(list1, list2), expected)
++                self.assertEqual(Media.merge([list1, list2]), expected)
+ 
+-    def test_merge_warning(self):
++    def test_merge_genuine_conflict_warning(self):
++        """Test that a genuine ordering conflict raises MediaOrderConflictWarning."""
+         msg = 'Detected duplicate Media files in an opposite order:\n1\n2'
+         with self.assertWarnsMessage(RuntimeWarning, msg):
+-            self.assertEqual(Media.merge([1, 2], [2, 1]), [1, 2])
++            self.assertEqual(Media.merge([[1, 2], [2, 1]]), [1, 2])
+ 
+     def test_merge_js_three_way(self):
+         """

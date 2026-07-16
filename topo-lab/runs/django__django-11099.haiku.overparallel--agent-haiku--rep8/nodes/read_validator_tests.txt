@@ -1,0 +1,51 @@
+# Analysis of tests/auth_tests/test_validators.py
+
+## Current Username Validator Tests
+
+### Test Structure
+The file contains `UsernameValidatorsTests` class with two test methods:
+1. `test_unicode_validator()` - Tests `UnicodeUsernameValidator`
+2. `test_ascii_validator()` - Tests `ASCIIUsernameValidator`
+
+### Current Test Cases for Unicode Validator
+**Valid usernames:**
+- 'joe'
+- 'René'
+- 'ᴮᴵᴳᴮᴵᴿᴰ'
+- 'أحمد'
+
+**Invalid usernames:**
+- "o'connell" (contains apostrophe)
+- "عبد ال" (contains space)
+- "zerowidth\u200Bspace" (contains zero-width space)
+- "nonbreaking\u00A0space" (contains non-breaking space)
+- "en\u2013dash" (contains en-dash)
+
+### Current Test Cases for ASCII Validator
+**Valid usernames:**
+- 'glenn'
+- 'GLEnN'
+- 'jean-marc'
+
+**Invalid usernames:**
+- "o'connell" (contains apostrophe)
+- 'Éric' (contains non-ASCII character)
+- 'jean marc' (contains space)
+- "أحمد" (non-ASCII)
+
+## Key Observations
+
+1. **Missing Test Coverage for Trailing Newline Issue**: Neither test currently checks for usernames with trailing newlines, which is the bug described in the problem statement.
+
+2. **Test Pattern**: Both tests use a loop with `subTest()` to test multiple valid/invalid cases, making it easy to add new test cases.
+
+3. **Validator Locations**: The validators being tested are imported from `django.contrib.auth.validators` (line 2).
+
+4. **Exception Type**: Tests expect `ValidationError` to be raised for invalid usernames.
+
+## What Needs to Be Added
+
+To properly test the fix for the trailing newline bug, we need to add:
+- Test cases with trailing newlines (e.g., 'validusername\n') to both validators
+- These should be treated as **invalid** after the fix
+- Currently they would be treated as **valid** due to the `$` regex anchor quirk
