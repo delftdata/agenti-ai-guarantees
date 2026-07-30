@@ -4,3 +4,4 @@ tasks/*/repo/
 .venv38/
 __pycache__/
 *.pyc
+runs/*--mock*/
