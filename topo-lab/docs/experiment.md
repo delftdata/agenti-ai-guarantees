@@ -968,6 +968,15 @@ The outcome flip is schedule-derived: every unordered parallel repetition lost t
 
 The paper's Figure 1 presents the removal of the deprecated `providing_args` argument from Django's Signal API as its running example. This probe executes that workflow with the write-conflict probe methodology: the plan is authored rather than harness-generated, disclosed as such, with exact-edit instructions so every individual worker action is correct by construction and the schedule is the only variable.
 
+### Summary
+
+- The task is real: Django's Signal class took a `providing_args` list that was stored and never used, and Django later deleted it. Our task is that deletion - remove the argument from the class and from roughly twenty places across seven files that still pass it. The figure's task was fictional until now; this makes it an executed experiment on a real codebase.
+- The plan is the figure's, written by hand: t0 fixes the core class, t1/t2/t3 each clean one group of files. Every worker's instruction contains its exact edits, so no worker can fail on its own. If something breaks, it can only be the coordination.
+- The trap is also the figure's: t1 and t2 must both edit the same test file, in different regions, and workers hand back whole files.
+- Sequential: one worker at a time. t2 receives the file with t1's edit already present and keeps it. Both edits survive.
+- Parallel: t1 and t2 run at the same time, both starting from the same copy of the shared file, each returning a full file containing only its own edits. The store keeps whichever lands last - t2's, every time - and t1's finished, correct work is silently erased. The erased lines still pass the argument the core class no longer accepts, so the test suite crashes at import. This is the lost update of concurrency-control theory.
+- Parallel with one rule: identical, plus a single declared ordering - t2 waits for t1. t3 still runs alongside t1. The failure disappears and the run stays faster than sequential.
+
 ### Task construction
 
 `django__providing-args` is an authored task, not a SWE-bench instance. It reuses the django-11019 base commit (93e892b), where `providing_args` is live at every site the upstream removal later touched. The plan maps to the figure's DAG: `t0_core_fix` edits `django/dispatch/dispatcher.py` (constructor signature, stored attribute, docstrings); `t1_db_signals` edits `django/db/models/signals.py` (11 construction sites); `t2_auth_signals` edits `django/contrib/auth/signals.py` (3 sites); `t3_core_signals` edits `django/core/signals.py`, `django/db/backends/signals.py`, and `django/test/signals.py` (5 sites); `make_diff` is the barriered final node. t1, t2, and t3 each declare a dependency on t0 - the figure's signature reads - so t0 occupies the first superstep in every rendering.
@@ -1020,3 +1029,11 @@ content: fraction of the task rubric present in the patch. f2p: FAIL_TO_PASS tes
 - parallel, conflicting pair ordered (t2_auth_signals after t1_db_signals): 5/5 resolved; f2p values ['6/6']; content values [1.0]; same-superstep stale reads per run [0]; write conflicts per run [0].
 
 <!-- RESULTS3:END -->
+
+### Reading of the runs
+
+All fifteen runs are deterministic on every graded axis. The sequential and ordered arms resolve 5/5 at 6/6 tests with content 1.0; the unordered parallel arm fails 5/5 at 2/6 with content 0.5, the same two stale reads, the same single write conflict, and the same loser - t2's commit lands last and erases t1's shared-fixture edits in every repetition. The sampled worker outputs vary; the outcome does not. Correctness here is a property of the schedule, not of any agent.
+
+The ordered arm is the result I recommend we lead with when this reaches the paper: it is not a retreat to sequential execution. One declared edge serializes exactly the conflicting pair while t3 runs concurrently with t1, and mean wall time stays below sequential (66-84s vs 80-107s; unordered parallel 48-67s). The remedy costs part of the parallelism, not all of it, which is the concurrency-control claim in miniature.
+
+Relative to the django-11099 probe this adds three things: the conflict sits inside a five-node multi-file workflow rather than a minimal pair, the oracle is the repository's own test suite rather than an instance's gold tests, and the primitive demonstrably preserves residual parallelism instead of collapsing the graph to a total order.
