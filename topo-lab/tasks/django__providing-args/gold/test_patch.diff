@@ -1,0 +1,6 @@
+diff --git a/tests/dispatch/GOLD_MARKER.txt b/tests/dispatch/GOLD_MARKER.txt
+new file mode 100644
+--- /dev/null
++++ b/tests/dispatch/GOLD_MARKER.txt
+@@ -0,0 +1 @@
++authored task: marker only, no gold test patch

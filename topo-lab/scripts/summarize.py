@@ -26,8 +26,12 @@ BEGIN = "<!-- RESULTS:BEGIN -->"
 END = "<!-- RESULTS:END -->"
 BEGIN2 = "<!-- RESULTS2:BEGIN -->"
 END2 = "<!-- RESULTS2:END -->"
+BEGIN3 = "<!-- RESULTS3:BEGIN -->"
+END3 = "<!-- RESULTS3:END -->"
 
 PHASE2_TASKS = {"django__django-11019"}
+# authored paper-figure task: its runs go to the RESULTS3 block only
+FIG1_TASK = "django__providing-args"
 TOPO_ORDER = {"sequential": 0, "parallel": 1, "cut25": 2,
               "cut50": 3, "cut75": 4, "overparallel": 5}
 
@@ -292,12 +296,40 @@ def probe_analysis(reps):
     return "\n".join(lines)
 
 
+FIG1_ORDERED_LABEL = ("parallel, conflicting pair ordered "
+                      "(t2_auth_signals after t1_db_signals)")
+
+
+def fig1_analysis(reps):
+    lines = []
+    arms = [("probe", "sequential", "sequential (implicit total order)"),
+            ("probe", "parallel", "parallel, unordered writers"),
+            ("probeordered", "parallel", FIG1_ORDERED_LABEL)]
+    for h, topo, label in arms:
+        rs = [r for r in reps if r["harness"] == h and r["topology"] == topo]
+        if not rs:
+            continue
+        n = len(rs)
+        res = sum(1 for r in rs if r["resolved"])
+        contents = sorted({r["content"] for r in rs})
+        f2ps = sorted({r["f2p"] for r in rs})
+        stales = sorted({len(r["stale"]) for r in rs})
+        lost = sorted({r["lost_updates"] for r in rs})
+        lines.append(f"- {label}: {res}/{n} resolved; f2p values {f2ps}; "
+                     f"content values {contents}; same-superstep stale reads "
+                     f"per run {stales}; write conflicts per run {lost}.")
+    return "\n".join(lines)
+
+
 def main():
     rows = load_rows()
     p1 = [r for r in rows if r["instance"] not in PHASE2_TASKS
+          and r["instance"] != FIG1_TASK
           and not r["harness"].startswith("probe")]
-    p2 = [r for r in rows if r["instance"] in PHASE2_TASKS
-          or r["harness"].startswith("probe")]
+    p2 = [r for r in rows if r["instance"] != FIG1_TASK
+          and (r["instance"] in PHASE2_TASKS
+               or r["harness"].startswith("probe"))]
+    p3 = [r for r in rows if r["instance"] == FIG1_TASK]
 
     # ---- phase 1: bracket ----
     grid = [r for r in p1 if not re.search(r"--rep\d+$", r["name"])]
@@ -364,8 +396,23 @@ def main():
         parts2 = ["(no gradient runs recorded yet)"]
     block2 = BEGIN2 + "\n\n" + "\n".join(parts2) + "\n\n" + END2
 
+    # ---- phase 3: paper-figure probe (providing_args removal) ----
+    p3_reps = [r for r in p3 if re.search(r"--rep\d+$", r["name"])]
+    parts3 = []
+    if p3_reps:
+        base3 = [r for r in p3_reps if r["harness"] == "probe"]
+        ordered3 = [r for r in p3_reps if r["harness"] == "probeordered"]
+        parts3 += ["### Runs", "", LEGEND, "", table(base3)]
+        if ordered3:
+            parts3 += ["", "#### Ordered arm", "", table(ordered3)]
+        parts3 += ["", fig1_analysis(p3_reps)]
+    else:
+        parts3 = ["(no runs recorded yet)"]
+    block3 = BEGIN3 + "\n\n" + "\n".join(parts3) + "\n\n" + END3
+
     doc = DOC.read_text(encoding="utf-8")
-    for begin, end, block in ((BEGIN, END, block1), (BEGIN2, END2, block2)):
+    for begin, end, block in ((BEGIN, END, block1), (BEGIN2, END2, block2),
+                              (BEGIN3, END3, block3)):
         if begin not in doc or end not in doc:
             raise SystemExit(f"experiment.md is missing the {begin} markers")
         doc = re.sub(re.escape(begin) + r".*?" + re.escape(end), block,
@@ -373,7 +420,7 @@ def main():
     DOC.write_text(doc, encoding="utf-8")
     print(f"summarized {len(rows)} runs into docs/experiment.md "
           f"({len(grid)} bracket grid, {len(reps)} bracket repetition, "
-          f"{len(p2)} gradient)")
+          f"{len(p2)} gradient, {len(p3)} figure-1 probe)")
 
 
 if __name__ == "__main__":

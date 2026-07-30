@@ -83,6 +83,13 @@ RUBRICS = {
         (re.escape("django/forms/widgets.py"), 1),
         (r"\n\+[^\n]*merge", 1),
     ],
+    # authored Figure-1 task: the two anchors are the shared-fixture regions
+    # owned by t1 (a_signal) and t2 (c_signal); a lost update on the shared
+    # test file removes exactly one of them, grading content 0.5
+    "django__providing-args": [
+        (r"\n-a_signal = Signal\(providing_args", 1),
+        (r"\n-c_signal = Signal\(providing_args", 1),
+    ],
 }
 
 

@@ -1,0 +1,14 @@
+flowchart TD
+    t0_core_fix[t0_core_fix]
+    t1_db_signals[t1_db_signals]
+    t2_auth_signals[t2_auth_signals]
+    t3_core_signals[t3_core_signals]
+    make_diff[make_diff]
+    t0_core_fix --> t1_db_signals
+    t0_core_fix --> t2_auth_signals
+    t0_core_fix --> t3_core_signals
+    t0_core_fix --> make_diff
+    t1_db_signals --> make_diff
+    t2_auth_signals --> make_diff
+    t3_core_signals --> make_diff
+    style make_diff stroke-width:3px

@@ -1,0 +1,11 @@
+{
+  "FAIL_TO_PASS": [
+    "test_send (dispatch.tests.DispatcherTests)",
+    "test_send_robust_success (dispatch.tests.DispatcherTests)",
+    "test_cached_garbaged_collected (dispatch.tests.DispatcherTests)",
+    "test_receiver_signal_list (dispatch.tests.ReceiverTestCase)",
+    "test_save_signals (signals.tests.SignalTests)",
+    "test_delete_signals (signals.tests.SignalTests)"
+  ],
+  "PASS_TO_PASS": []
+}

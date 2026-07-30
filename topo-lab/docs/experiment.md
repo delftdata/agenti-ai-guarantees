@@ -778,6 +778,65 @@ flowchart TD
     style make_diff stroke-width:3px
 ```
 
+### django__providing-args - probe harness
+
+**sequential** - 5 waves, max width 1
+
+```mermaid
+flowchart TD
+    t0_core_fix[t0_core_fix]
+    t1_db_signals[t1_db_signals]
+    t2_auth_signals[t2_auth_signals]
+    t3_core_signals[t3_core_signals]
+    make_diff[make_diff]
+    t0_core_fix --> t1_db_signals
+    t1_db_signals --> t2_auth_signals
+    t2_auth_signals --> t3_core_signals
+    t3_core_signals --> make_diff
+    style make_diff stroke-width:3px
+```
+
+**parallel** - 3 waves, max width 3
+
+```mermaid
+flowchart TD
+    t0_core_fix[t0_core_fix]
+    t1_db_signals[t1_db_signals]
+    t2_auth_signals[t2_auth_signals]
+    t3_core_signals[t3_core_signals]
+    make_diff[make_diff]
+    t0_core_fix --> t1_db_signals
+    t0_core_fix --> t2_auth_signals
+    t0_core_fix --> t3_core_signals
+    t0_core_fix --> make_diff
+    t1_db_signals --> make_diff
+    t2_auth_signals --> make_diff
+    t3_core_signals --> make_diff
+    style make_diff stroke-width:3px
+```
+
+### django__providing-args - probeordered harness
+
+**parallel** - 4 waves, max width 2
+
+```mermaid
+flowchart TD
+    t0_core_fix[t0_core_fix]
+    t1_db_signals[t1_db_signals]
+    t2_auth_signals[t2_auth_signals]
+    t3_core_signals[t3_core_signals]
+    make_diff[make_diff]
+    t0_core_fix --> t1_db_signals
+    t0_core_fix --> t2_auth_signals
+    t1_db_signals --> t2_auth_signals
+    t0_core_fix --> t3_core_signals
+    t0_core_fix --> make_diff
+    t1_db_signals --> make_diff
+    t2_auth_signals --> make_diff
+    t3_core_signals --> make_diff
+    style make_diff stroke-width:3px
+```
+
 <!-- TOPOLOGIES2:END -->
 
 ## Gradient results
@@ -904,3 +963,60 @@ The ordered arm applies the coordination primitive to the failing schedule. Exac
 The outcome flip is schedule-derived: every unordered parallel repetition lost the same edit to the same last-write-wins conflict while the sampled worker outputs varied. The ordered arm shows the repair: one declared dependency between the conflicting writers restores resolution. In this minimal probe the conflicting pair is the entire graph, so serializing it recovers the sequential schedule; the wall-time case for parallelism rests on the gradient runs, where non-conflicting work parallelizes with no accuracy loss under the same state discipline.
 
 <!-- RESULTS2:END -->
+
+## Paper-figure probe - providing_args removal
+
+The paper's Figure 1 presents the removal of the deprecated `providing_args` argument from Django's Signal API as its running example. This probe executes that workflow with the write-conflict probe methodology: the plan is authored rather than harness-generated, disclosed as such, with exact-edit instructions so every individual worker action is correct by construction and the schedule is the only variable.
+
+### Task construction
+
+`django__providing-args` is an authored task, not a SWE-bench instance. It reuses the django-11019 base commit (93e892b), where `providing_args` is live at every site the upstream removal later touched. The plan maps to the figure's DAG: `t0_core_fix` edits `django/dispatch/dispatcher.py` (constructor signature, stored attribute, docstrings); `t1_db_signals` edits `django/db/models/signals.py` (11 construction sites); `t2_auth_signals` edits `django/contrib/auth/signals.py` (3 sites); `t3_core_signals` edits `django/core/signals.py`, `django/db/backends/signals.py`, and `django/test/signals.py` (5 sites); `make_diff` is the barriered final node. t1, t2, and t3 each declare a dependency on t0 - the figure's signature reads - so t0 occupies the first superstep in every rendering.
+
+The repository corrects the figure in three places. The shared fixture both t1 and t2 write is `tests/dispatch/tests.py`, not `tests/signals/tests.py`, which contains no `providing_args`: t1 owns the `a_signal`/`b_signal` constructions, t2 owns `c_signal`/`d_signal`, and both reproduce the whole file. The third slice covers the core signal modules rather than `core/handlers/`, which has no `providing_args`. And `django/utils/autoreload.py` is handled as task preparation rather than probe work: `django.utils.translation` imports it at module level and translation is on the import path of `django.test`, so its single construction site breaks every test run once the constructor drops the parameter - but assigning it to a worker would put a 630-line whole-file reproduction in the write set for a one-line edit, reintroducing the copy-fidelity confound the probe design exists to remove. Its removal is applied and committed by task setup, part of the graded base state and outside the probe's write set.
+
+### Grading
+
+The task has no gold patch, so the gate is authored and disclosed: six regression tests across `tests/dispatch` and `tests/signals`, all passing at the base commit, listed as FAIL_TO_PASS so the existing grader runs them unchanged. They gate the composed refactor rather than a bug fix, so resolved reads jointly with content here: content anchors the two shared-fixture regions (`a_signal` for t1, `c_signal` for t2), and a lost update on the shared file grades content 0.5. The expected parallel failure is loud by construction - the losing worker's constructions still pass `providing_args` to the constructor t0 removed, and the dispatch module dies at import with a TypeError: every agent acted correctly, the composed state is broken. The gold test patch is a marker-file creation only, so the shared fixture the probe writes stays inside the graded diff.
+
+### Arms
+
+- **sequential** - t0, t1, t2, t3, make_diff in total order; the second shared-fixture writer receives the file with the first edit already present and preserves it.
+- **parallel, unordered** - t0 alone in the first superstep, t1-t3 concurrent in the second. t1 and t2 read the same snapshot of the shared test file and each commits a complete file containing only its own edits; the store keeps the last write - the lost update.
+- **parallel, ordered** - one declared dependency edge, t2 after t1. Unlike the django-11099 ordered arm, where the conflicting pair was the entire graph, t3 still runs concurrently with t1: the primitive serializes exactly the conflicting pair and preserves the residual parallelism.
+
+Rendered topologies for the probe and probeordered plans appear in the rendered-topologies block above.
+
+<!-- RESULTS3:BEGIN -->
+
+### Runs
+
+content: fraction of the task rubric present in the patch. f2p: FAIL_TO_PASS tests passing / total. resolved: every FAIL_TO_PASS test passes. tokens: input + output tokens summed over nodes, prompt-cache reads excluded. All grades apply to the mechanical deliverable (the workspace diff).
+
+| task | harness | agent | topology | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p | resolved |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| providing-args | probe | haiku | sequential | 79.79 | 0.107 | 48789 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+| providing-args | probe | haiku | sequential | 106.93 | 0.1199 | 51476 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+| providing-args | probe | haiku | sequential | 80.94 | 0.1108 | 48982 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+| providing-args | probe | haiku | sequential | 83.0 | 0.1116 | 49097 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+| providing-args | probe | haiku | sequential | 81.08 | 0.1109 | 49016 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+| providing-args | probe | haiku | parallel | 50.22 | 0.111 | 48941 | 0 | 0 | 2 | 1 | 0.5 | 2/6 | no |
+| providing-args | probe | haiku | parallel | 48.49 | 0.1114 | 49169 | 0 | 0 | 2 | 1 | 0.5 | 2/6 | no |
+| providing-args | probe | haiku | parallel | 67.27 | 0.1217 | 51177 | 0 | 0 | 2 | 1 | 0.5 | 2/6 | no |
+| providing-args | probe | haiku | parallel | 47.72 | 0.1081 | 48404 | 0 | 0 | 2 | 1 | 0.5 | 2/6 | no |
+| providing-args | probe | haiku | parallel | 48.74 | 0.1105 | 48961 | 0 | 0 | 2 | 1 | 0.5 | 2/6 | no |
+
+#### Ordered arm
+
+| task | harness | agent | topology | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p | resolved |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| providing-args | probeordered | haiku | parallel | 65.08 | 0.1133 | 51987 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+| providing-args | probeordered | haiku | parallel | 70.03 | 0.1126 | 51734 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+| providing-args | probeordered | haiku | parallel | 64.02 | 0.1129 | 51874 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+| providing-args | probeordered | haiku | parallel | 66.48 | 0.1151 | 52389 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+| providing-args | probeordered | haiku | parallel | 83.99 | 0.1259 | 54400 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+
+- sequential (implicit total order): 5/5 resolved; f2p values ['6/6']; content values [1.0]; same-superstep stale reads per run [0]; write conflicts per run [0].
+- parallel, unordered writers: 0/5 resolved; f2p values ['2/6']; content values [0.5]; same-superstep stale reads per run [2]; write conflicts per run [1].
+- parallel, conflicting pair ordered (t2_auth_signals after t1_db_signals): 5/5 resolved; f2p values ['6/6']; content values [1.0]; same-superstep stale reads per run [0]; write conflicts per run [0].
+
+<!-- RESULTS3:END -->
