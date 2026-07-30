@@ -737,62 +737,6 @@ flowchart TD
     style make_diff stroke-width:3px
 ```
 
-**cut25** - 2 waves, max width 3
-
-```mermaid
-flowchart TD
-    fix_css[fix_css]
-    fix_js[fix_js]
-    fix_merge[fix_merge]
-    make_diff[make_diff]
-    fix_css --> make_diff
-    fix_js --> make_diff
-    fix_merge --> make_diff
-    style make_diff stroke-width:3px
-```
-
-**cut50** - 2 waves, max width 3
-
-```mermaid
-flowchart TD
-    fix_css[fix_css]
-    fix_js[fix_js]
-    fix_merge[fix_merge]
-    make_diff[make_diff]
-    fix_css --> make_diff
-    fix_js --> make_diff
-    fix_merge --> make_diff
-    style make_diff stroke-width:3px
-```
-
-**cut75** - 2 waves, max width 3
-
-```mermaid
-flowchart TD
-    fix_css[fix_css]
-    fix_js[fix_js]
-    fix_merge[fix_merge]
-    make_diff[make_diff]
-    fix_css --> make_diff
-    fix_js --> make_diff
-    fix_merge --> make_diff
-    style make_diff stroke-width:3px
-```
-
-**overparallel** - 2 waves, max width 3
-
-```mermaid
-flowchart TD
-    fix_css[fix_css]
-    fix_js[fix_js]
-    fix_merge[fix_merge]
-    make_diff[make_diff]
-    fix_css --> make_diff
-    fix_js --> make_diff
-    fix_merge --> make_diff
-    style make_diff stroke-width:3px
-```
-
 ### django__django-11099 - probe harness
 
 **sequential** - 3 waves, max width 1
@@ -819,67 +763,7 @@ flowchart TD
     style make_diff stroke-width:3px
 ```
 
-**cut25** - 2 waves, max width 2
-
-```mermaid
-flowchart TD
-    fix_ascii[fix_ascii]
-    fix_unicode[fix_unicode]
-    make_diff[make_diff]
-    fix_ascii --> make_diff
-    fix_unicode --> make_diff
-    style make_diff stroke-width:3px
-```
-
-**cut50** - 2 waves, max width 2
-
-```mermaid
-flowchart TD
-    fix_ascii[fix_ascii]
-    fix_unicode[fix_unicode]
-    make_diff[make_diff]
-    fix_ascii --> make_diff
-    fix_unicode --> make_diff
-    style make_diff stroke-width:3px
-```
-
-**cut75** - 2 waves, max width 2
-
-```mermaid
-flowchart TD
-    fix_ascii[fix_ascii]
-    fix_unicode[fix_unicode]
-    make_diff[make_diff]
-    fix_ascii --> make_diff
-    fix_unicode --> make_diff
-    style make_diff stroke-width:3px
-```
-
-**overparallel** - 2 waves, max width 2
-
-```mermaid
-flowchart TD
-    fix_ascii[fix_ascii]
-    fix_unicode[fix_unicode]
-    make_diff[make_diff]
-    fix_ascii --> make_diff
-    fix_unicode --> make_diff
-    style make_diff stroke-width:3px
-```
-
 ### django__django-11099 - probeordered harness
-
-**sequential** - 3 waves, max width 1
-
-```mermaid
-flowchart TD
-    fix_ascii[fix_ascii]
-    fix_unicode[fix_unicode]
-    make_diff[make_diff]
-    fix_ascii --> fix_unicode
-    fix_unicode --> make_diff
-    style make_diff stroke-width:3px
-```
 
 **parallel** - 3 waves, max width 1
 
@@ -891,58 +775,6 @@ flowchart TD
     fix_ascii --> fix_unicode
     fix_ascii --> make_diff
     fix_unicode --> make_diff
-    style make_diff stroke-width:3px
-```
-
-**cut25** - 2 waves, max width 2
-
-```mermaid
-flowchart TD
-    fix_ascii[fix_ascii]
-    fix_unicode[fix_unicode]
-    make_diff[make_diff]
-    fix_ascii -.-> fix_unicode
-    fix_ascii --> make_diff
-    fix_unicode --> make_diff
-    style make_diff stroke-width:3px
-```
-
-**cut50** - 2 waves, max width 2
-
-```mermaid
-flowchart TD
-    fix_ascii[fix_ascii]
-    fix_unicode[fix_unicode]
-    make_diff[make_diff]
-    fix_ascii -.-> fix_unicode
-    fix_ascii --> make_diff
-    fix_unicode --> make_diff
-    style make_diff stroke-width:3px
-```
-
-**cut75** - 2 waves, max width 2
-
-```mermaid
-flowchart TD
-    fix_ascii[fix_ascii]
-    fix_unicode[fix_unicode]
-    make_diff[make_diff]
-    fix_ascii -.-> fix_unicode
-    fix_ascii --> make_diff
-    fix_unicode --> make_diff
-    style make_diff stroke-width:3px
-```
-
-**overparallel** - 2 waves, max width 2
-
-```mermaid
-flowchart TD
-    fix_ascii[fix_ascii]
-    fix_unicode[fix_unicode]
-    make_diff[make_diff]
-    fix_ascii --> make_diff
-    fix_unicode --> make_diff
-    fix_ascii -.-> fix_unicode
     style make_diff stroke-width:3px
 ```
 

@@ -228,7 +228,15 @@ def main():
         print(f"  {name}: {len(decomp['nodes'])} nodes, "
               f"{'guards: ' + ','.join(guards) if guards else 'no guards'}")
         phase = 2 if (task in PHASE2_TASKS or model.startswith("probe")) else 1
-        doc_topos = TOPOLOGIES if phase == 2 else CLASSIC
+        if model == "probe":
+            # probe graphs have no cuttable edges: cut/overparallel renderings
+            # duplicate parallel, so only the two run arms are documented
+            doc_topos = ["sequential", "parallel"]
+        elif model == "probeordered":
+            # the ordered arm runs (and differs) only under the parallel renderer
+            doc_topos = ["parallel"]
+        else:
+            doc_topos = TOPOLOGIES if phase == 2 else CLASSIC
         sections[phase].append(f"### {task} - {model} harness\n")
         for topo in TOPOLOGIES:
             waves = schedule(decomp, topo)
