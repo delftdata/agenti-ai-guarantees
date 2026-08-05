@@ -1,0 +1,41 @@
+# Analysis of django/contrib/auth/validators.py
+
+## Current State
+
+The file contains two username validator classes:
+
+1. **ASCIIUsernameValidator** - Validates ASCII-only usernames
+2. **UnicodeUsernameValidator** - Validates Unicode usernames
+
+Both validators use the same regex pattern: `r'^[\w.@+-]+$'`
+
+## Problem Identified
+
+The regex pattern `r'^[\w.@+-]+$'` has a security/validation issue:
+
+- The `$` anchor in Python regex matches before a trailing newline character, not strictly at the end of the string
+- This means usernames ending with a newline character (`\n`) will incorrectly pass validation
+- Example: `"username\n"` would match the current regex
+
+## Solution Required
+
+Change the regex anchors from `^...$` to `\A...\Z`:
+
+- `\A` - Matches strictly at the start of the string (never after a newline)
+- `\Z` - Matches strictly at the end of the string (never before a newline)
+
+This prevents usernames with trailing (or leading) newlines from being accepted.
+
+## Required Changes
+
+Both validator classes need their regex updated from:
+```python
+regex = r'^[\w.@+-]+$'
+```
+
+To:
+```python
+regex = r'\A[\w.@+-]+\Z'
+```
+
+This is a minimal, low-risk change that improves validation correctness without affecting legitimate usernames.

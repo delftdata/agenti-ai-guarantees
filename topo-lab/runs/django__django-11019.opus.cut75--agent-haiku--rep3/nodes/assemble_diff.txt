@@ -1,0 +1,281 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -56,23 +56,42 @@ class Media:
+     @property
+     def _css(self):
+         # Merge all CSS lists
+         if not self._css_lists:
+             return {}
+-        
+-        # Start with the first CSS dict
+-        css = self._css_lists[0]
+-        
+-        # Merge all subsequent CSS dicts
+-        for obj in filter(None, self._css_lists[1:]):
+-            css = {
+-                medium: self.merge_lists([css.get(medium, []), obj.get(medium, [])])
+-                for medium in css.keys() | obj.keys()
+-            }
+-        
+-        return css
++
++        # Collect CSS by medium
++        css_by_medium = {}
++        for css_dict in filter(None, self._css_lists):
++            for medium, files in css_dict.items():
++                if medium not in css_by_medium:
++                    css_by_medium[medium] = []
++                css_by_medium[medium].append(files)
++
++        # Merge each medium's CSS lists
++        result = {}
++        for medium, file_lists in css_by_medium.items():
++            result[medium] = self.merge_lists(file_lists)
++
++        return result
+ 
+     @property
+     def _js(self):
+         # Merge all JS lists using topological sort
+         if not self._js_lists:
+             return []
+-        
++
+         # Collect all non-empty JS lists
+         js_lists = [js for js in self._js_lists if js]
+-        
++
+         if not js_lists:
+             return []
+-        
++
+         if len(js_lists) == 1:
+             return list(js_lists[0])
+-        
++
+         # Merge all lists at once
+         return self.merge_lists(js_lists)
+ 
+@@ -120,64 +139,110 @@ class Media:
+         raise KeyError('Unknown media type "%s"' % name)
+ 
+     @staticmethod
+     def merge_lists(lists):
+         """
+         Merge multiple lists while respecting their internal ordering constraints.
+-        
++
+         This method builds a topological ordering from all input lists. Each list
+         provides ordering constraints: if item A appears before item B in any list,
+         then A should appear before B in the result (unless a conflict is detected).
+-        
++
+         A conflict is detected when two or more lists disagree on the relative order
+-        of the same two items. This is only warned about if it's a genuine cycle
+-        (i.e., truly irreconcilable).
++        of the same two items, creating a cycle in the constraint graph.
+         """
+         if not lists:
+             return []
+-        
++
+         # Flatten and deduplicate items while preserving order constraints
+         all_items = []
+         seen = set()
+-        
++
+         for lst in lists:
+             for item in lst:
+                 if item not in seen:
+                     all_items.append(item)
+                     seen.add(item)
+-        
++
+         if len(all_items) <= 1:
+             return all_items
+-        
++
+         # Build a directed graph of ordering constraints
+-        # constraints[a].add(b) means "a must come before b"
++        # constraints[a] is a set of items that must come after a
+         constraints = {item: set() for item in all_items}
+-        
+-        # Track all pairwise relationships seen
+-        # relationships[(a, b)] = count of lists where a comes before b
+-        relationships = {}
+-        
++
++        # For each pair of items, track if we've seen them in a specific order
++        # pair_order[(a, b)] = list of indices where (a, b) appeared in that order
++        pair_order = {}
++
+         for lst in lists:
+             # For each pair of distinct items in the list, record the ordering
+             for i, item_a in enumerate(lst):
+                 for item_b in lst[i + 1:]:
+                     if item_a != item_b:
+-                        key = (item_a, item_b)
+-                        relationships[key] = relationships.get(key, 0) + 1
+-        
+-        # Build constraints: if a consistently comes before b, add constraint
+-        for (item_a, item_b), count in relationships.items():
+-            # If this pair appears in any list with a before b, add the constraint
+-            constraints[item_a].add(item_b)
+-        
++                        key = (item_a, item_b)
++                        reverse_key = (item_b, item_a)
++
++                        # Track this ordering
++                        if key not in pair_order:
++                            pair_order[key] = []
++                        pair_order[key].append(lst)
++
++        # Build constraints: add edge from a to b if a comes before b
++        # Only warn about conflicts if there's a true cycle
++        for (item_a, item_b), appearances in pair_order.items():
++            reverse_key = (item_b, item_a)
++            if reverse_key in pair_order:
++                # Both orders have been seen - this is a conflict that will cause a cycle
++                # We'll detect it during topological sort
++                pass
++            # Add the constraint for this direction
++            constraints[item_a].add(item_b)
++
+         # Topological sort with cycle detection
+         result = []
+         visited = set()
+         rec_stack = set()
+-        
+-        def visit(node, path=None):
+-            if path is None:
+-                path = []
+-            
++        path_stack = []
++
++        def visit(node):
+             if node in rec_stack:
+-                # Cycle detected - find the conflicting items
+-                cycle_start = path.index(node)
+-                cycle_items = path[cycle_start:] + [node]
+-                # Warn about the actual conflict
++                # Cycle detected - find the cycle
++                try:
++                    cycle_start_idx = path_stack.index(node)
++                    cycle = path_stack[cycle_start_idx:] + [node]
++                    # Report the conflict between the first two items in the cycle
++                    warnings.warn(
++                        'Detected duplicate Media files in an opposite order:\n%s\n%s' % (
++                            cycle[0], cycle[1]
++                        ),
++                        MediaOrderConflictWarning,
++                    )
++                except (ValueError, IndexError):
++                    pass
++                return False
++
++            if node in visited:
++                return True
++
++            rec_stack.add(node)
++            path_stack.append(node)
++
++            for neighbor in sorted(constraints[node]):  # Sort for determinism
++                if not visit(neighbor):
++                    return False
++
++            path_stack.pop()
++            rec_stack.remove(node)
++            visited.add(node)
++            result.append(node)
++            return True
++
++        # Visit all nodes
++        for item in all_items:
++            if item not in visited:
++                visit(item)
++
++        return result
++
++    @staticmethod
++    def merge(list1, list2):
++        """
++        Merge two lists while respecting ordering constraints from both.
++
++        This is a backward-compatibility wrapper around merge_lists() for code
++        that calls Media.merge() directly.
++        """
++        return Media.merge_lists([list1, list2])
+ 
+-                if len(cycle_items) >= 2:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (cycle_items[0], cycle_items[1]),
+-                        MediaOrderConflictWarning,
+-                    )
+-                return False
+-            
+-            if node in visited:
+-                return True
+-            
+-            rec_stack.add(node)
+-            path.append(node)
+-            
+-            for neighbor in sorted(constraints[node]):  # Sort for determinism
+-                if not visit(neighbor, path):
+-                    return False
+-            
+-            path.pop()
+-            rec_stack.remove(node)
+-            visited.add(node)
+-            result.append(node)
+-            return True
+-        
+-        # Visit all nodes
+-        for item in all_items:
+-            if item not in visited:
+-                if not visit(item):
+-                    # On cycle, continue with partial result
+-                    pass
+-        
+-        return result
+ 
+     def __add__(self, other):
+         combined = Media()
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 1234567..abcdefg 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -361,3 +361,39 @@ class FormsMediaTestCase(SimpleTestCase):
+         # was never specified.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_multiple_media_with_dependencies(self):
++        """
++        Merging 3+ media objects with dependencies should resolve via topological
++        sort without spurious MediaOrderConflictWarnings.
++
++        This tests the bug report case where:
++        - ColorPicker provides color-picker.js (independent)
++        - SimpleTextWidget provides text-editor.js (independent)
++        - FancyTextWidget provides text-editor.js, text-editor-extras.js (depends
++          on text-editor.js), color-picker.js
++
++        The pairwise merge (ColorPicker + SimpleTextWidget) would wrongly impose
++        color-picker.js before text-editor.js, conflicting with FancyTextWidget's
++        constraint. The three-way merge should resolve correctly without warning.
++        """
++        color_picker = Media(js=['color-picker.js'])
++        simple_text = Media(js=['text-editor.js'])
++        fancy_text = Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
++
++        # This simulates form field media merging
++        merged = color_picker + simple_text + fancy_text
++
++        # Should produce the constraint-respecting order without warning
++        self.assertEqual(
++            merged._js,
++            ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        )

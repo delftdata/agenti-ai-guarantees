@@ -1,0 +1,70 @@
+{
+  "nodes": [
+    {
+      "id": "fix_ascii",
+      "instruction": "You are given the current complete contents of django/contrib/auth/validators.py. Apply exactly one change and reproduce every other line of the file byte-for-byte as it appears in the version you were given, including any changes already present. In the ASCIIUsernameValidator class, replace the line\n\n    regex = r'^[\\w.@+-]+$'\n\nwith\n\n    regex = r'\\A[\\w.@+-]+\\Z'\n\nDo not modify the UnicodeUsernameValidator class or anything else: leave every other line exactly as it appears in the file you were given. Output the complete new file contents.",
+      "reads": [
+        "django/contrib/auth/validators.py"
+      ],
+      "writes": [
+        "django/contrib/auth/validators.py"
+      ],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "fix_unicode",
+      "instruction": "You are given the current complete contents of django/contrib/auth/validators.py. Apply exactly one change and reproduce every other line of the file byte-for-byte as it appears in the version you were given, including any changes already present. In the UnicodeUsernameValidator class, replace the line\n\n    regex = r'^[\\w.@+-]+$'\n\nwith\n\n    regex = r'\\A[\\w.@+-]+\\Z'\n\nDo not modify the ASCIIUsernameValidator class or anything else: leave every other line exactly as it appears in the file you were given. Output the complete new file contents.",
+      "reads": [
+        "django/contrib/auth/validators.py"
+      ],
+      "writes": [
+        "django/contrib/auth/validators.py"
+      ],
+      "deps": [
+        "fix_ascii"
+      ],
+      "guard": null
+    },
+    {
+      "id": "make_diff",
+      "instruction": "Produce a single unified diff against the repository root capturing the changes made to django/contrib/auth/validators.py, using the current file contents you were given. Correct diff --git/---/+++ headers with a/ and b/ prefixes, accurate hunk headers, context lines matching the file. No prose outside the diff.",
+      "reads": [
+        "django/contrib/auth/validators.py"
+      ],
+      "writes": [
+        "django/contrib/auth/validators.py"
+      ],
+      "deps": [
+        "fix_ascii",
+        "fix_unicode"
+      ],
+      "guard": null
+    }
+  ],
+  "final_node": "make_diff",
+  "topology": "cut50",
+  "schedule": [
+    [
+      "fix_ascii",
+      "fix_unicode"
+    ],
+    [
+      "make_diff"
+    ]
+  ],
+  "cut_edges": [
+    [
+      "fix_unicode",
+      "fix_ascii"
+    ]
+  ],
+  "order_deps": {
+    "fix_ascii": [],
+    "fix_unicode": [],
+    "make_diff": [
+      "fix_ascii",
+      "fix_unicode"
+    ]
+  }
+}

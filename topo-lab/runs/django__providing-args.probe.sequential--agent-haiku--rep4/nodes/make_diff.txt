@@ -1,0 +1,119 @@
+```diff
+diff --git a/django/dispatch/dispatcher.py b/django/dispatch/dispatcher.py
+index 1234567..abcdefg 100644
+--- a/django/dispatch/dispatcher.py
++++ b/django/dispatch/dispatcher.py
+@@ -25,7 +25,7 @@ class Signal:
+         receivers
+             { receiverkey (id) : weakref(receiver) }
+     """
+-    def __init__(self, use_caching=False, providing_args=None):
++    def __init__(self, use_caching=False):
+         """
+         Create a new signal.
+         """
+@@ -36,7 +36,6 @@ class Signal:
+         # distinct sender we cache the receivers that sender has in
+         # 'sender_receivers_cache'. The cache is cleaned when .connect() or
+         # .disconnect() is called and populated on send().
+         self.sender_receivers_cache = weakref.WeakKeyDictionary() if use_caching else {}
+         self._dead_receivers = False
+ 
+diff --git a/django/db/models/signals.py b/django/db/models/signals.py
+index 1234567..abcdefg 100644
+--- a/django/db/models/signals.py
++++ b/django/db/models/signals.py
+@@ -35,11 +35,11 @@ class ModelSignal(Signal):
+         )
+ 
+ 
+-pre_init = ModelSignal(use_caching=True, providing_args=['instance', 'raw', 'using'])
+-post_init = ModelSignal(use_caching=True, providing_args=['instance', 'raw', 'using'])
++pre_init = ModelSignal(use_caching=True)
++post_init = ModelSignal(use_caching=True)
+ 
+-pre_save = ModelSignal(use_caching=True, providing_args=['instance', 'raw', 'using', 'created'])
+-post_save = ModelSignal(use_caching=True, providing_args=['instance', 'raw', 'using', 'created'])
++pre_save = ModelSignal(use_caching=True)
++post_save = ModelSignal(use_caching=True)
+ 
+-pre_delete = ModelSignal(use_caching=True, providing_args=['instance', 'using'])
+-post_delete = ModelSignal(use_caching=True, providing_args=['instance', 'using'])
++pre_delete = ModelSignal(use_caching=True)
++post_delete = ModelSignal(use_caching=True)
+ 
+-m2m_changed = ModelSignal(use_caching=True, providing_args=['instance', 'model', 'action', 'reverse', 'model_changed'])
++m2m_changed = ModelSignal(use_caching=True)
+ 
+-pre_migrate = Signal(providing_args=['app_config', 'verbosity', 'interactive', 'using', 'apps', 'plan'])
+-post_migrate = Signal(providing_args=['app_config', 'verbosity', 'interactive', 'using', 'apps', 'plan'])
++pre_migrate = Signal()
++post_migrate = Signal()
+diff --git a/django/contrib/auth/signals.py b/django/contrib/auth/signals.py
+index 1234567..abcdefg 100644
+--- a/django/contrib/auth/signals.py
++++ b/django/contrib/auth/signals.py
+@@ -1,5 +1,5 @@
+ from django.dispatch import Signal
+ 
+-user_logged_in = Signal(providing_args=['request', 'user'])
+-user_login_failed = Signal(providing_args=['request', 'credentials'])
+-user_logged_out = Signal(providing_args=['request', 'user'])
++user_logged_in = Signal()
++user_login_failed = Signal()
++user_logged_out = Signal()
+diff --git a/django/core/signals.py b/django/core/signals.py
+index 1234567..abcdefg 100644
+--- a/django/core/signals.py
++++ b/django/core/signals.py
+@@ -1,5 +1,5 @@
+ from django.dispatch import Signal
+ 
+-request_started = Signal(providing_args=['wsgi_request'])
+-request_finished = Signal(providing_args=['sender'])
+-got_request_exception = Signal(providing_args=['request'])
+-setting_changed = Signal(providing_args=['setting', 'value', 'enter'])
++request_started = Signal()
++request_finished = Signal()
++got_request_exception = Signal()
++setting_changed = Signal()
+diff --git a/django/db/backends/signals.py b/django/db/backends/signals.py
+index 1234567..abcdefg 100644
+--- a/django/db/backends/signals.py
++++ b/django/db/backends/signals.py
+@@ -1,3 +1,3 @@
+ from django.dispatch import Signal
+ 
+-connection_created = Signal(providing_args=['connection'])
++connection_created = Signal()
+diff --git a/django/test/signals.py b/django/test/signals.py
+index 1234567..abcdefg 100644
+--- a/django/test/signals.py
++++ b/django/test/signals.py
+@@ -12,7 +12,7 @@ from django.utils import timezone
+ from django.utils.formats import FORMAT_SETTINGS, reset_format_cache
+ from django.utils.functional import empty
+ 
+-template_rendered = Signal(providing_args=['template', 'context'])
++template_rendered = Signal()
+ 
+ # Most setting_changed receivers are supposed to be added below,
+ # except for cases where the receiver is related to a contrib app.
+diff --git a/tests/dispatch/tests.py b/tests/dispatch/tests.py
+index 1234567..abcdefg 100644
+--- a/tests/dispatch/tests.py
++++ b/tests/dispatch/tests.py
+@@ -29,10 +29,10 @@ class Callable:
+         return val
+ 
+ 
+ a_signal = Signal()
+ b_signal = Signal()
+-c_signal = Signal(providing_args=["val"])
+-d_signal = Signal(providing_args=["val"], use_caching=True)
++c_signal = Signal()
++d_signal = Signal(use_caching=True)
+ 
+ 
+ class DispatcherTests(SimpleTestCase):
+```

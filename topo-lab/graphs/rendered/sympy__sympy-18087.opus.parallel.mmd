@@ -1,0 +1,14 @@
+flowchart TD
+    investigate_root_cause[investigate_root_cause]
+    inspect_trigsimp_paths[inspect_trigsimp_paths]
+    design_fix[design_fix]
+    apply_fix[apply_fix]
+    add_tests[add_tests]
+    assemble_diff[assemble_diff]
+    investigate_root_cause --> design_fix
+    inspect_trigsimp_paths --> design_fix
+    design_fix --> apply_fix
+    design_fix --> add_tests
+    apply_fix --> assemble_diff
+    add_tests --> assemble_diff
+    style assemble_diff stroke-width:3px

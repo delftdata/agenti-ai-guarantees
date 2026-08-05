@@ -1,0 +1,71 @@
+# Analysis of Django Username Validator Regex Pattern Changes
+
+## Problem Statement
+The current regex patterns in `django/contrib/auth/validators.py` use `^` and `$` anchors, which have a quirk in Python: the `$` anchor matches both the end of string AND before a trailing newline. This allows usernames ending with newline characters to pass validation, which is unintended behavior.
+
+## Current Implementation Review
+
+### ASCIIUsernameValidator
+- **Current regex**: `r'^[\w.@+-]+$'`
+- **Issue**: The `$` will match before a trailing `\n`
+- **Example problem**: Username `"user\n"` would pass validation
+
+### UnicodeUsernameValidator
+- **Current regex**: `r'^[\w.@+-]+$'`
+- **Issue**: Same as above - `$` will match before a trailing `\n`
+- **Example problem**: Username `"用户\n"` would pass validation
+
+## Required Fix
+
+Both validators need to change their regex patterns from:
+```python
+regex = r'^[\w.@+-]+$'
+```
+
+To:
+```python
+regex = r'\A[\w.@+-]+\Z'
+```
+
+### Why \A and \Z are Better
+
+- **\A**: Matches only at the absolute start of the string (not affected by multiline mode)
+- **\Z**: Matches only at the absolute end of the string (not before trailing newline)
+- **^**: Matches at start of string or after newline (in multiline mode)
+- **$**: Matches at end of string OR before a trailing newline (PROBLEMATIC)
+
+## Verification Checklist
+
+- [ ] ASCIIUsernameValidator.regex changed to `r'\A[\w.@+-]+\Z'`
+- [ ] UnicodeUsernameValidator.regex changed to `r'\A[\w.@+-]+\Z'`
+- [ ] No other parts of the validators modified
+- [ ] Error messages remain unchanged
+- [ ] Flag settings (re.ASCII for ASCII validator, 0 for Unicode) remain unchanged
+- [ ] Both validators remain @deconstructible decorated
+- [ ] Changes allow valid usernames to pass
+- [ ] Changes reject usernames with trailing newlines
+
+## Expected Behavior After Fix
+
+```python
+# Should pass validation:
+"validuser"
+"user.name"
+"user@domain"
+"user+tag"
+"user-name"
+
+# Should fail validation:
+"user\n"        # Trailing newline
+"user\r\n"      # Trailing CRLF
+" user"         # Leading space
+"user "         # Trailing space (already failed)
+```
+
+## Testing Recommendation
+
+After applying the fix, tests should verify:
+1. Valid usernames continue to validate correctly
+2. Usernames with trailing newlines are now rejected
+3. Usernames with leading newlines are rejected
+4. Both ASCII and Unicode validators work as expected

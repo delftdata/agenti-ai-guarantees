@@ -1,0 +1,46 @@
+diff --git a/sympy/simplify/tests/test_trigsimp.py b/sympy/simplify/tests/test_trigsimp.py
+index bf15ee07a9..878b67caa2 100644
+--- a/sympy/simplify/tests/test_trigsimp.py
++++ b/sympy/simplify/tests/test_trigsimp.py
+@@ -481,3 +481,41 @@ def test_trigsimp_old():
+     assert trigsimp(sin(x)/cos(x), old=True, method='groebner', hints=[tan]) == tan(x)
+ 
+     assert trigsimp(1-sin(sin(x)**2+cos(x)**2)**2, old=True, deep=True) == cos(1)**2
++
++
++def test_issue_18087():
++    """Test that trigsimp does not incorrectly simplify sqrt(sin(x)**2) to sin(x).
++    
++    Regression test for issue #18087: trigsimp incorrectly simplified
++    cos(x) + sqrt(sin(x)**2) to cos(x) + sin(x) for general complex x.
++    
++    The correct behavior is:
++    - For complex x: should NOT simplify to cos(x) + sin(x)
++    - For real x: should simplify to cos(x) + |sin(x)|
++    """
++    # Test with complex x: should NOT simplify incorrectly
++    x_complex = Symbol('x')  # No assumption, so it's complex in general
++    expr = cos(x_complex) + sqrt(sin(x_complex)**2)
++    simplified = trigsimp(expr)
++    # Should not simplify to cos(x) + sin(x)
++    assert simplified != cos(x_complex) + sin(x_complex), \
++        "trigsimp incorrectly simplified sqrt(sin(x)**2) to sin(x) for complex x"
++    
++    # Test with real x: should simplify to cos(x) + |sin(x)|
++    x_real = Symbol('x', real=True)
++    expr_real = cos(x_real) + sqrt(sin(x_real)**2)
++    simplified_real = trigsimp(expr_real)
++    # For real x, sqrt(sin(x)**2) should be |sin(x)|
++    expected_real = cos(x_real) + abs(sin(x_real))
++    assert simplified_real == expected_real, \
++        f"Expected {expected_real}, got {simplified_real}"
++    
++    # Test with positive x: should simplify further since sin(x) is abs(sin(x))
++    x_positive = Symbol('x', positive=True)
++    expr_pos = cos(x_positive) + sqrt(sin(x_positive)**2)
++    simplified_pos = trigsimp(expr_pos)
++    # For positive x, we still need abs because sin(positive) can be negative
++    expected_pos = cos(x_positive) + abs(sin(x_positive))
++    assert simplified_pos == expected_pos, \
++        f"Expected {expected_pos}, got {simplified_pos}"
++

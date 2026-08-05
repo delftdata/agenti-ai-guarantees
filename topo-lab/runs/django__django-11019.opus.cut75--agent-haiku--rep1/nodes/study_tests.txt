@@ -1,0 +1,117 @@
+# Analysis of test_media.py Tests and Required Changes
+
+## (a) Tests that must still pass unchanged:
+
+1. **test_construction** - Basic Media object construction and string representation
+2. **test_media_dsl** - DSL-based media definitions
+3. **test_combine_media** - Basic combining of media objects with deduplication
+4. **test_media_property** - Property-based media definitions
+5. **test_media_property_parent_references** - Media properties referencing parents
+6. **test_media_inheritance** - Inheritance of media between widgets
+7. **test_media_inheritance_from_property** - Inheritance with property-based media
+8. **test_media_inheritance_extends** - Explicit extend=True behavior
+9. **test_media_inheritance_single_type** - Selective media type inheritance
+10. **test_multi_media** - Multiple output media types (screen, print)
+11. **test_multi_widget** - MultiWidget media aggregation
+12. **test_form_media** - Form media processing and combination
+13. **test_html_safe** - HTML safety of Media objects
+
+These tests verify core functionality and don't specifically test ordering behavior that would change with topological sorting.
+
+## (b) Tests whose expected values may need updating:
+
+### test_merge
+Quote from test:
+```python
+def test_merge(self):
+    test_values = (
+        (([1, 2], [3, 4]), [1, 2, 3, 4]),
+        (([1, 2], [2, 3]), [1, 2, 3]),
+        (([2, 3], [1, 2]), [1, 2, 3]),
+        (([1, 3], [2, 3]), [1, 2, 3]),
+        (([1, 2], [1, 3]), [1, 2, 3]),
+        (([1, 2], [3, 2]), [1, 3, 2]),
+    )
+```
+
+**Status**: Expected values may change. The last test case `(([1, 2], [3, 2]), [1, 3, 2])` specifically tests that when dependencies conflict, a particular order is chosen. Topological sorting may produce different results when there are circular or conflicting constraints.
+
+### test_merge_warning
+Quote from test:
+```python
+def test_merge_warning(self):
+    msg = 'Detected duplicate Media files in an opposite order:\n1\n2'
+    with self.assertWarnsMessage(RuntimeWarning, msg):
+        self.assertEqual(Media.merge([1, 2], [2, 1]), [1, 2])
+```
+
+**Status**: This test expects a warning for `[1, 2]` merged with `[2, 1]`. With improved topological sorting that handles cycles, this warning may no longer be raised (or may be raised with different messages). The test itself may need to be removed or modified.
+
+### test_merge_js_three_way
+Quote from test:
+```python
+def test_merge_js_three_way(self):
+    """
+    The relative order of scripts is preserved in a three-way merge.
+    """
+    widget1 = Media(js=['custom_widget.js'])
+    widget2 = Media(js=['jquery.js', 'uses_jquery.js'])
+    form_media = widget1 + widget2
+    self.assertEqual(form_media._js, ['custom_widget.js', 'jquery.js', 'uses_jquery.js'])
+    inline_media = Media(js=['jquery.js', 'also_jquery.js']) + Media(js=['custom_widget.js'])
+    merged = form_media + inline_media
+    self.assertEqual(merged._js, ['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js'])
+```
+
+**Status**: Expected values should remain the same with topological sorting (relative orders should be preserved better, not worse).
+
+### test_merge_css_three_way
+Quote from test:
+```python
+def test_merge_css_three_way(self):
+    widget1 = Media(css={'screen': ['a.css']})
+    widget2 = Media(css={'screen': ['b.css']})
+    widget3 = Media(css={'all': ['c.css']})
+    form1 = widget1 + widget2
+    form2 = widget2 + widget1
+    self.assertEqual(form1._css, {'screen': ['a.css', 'b.css']})
+    self.assertEqual(form2._css, {'screen': ['b.css', 'a.css']})
+    merged = widget3 + form1 + form2
+    self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
+```
+
+**Status**: Expected values should remain the same (demonstrates that merging succeeds when there's no real constraint).
+
+## (c) New test scenario required (matching bug report):
+
+A new test case must be added to verify the fix for issue #11019:
+
+```python
+def test_merge_three_widgets_with_dependencies(self):
+    """
+    Merging 3+ media objects with transitive dependencies should not raise
+    unnecessary MediaOrderConflictWarnings and should produce correct order.
+    
+    This tests the scenario from issue #11019 where:
+    - ColorPicker uses color-picker.js (independent)
+    - SimpleTextWidget uses text-editor.js (independent)
+    - FancyTextWidget uses text-editor.js, text-editor-extras.js (depends on text-editor.js), color-picker.js
+    
+    The final merged order should be: text-editor.js, text-editor-extras.js, color-picker.js
+    without raising any MediaOrderConflictWarning.
+    """
+    color_picker = Media(js=['color-picker.js'])
+    simple_text = Media(js=['text-editor.js'])
+    fancy_text = Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
+    
+    # Should not raise MediaOrderConflictWarning
+    form_media = color_picker + simple_text + fancy_text
+    
+    # Verify correct ordering: text-editor.js, text-editor-extras.js, color-picker.js
+    self.assertEqual(
+        form_media._js,
+        ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+    )
+```
+
+**Key expected behavior**: No warning should be raised, and the output should correctly reflect the dependency constraints without introducing unnecessary ordering constraints between independent files.

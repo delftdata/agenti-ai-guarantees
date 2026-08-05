@@ -1,0 +1,250 @@
+# Analysis of Media Class Implementation and MediaOrderConflictWarning Issue
+
+## Current Implementation Summary
+
+### Media Class Signatures and Structure
+
+**Lines 41-55: `__init__` method**
+```python
+def __init__(self, media=None, css=None, js=None):
+    if media is not None:
+        css = getattr(media, 'css', {})
+        js = getattr(media, 'js', [])
+    else:
+        if css is None:
+            css = {}
+        if js is None:
+            js = []
+    self._css_lists = [css]
+    self._js_lists = [js]
+```
+
+The Media class stores CSS and JS in lists of lists. This design supports accumulation for later merging.
+
+**Lines 63-73: `_css` property**
+```python
+@property
+def _css(self):
+    css = self._css_lists[0]
+    # filter(None, ...) avoids calling merge with empty dicts.
+    for obj in filter(None, self._css_lists[1:]):
+        css = {
+            medium: self.merge(css.get(medium, []), obj.get(medium, []))
+            for medium in css.keys() | obj.keys()
+        }
+    return css
+```
+
+Merges CSS lists pairwise (iteratively from index 0 onwards).
+
+**Lines 75-80: `_js` property**
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    # filter(None, ...) avoids calling merge() with empty lists.
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+Merges JS lists pairwise (iteratively from index 0 onwards).
+
+**Lines 121-155: `merge` static method**
+```python
+@staticmethod
+def merge(list_1, list_2):
+    """
+    Merge two lists while trying to keep the relative order of the elements.
+    Warn if the lists have the same two elements in a different relative
+    order.
+
+    For static assets it can be important to have them included in the DOM
+    in a certain order. In JavaScript you may not be able to reference a
+    global or in CSS you might want to override a style.
+    """
+    # Start with a copy of list_1.
+    combined_list = list(list_1)
+    last_insert_index = len(list_1)
+    # Walk list_2 in reverse, inserting each element into combined_list if
+    # it doesn't already exist.
+    for path in reversed(list_2):
+        try:
+            # Does path already exist in the list?
+            index = combined_list.index(path)
+        except ValueError:
+            # Add path to combined_list since it doesn't exist.
+            combined_list.insert(last_insert_index, path)
+        else:
+            if index > last_insert_index:
+                warnings.warn(
+                    'Detected duplicate Media files in an opposite order:\n'
+                    '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+                    MediaOrderConflictWarning,
+                )
+            # path already exists in the list. Update last_insert_index so
+            # that the following elements are inserted in front of this one.
+            last_insert_index = index
+    return combined_list
+```
+
+The current merge algorithm processes list_2 in reverse, checking if each element already exists in combined_list (which starts as a copy of list_1). If an element exists at index > last_insert_index, it warns. The algorithm maintains last_insert_index to track where new elements should be inserted.
+
+**Lines 177-181: `__add__` method**
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+Concatenates the lists of lists. Does not immediately merge; defers to property accessors.
+
+## Root Cause of Spurious MediaOrderConflictWarnings
+
+### The Problem Scenario
+
+Consider the example from the issue:
+- **ColorPicker().media**: `js=['color-picker.js']`
+- **SimpleTextWidget().media**: `js=['text-editor.js']`
+- **FancyTextWidget().media**: `js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+When combining:
+1. `ColorPicker().media + SimpleTextWidget().media`
+   - Merges `['color-picker.js']` with `['text-editor.js']`
+   - Result: `['color-picker.js', 'text-editor.js']`
+   - This creates a spurious ordering constraint: color-picker.js must come before text-editor.js
+
+2. `(ColorPicker().media + SimpleTextWidget().media) + FancyTextWidget().media`
+   - First: `['color-picker.js', 'text-editor.js']`
+   - Second: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+   - Merge processes list_2 in reverse: ['color-picker.js', 'text-editor-extras.js', 'text-editor.js']
+   - 'color-picker.js' exists at index 0; last_insert_index is 2 (len of list_1)
+   - Since 0 < 2, no warning yet; last_insert_index becomes 0
+   - 'text-editor-extras.js' doesn't exist; insert at position 0
+   - 'text-editor.js' exists at index 1; last_insert_index is now 0
+   - Since 1 > 0, warning is issued: "text-editor-extras.js" and "text-editor.js" reported as wrong order
+   - Combined list becomes: `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`
+
+### Why This Happens
+
+The pairwise merging approach creates transient orderings that don't represent actual dependencies. When ColorPicker and SimpleTextWidget are combined first, an artificial constraint (color-picker.js before text-editor.js) emerges. This constraint conflicts with the actual dependency in FancyTextWidget (text-editor.js before text-editor-extras.js, and both before color-picker.js in that widget's list).
+
+The merge algorithm cannot distinguish between:
+1. **Real dependencies**: text-editor.js must come before text-editor-extras.js (stated in FancyTextWidget)
+2. **Spurious orderings**: color-picker.js must come before text-editor.js (artifact of merging order)
+
+## Exact Code Locations to Change
+
+### Location 1: Lines 121-155 (`merge` static method)
+**Current limitation**: Merges only two lists at once, cannot see the full set of dependencies across all accumulated media.
+
+**Must change to**:
+- Accept a list of lists instead of two lists
+- Use a topological sort or constraint-satisfaction approach to build a combined ordering
+- Only warn when there is a genuine conflict (two elements with incompatible ordering requirements from different sources)
+- Ignore transient orderings that can be reordered without breaking stated constraints
+
+### Location 2: Lines 75-80 (`_js` property)
+**Current**: 
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    # filter(None, ...) avoids calling merge() with empty lists.
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+**Must change to**: Call a new multi-list merge method that processes all accumulated JS lists at once, e.g., `self.merge(self._js_lists)` or similar.
+
+### Location 3: Lines 63-73 (`_css` property)
+**Current**:
+```python
+@property
+def _css(self):
+    css = self._css_lists[0]
+    # filter(None, ...) avoids calling merge with empty dicts.
+    for obj in filter(None, self._css_lists[1:]):
+        css = {
+            medium: self.merge(css.get(medium, []), obj.get(medium, []))
+            for medium in css.keys() | obj.keys()
+        }
+    return css
+```
+
+**Must change to**: For each CSS medium, call a new multi-list merge method on all lists for that medium, instead of pairwise iteration.
+
+### Location 4: Lines 177-181 (`__add__` method)
+**No change to signature needed**, but its behavior will be affected by the changes to `_js` and `_css` properties, which now call all-at-once merging instead of pairwise merging.
+
+## Intended Fix: High-Level Algorithm
+
+### Replace Pairwise Merging with Topological Sort
+
+The new approach should:
+
+1. **Collect all constraints**: When merging multiple lists, extract every ordering constraint (i.e., "A must come before B") from all input lists.
+
+2. **Build a constraint graph**: Create a directed graph where an edge from A to B means "A must come before B" (derived from at least one input list).
+
+3. **Detect genuine conflicts**: A genuine conflict exists only if there are two constraints that contradict each other: "A before B" from one list and "B before A" from another list.
+
+4. **Warn only on genuine conflicts**: If such contradictions exist, emit MediaOrderConflictWarning.
+
+5. **Topologically sort**: Use a topological sort (e.g., Kahn's algorithm or similar) to produce a final ordering that respects all constraints. If there's a conflict, the topological sort will fail; handle gracefully by picking an order and warning.
+
+6. **Preserve all elements**: Ensure all unique elements from all input lists appear in the output, even if some lists are subsets of others.
+
+### Signature Change
+
+Change `merge` from:
+```python
+@staticmethod
+def merge(list_1, list_2):
+    # ...merges two lists
+```
+
+To something like:
+```python
+@staticmethod
+def merge(*lists):  # or merge(lists) accepting a sequence
+    # ...merges all lists using topological sort
+```
+
+Or create a new method:
+```python
+@staticmethod
+def _merge_all(lists):
+    # ...topological sort approach
+```
+
+And have `_js` and `_css` properties call it with all accumulated lists.
+
+### Update Property Logic
+
+**Old pattern** (_js property):
+```python
+js = self._js_lists[0]
+for obj in filter(None, self._js_lists[1:]):
+    js = self.merge(js, obj)  # pairwise
+```
+
+**New pattern** (_js property):
+```python
+js = self.merge(self._js_lists)  # all-at-once merge
+# or: js = self._merge_all(self._js_lists)
+```
+
+Similarly for `_css` property.
+
+## Summary of Changes Required
+
+| Component | Current Behavior | Required Change |
+|-----------|-----------------|-----------------|
+| `merge()` method (lines 121-155) | Merges two lists pairwise with simple conflict detection | Redesign to accept multiple lists, build constraint graph, topologically sort, warn only on genuine contradictions |
+| `_js` property (lines 75-80) | Iteratively calls `merge(js, obj)` for each accumulated list | Call single all-at-once merge on all `_js_lists` |
+| `_css` property (lines 63-73) | Iteratively calls `merge()` for each accumulated list per medium | Call single all-at-once merge on all CSS lists for each medium |
+| `__add__()` method (lines 177-181) | No change to this method itself; behavior change propagates through property accessors | Behavior automatically improves when `_js` and `_css` properties switch to all-at-once merging |

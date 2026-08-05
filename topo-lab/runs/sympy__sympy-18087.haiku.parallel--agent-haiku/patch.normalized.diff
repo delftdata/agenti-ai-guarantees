@@ -1,0 +1,282 @@
+diff --git a/sympy/simplify/fu.py b/sympy/simplify/fu.py
+index 1234567..abcdefg 100644
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ -1,6 +1,7 @@
+ """
+ Implementation of the trigsimp algorithm by Fu et al.
+ 
++
+ The idea behind the ``fu`` algorithm is to use a sequence of rules, applied
+ in what is heuristically known to be a smart order, to select a simpler
+ expression that is equivalent to the input.
+@@ -37,6 +38,7 @@ with the un-doubled argument, e.g. if 3*pi/7 is the base
+ then cosine and sine functions with argument 6*pi/7 will be replaced.
+ 
+     TR0 - simplify expression
+     TR1 - sec-csc to cos-sin
+     TR2 - tan-cot to sin-cos ratio
+     TR2i - sin-cos ratio to tan
+@@ -87,7 +89,6 @@ The temptation is to try make these TR rules "smarter" but that should really
+ be done at a higher level; the TR rules should try maintain the "do one thing
+ well" principle.  There is one exception, however. In TR10i and TR9 terms are
+ recognized even when they are each multiplied by a common factor:
+ 
+     >>> fu(a*cos(x)*cos(y) + a*sin(x)*sin(y))
+     a*cos(x - y)
+ 
+@@ -185,8 +186,8 @@ def TR1(rv):
+ def TR2(rv):
+     """Replace tan and cot with sin/cos and cos/sin
+ 
+     Examples
+     ========
+ 
+     >>> from sympy.simplify.fu import TR2
+     >>> from sympy.abc import x
+     >>> from sympy import tan, cot, sin, cos
+@@ -283,7 +284,7 @@ def TR3(rv):
+ 
+ def TR4(rv):
+-    """Identify values of special angles.
++    """Identify values of special angles.
+ 
+         a=  0   pi/6        pi/4        pi/3        pi/2
+     ----------------------------------------------------
+@@ -306,13 +307,14 @@ def TR4(rv):
+ 
+ def _TR56(rv, f, g, h, max, pow):
+     """Helper for TR5 and TR6 to replace f**2 with h(g**2)
+ 
+     Options
+     =======
+ 
+     max :   controls size of exponent that can appear on f
+             e.g. if max=4 then f**4 will be changed to h(g**2)**2.
+     pow :   controls whether the exponent must be a perfect power of 2
+             e.g. if pow=True (and max >= 6) then f**6 will not be changed
+             but f**8 will be changed to h(g**2)**4
+ 
+     >>> from sympy.simplify.fu import _TR56 as T
+     >>> from sympy.abc import x
+     >>> from sympy import sin, cos
+@@ -404,7 +406,7 @@ def TR5(rv, max=4, pow=False):
+ 
+ def TR6(rv, max=4, pow=False):
+-    """Replacement of cos**2 with 1 - sin(x)**2.
++    """Replacement of cos**2 with 1 - sin(x)**2.
+ 
+     See _TR56 docstring for advanced use of ``max`` and ``pow``.
+ 
+@@ -421,7 +423,7 @@ def TR6(rv, max=4, pow=False):
+ 
+ def TR7(rv):
+     """Lowering the degree of cos(x)**2
+ 
+     Examples
+     ========
+ 
+     >>> from sympy.simplify.fu import TR7
+     >>> from sympy.abc import x
+@@ -528,7 +530,7 @@ def TR8(rv, first=True):
+ def TR9(rv):
+     """Sum of ``cos`` or ``sin`` terms as a product of ``cos`` or ``sin``.
+ 
+     Examples
+     ========
+ 
+     >>> from sympy.simplify.fu import TR9
+     >>> from sympy import cos, sin
+@@ -629,7 +631,7 @@ def process_common_addends(rv, do, key2=None, key1=True):
+ def TR10(rv, first=True):
+     """Separate sums in ``cos`` and ``sin``.
+ 
+     Examples
+     ========
+ 
+     >>> from sympy.simplify.fu import TR10
+     >>> from sympy.abc import a, b, c
+@@ -686,7 +688,7 @@ def TR10i(rv):
+ 
+     >>> from sympy.simplify.fu import TR10i
+     >>> from sympy import cos, sin, pi, Add, Mul, sqrt, Symbol
+     >>> from sympy.abc import x, y
+ 
+     >>> TR10i(cos(1)*cos(3) + sin(1)*sin(3))
+     cos(2)
+     >>> TR10i(cos(1)*sin(3) + sin(1)*cos(3) + cos(3))
+@@ -812,7 +814,7 @@ def TR10i(rv):
+ def TR11(rv, base=None):
+     """Function of double angle to product. The ``base`` argument can be used
+     to indicate what is the un-doubled argument, e.g. if 3*pi/7 is the base
+     then cosine and sine functions with argument 6*pi/7 will be replaced.
+ 
+     Examples
+     ========
+@@ -892,7 +894,7 @@ def TR12(rv, first=True):
+ def TR12i(rv):
+     """Combine tan arguments as
+     (tan(y) + tan(x))/(tan(x)*tan(y) - 1) -> -tan(x + y)
+ 
+     Examples
+     ========
+ 
+     >>> from sympy.simplify.fu import TR12i
+     >>> from sympy import tan
+     >>> from sympy.abc import a, b, c
+@@ -1049,7 +1051,7 @@ def TR14(rv, first=True):
+ def TR15(rv, max=4, pow=False):
+     """Convert sin(x)*-2 to 1 + cot(x)**2.
+ 
+     See _TR56 docstring for advanced use of ``max`` and ``pow``.
+ 
+     Examples
+     ========
+ 
+     >>> from sympy.simplify.fu import TR15
+     >>> from sympy.abc import x
+     >>> from sympy import cos, sin
+@@ -1072,7 +1074,7 @@ def TR15(rv, max=4, pow=False):
+ def TR16(rv, max=4, pow=False):
+     """Convert cos(x)*-2 to 1 + tan(x)**2.
+ 
+     See _TR56 docstring for advanced use of ``max`` and ``pow``.
+ 
+     Examples
+     ========
+ 
+     >>> from sympy.simplify.fu import TR16
+     >>> from sympy.abc import x
+     >>> from sympy import cos, sin
+@@ -1102,7 +1104,7 @@ def TR111(rv):
+     """Convert f(x)**-i to g(x)**i where either ``i`` is an integer
+     or the base is positive and f, g are: tan, cot; sin, csc; or cos, sec.
+ 
+     Examples
+     ========
+ 
+     >>> from sympy.simplify.fu import TR111
+     >>> from sympy.abc import x
+     >>> from sympy import tan
+@@ -1135,7 +1137,7 @@ def TR111(rv):
+ def TR22(rv, max=4, pow=False):
+     """Convert tan(x)**2 to sec(x)**2 - 1 and cot(x)**2 to csc(x)**2 - 1.
+ 
+     See _TR56 docstring for advanced use of ``max`` and ``pow``.
+ 
+     Examples
+     ========
+ 
+     >>> from sympy.simplify.fu import TR22
+     >>> from sympy.abc import x
+     >>> from sympy import tan, cot
+@@ -1160,7 +1162,7 @@ def TR22(rv, max=4, pow=False):
+ def TRpower(rv):
+     """Convert sin(x)**n and cos(x)**n with positive n to sums.
+ 
+     Examples
+     ========
+ 
+     >>> from sympy.simplify.fu import TRpower
+     >>> from sympy.abc import x
+     >>> from sympy import cos, sin
+@@ -1300,7 +1302,7 @@ def trig_split(a, b, two=False):
+ def as_f_sign_1(e):
+     """If ``e`` is a sum that can be written as ``g*(a + s)`` where
+     ``s`` is ``+/-1``, return ``g``, ``a``, and ``s`` where ``a`` does
+     not have a leading negative coefficient.
+ 
+     Examples
+     ========
+ 
+     >>> from sympy.simplify.fu import as_f_sign_1
+     >>> from sympy.abc import x
+diff --git a/sympy/simplify/simplify.py b/sympy/simplify/simplify.py
+index 2345678..bcdefgh 100644
+--- a/sympy/simplify/simplify.py
++++ b/sympy/simplify/simplify.py
+@@ -495,6 +495,36 @@ def trigsimp(expr, **opts):
+     is_trig_function = lambda f: isinstance(f, TrigonometricFunction)
+ 
+     was = expr
++    
++    # Fix for issue #18087: Avoid incorrect simplification of sqrt(sin(x)**2) to sin(x)
++    # for general complex x. Instead, convert sqrt(f(x)**2) to Abs(f(x)) when the
++    # argument might be complex.
++    def _rationalize_sqrt_of_squares(expr):
++        """Convert sqrt(f**2) to Abs(f) when f might be complex."""
++        from sympy.core.power import Pow
++        from sympy.functions.elementary.complexes import Abs as AbsFunc
++        
++        def _process(node):
++            # Match sqrt(base**2) or (base**2)**(1/2) pattern
++            if isinstance(node, Pow) and node.exp == S.Half:
++                arg = node.base
++                if isinstance(arg, Pow) and arg.exp == 2:
++                    base = arg.base
++                    # Check if base contains trig functions or has complex free symbols
++                    free_syms = base.free_symbols
++                    # Only convert to Abs if at least one symbol is not explicitly real
++                    # This preserves trigsimp behavior for explicitly real symbols
++                    has_complex = any(s.is_real is not True for s in free_syms)
++                    if has_complex and isinstance(base, TrigonometricFunction):
++                        return AbsFunc(base)
++                    elif has_complex and base.has(TrigonometricFunction):
++                        return AbsFunc(base)
++            return node
++        
++        return bottom_up(expr, _process)
++    
++    expr = _rationalize_sqrt_of_squares(expr)
+     expr = sympify(expr)
+ 
+     if not isinstance(expr, Expr):
+diff --git a/sympy/simplify/tests/test_trigsimp.py b/sympy/simplify/tests/test_trigsimp.py
+index 3456789..cdefghi 100644
+--- a/sympy/simplify/tests/test_trigsimp.py
++++ b/sympy/simplify/tests/test_trigsimp.py
+@@ -1,6 +1,6 @@
+ from sympy import (
+     symbols, sin, simplify, cos, trigsimp, tan, exptrigsimp,sinh,
+     cosh, diff, cot, Subs, exp, tanh, S, integrate, I,Matrix,
+     Symbol, coth, pi, log, count_ops, sqrt, E, expand, Piecewise , Rational
+     )
+ 
+@@ -373,3 +373,39 @@ def test_trigsimp_old():
+     assert trigsimp(1-sin(sin(x)**2+cos(x)**2)**2, old=True, deep=True) == cos(1)**2
+ 
+ 
++def test_issue_18087():
++    """Test that trigsimp does not incorrectly simplify sqrt(sin(x)**2) to sin(x).
++    
++    Regression test for issue #18087: trigsimp incorrectly simplified
++    cos(x) + sqrt(sin(x)**2) to cos(x) + sin(x) for general complex x.
++    
++    The correct behavior is:
++    - For complex x: should simplify sqrt(sin(x)**2) to Abs(sin(x))
++    - For real x: should simplify to cos(x) + |sin(x)|
++    """
++    # Test with complex x: should convert to Abs
++    x_complex = Symbol('x')  # No assumption, so it's complex in general
++    expr = cos(x_complex) + sqrt(sin(x_complex)**2)
++    simplified = trigsimp(expr)
++    # Should not simplify incorrectly to cos(x) + sin(x)
++    # It should be cos(x) + Abs(sin(x))
++    assert simplified != cos(x_complex) + sin(x_complex), \
++        "trigsimp incorrectly simplified sqrt(sin(x)**2) to sin(x) for complex x"
++    
++    # The simplified form should contain Abs
++    from sympy.functions.elementary.complexes import Abs as AbsFunc
++    assert simplified.has(AbsFunc), \
++        f"Expected Abs in simplified form, got {simplified}"
++    
++    # Test with real x: Abs(sin(x)) is appropriate
++    x_real = Symbol('x', real=True)
++    expr_real = cos(x_real) + sqrt(sin(x_real)**2)
++    simplified_real = trigsimp(expr_real)
++    # For real x, the result should still be mathematically correct
++    # sqrt(sin(x)**2) = |sin(x)| for real x
++    from sympy.functions.elementary.complexes import Abs as AbsFunc
++    expected_real = cos(x_real) + AbsFunc(sin(x_real))
++    assert simplified_real == expected_real, \
++        f"Expected {expected_real}, got {simplified_real}"

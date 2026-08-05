@@ -1,0 +1,108 @@
+# Analysis of Username Validator Regex Patterns
+
+## Problem Identification
+
+The username validators in Django's authentication module use regex patterns that inadvertently allow trailing newlines in usernames.
+
+### Current Implementation Issues
+
+**Location:** `django/contrib/auth/validators.py`
+
+**Affected Classes:**
+1. `ASCIIUsernameValidator`
+2. `UnicodeUsernameValidator`
+
+**Current Regex Pattern:** `r'^[\w.@+-]+$'`
+
+### Root Cause
+
+Python's regex `$` anchor matches:
+- The end of the string
+- **Also matches immediately before a trailing newline character**
+
+This is a well-known quirk of Python's `re` module. The `$` anchor will match at position before `\n` at the end of the string, meaning a username like `"myusername\n"` would pass validation.
+
+### Example of the Problem
+
+```python
+import re
+pattern = r'^[\w.@+-]+$'
+regex = re.compile(pattern)
+
+# This incorrectly matches (should fail)
+username_with_newline = "validuser\n"
+result = regex.match(username_with_newline)  # Returns a match object (WRONG!)
+
+# This matches (correct)
+valid_username = "validuser"
+result = regex.match(valid_username)  # Returns a match object (correct)
+```
+
+### Impact
+
+- Usernames with trailing newlines would be accepted by the validators
+- This could lead to:
+  - Database entries with newline characters in usernames
+  - Inconsistent username handling across different systems
+  - Potential security or data integrity issues
+  - Confusion in user authentication flows
+
+## Solution
+
+### Recommended Fix
+
+**Change the regex pattern from:**
+```python
+r'^[\w.@+-]+$'
+```
+
+**To:**
+```python
+r'\A[\w.@+-]+\Z'
+```
+
+### Why This Works
+
+- `\A` - Matches only at the absolute start of the string (never matches before newline)
+- `\Z` - Matches only at the absolute end of the string (never matches before newline)
+- `\w` - Still matches word characters (letters, digits, underscore)
+- `[.@+-]` - Still matches the allowed special characters
+
+### Verification of the Fix
+
+```python
+import re
+pattern = r'\A[\w.@+-]+\Z'
+regex = re.compile(pattern)
+
+# This correctly rejects (good!)
+username_with_newline = "validuser\n"
+result = regex.match(username_with_newline)  # Returns None (correct!)
+
+# This correctly matches (good!)
+valid_username = "validuser"
+result = regex.match(valid_username)  # Returns a match object (correct!)
+```
+
+## Files Requiring Changes
+
+**File:** `django/contrib/auth/validators.py`
+
+**Changes Needed:**
+1. Locate `ASCIIUsernameValidator` class definition
+2. Update the `regex` attribute pattern from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'`
+3. Locate `UnicodeUsernameValidator` class definition
+4. Update the `regex` attribute pattern from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'`
+
+## Testing Considerations
+
+After applying this fix, the validators should:
+- ✓ Continue accepting valid usernames without trailing newlines
+- ✓ Reject usernames with trailing newlines
+- ✓ Reject usernames with leading newlines
+- ✓ Reject usernames with embedded newlines
+- ✓ Maintain backward compatibility for legitimate usernames
+
+## Summary
+
+The fix is trivial but important: replacing the `^` and `$` anchors with `\A` and `\Z` ensures that the regex strictly matches the entire string without allowing the edge case of trailing newlines that `$` permits in Python's regex implementation.

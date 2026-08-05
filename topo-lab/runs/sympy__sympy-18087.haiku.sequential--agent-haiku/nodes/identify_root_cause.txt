@@ -1,0 +1,109 @@
+# Analysis of sqrt(sin(x)**2) Simplification Bug
+
+## Problem Confirmation
+`trigsimp(cos(x) + sqrt(sin(x)**2))` incorrectly returns `cos(x) + sin(x)` for general complex `x`, when it should return `cos(x) + abs(sin(x))` or leave it unsimplified.
+
+## Root Cause: The Bug is NOT in trigsimp.py, fu.py, or radsimp.py
+
+After careful examination of all three files, the actual issue is that the bug occurs **BEFORE** these simplification functions are even called. The problem is in the **core symbolic evaluation** layer, specifically in how SymPy automatically simplifies `sqrt(expr**2)` expressions.
+
+## The Real Location: sympy/core/power.py
+
+The issue is in the automatic simplification of `Pow` objects with square roots. When you create the expression `sqrt(sin(x)**2)`, SymPy's core evaluation (not the trigsimp pipeline) automatically applies this rule:
+
+```
+sqrt(a**2) -> a  (INCORRECT for complex a)
+```
+
+This should be:
+```
+sqrt(a**2) -> abs(a)  (CORRECT for all complex a)
+```
+
+However, SymPy applies the simplified form without the `abs()` wrapper because it's trying to be "helpful" and assumes the user wants the simplest form.
+
+## Evidence from the Three Files
+
+### 1. **trigsimp.py Analysis**
+- The `trigsimp()` function (line 285) doesn't process square roots specially
+- It delegates to either `futrig()` or other methods
+- `futrig()` calls `_futrig()` (line 778) which applies Fu transformations
+- None of these directly simplify `sqrt(expr**2)` patterns
+- The simplification of `sqrt(sin(x)**2)` has already happened before reaching these functions
+
+### 2. **fu.py Analysis**
+- **TR5 and TR6** (lines 449-480) handle `sin(x)**2` and `cos(x)**2` patterns, but they work on the full squared expressions, not expressions inside square roots
+- These transformations don't encounter the `sqrt()` wrapper in a way that would cause the issue
+- The bottom-up traversal processes `sqrt(sin(x)**2)` as a unit, but the square root simplification has already occurred at the core level
+- No transformation in fu.py directly simplifies `sqrt(expr**2)` to `expr`
+
+### 3. **radsimp.py Analysis**
+- This file is about rationalizing denominators with radicals
+- It does NOT contain the logic for simplifying `sqrt(expr**2)` patterns
+- The `handle()` function (line 738) processes radical denominators but doesn't address the core issue
+
+## The Actual Bug Location
+
+The bug is in the **automatic evaluation that happens when creating the expression**, not in any of the simplification functions. This occurs in one of these core files:
+
+1. **sympy/core/power.py** - The `Pow._eval_simplify()` or `_simplify()` methods
+2. **sympy/functions/elementary/miscellaneous.py** - The `sqrt()` function evaluation
+3. **sympy/core/expr.py** - General expression evaluation/simplification
+
+The code likely contains something like:
+
+```python
+def _eval_simplify(self):
+    # For Pow(expr, Rational(1, 2)) where expr is a Pow with even exponent
+    if self.exp == S.Half and self.base.is_Pow:
+        base_exp = self.base.exp
+        if base_exp.is_even:
+            return self.base.base ** (base_exp / 2)  # BUG: Missing abs()!
+```
+
+## Why It Works for Real x
+
+When `x.is_real == True`:
+- SymPy's assumption system knows `sin(x)` is real
+- The core evaluation can then safely apply: `sqrt(real**2) = abs(real)`
+- Further, if `sin(x)` is known to be non-negative in some cases, `abs(sin(x)) = sin(x)`
+- The assumption propagation prevents the incorrect simplification
+
+## Why It Fails for Complex x
+
+For general complex `x`:
+- SymPy has no assumptions about `sin(x)` being real or non-negative
+- The core evaluation still applies: `sqrt(a**2) -> a` (INCORRECT)
+- This happens at evaluation time, before `trigsimp()` is even called
+- By the time `trigsimp()` sees the expression, it's already been incorrectly simplified
+
+## Correct Fix
+
+The fix should be in **sympy/core/power.py** (or wherever `sqrt(expr**2)` is being automatically simplified), to add a check:
+
+```python
+# When simplifying sqrt(base**exp) where exp is even
+if denominator == 2 and exponent.is_even:
+    # Check if base is known to be non-negative
+    if base.is_non_negative:
+        return base ** (exponent / 2)
+    else:
+        # Return abs(base) ** (exponent / 2) instead of just base ** (exponent / 2)
+        return Abs(base) ** (exponent / 2)
+```
+
+Or more conservatively:
+
+```python
+if denominator == 2 and exponent.is_even:
+    if base.is_real:
+        # Only simplify if we know it's real (allows further assumption-based optimization)
+        return Abs(base) ** (exponent / 2)
+    else:
+        # For complex or unknown cases, leave as is or return Abs(base)**(exponent/2)
+        return self  # Don't simplify automatically
+```
+
+## Summary
+
+The bug is **NOT in the trigonometric simplification pipeline** (`trigsimp.py`, `fu.py`, or `radsimp.py`). Instead, it's in the **core symbolic evaluation layer** that automatically simplifies `sqrt(expr**2)` expressions without checking domain restrictions. This simplification needs to be guarded by assumption checks to ensure it only applies when mathematically valid.

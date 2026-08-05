@@ -1,0 +1,69 @@
+# Analysis of Username Validator Regex Patterns
+
+## Current Implementation
+
+Located in: `django/contrib/auth/validators.py`
+
+The current validators use the regex pattern:
+```
+r'^[\w.@+-]+$'
+```
+
+This pattern is used in both:
+1. `ASCIIUsernameValidator`
+2. `UnicodeUsernameValidator`
+
+## Problem Identified
+
+### Root Cause
+Python's regex `$` anchor has a subtle quirk: it matches at the end of a string OR before a trailing newline character. This is documented Python regex behavior where `$` will match:
+- At the end of the string
+- Immediately before a newline at the end of the string
+
+### Security Implication
+Because of this behavior, the current regex will accept usernames that end with a newline character. For example:
+- Username: `"validuser\n"` (where `\n` is a literal newline)
+- Pattern result: **MATCHES** (incorrectly validates)
+
+This is unintended and represents a validation bypass.
+
+### Why This Matters
+- Usernames with trailing newlines could bypass intended validation
+- This could potentially cause issues in downstream systems that expect clean usernames
+- It violates the principle of least surprise - validators should only accept what they explicitly intend to accept
+
+## Solution Required
+
+### Change Pattern From:
+```python
+r'^[\w.@+-]+$'
+```
+
+### Change Pattern To:
+```python
+r'\A[\w.@+-]+\Z'
+```
+
+### Why This Fix Works
+- `\A` matches only at the absolute start of the string (not before newline)
+- `\Z` matches only at the absolute end of the string (not before newline)
+- Together, they ensure the entire string (with no trailing newline) matches the pattern
+- This is the Python regex recommended way to enforce strict string boundaries
+
+### Impact Analysis
+- **Behavior Change**: The validators will now reject usernames that contain or end with newline characters
+- **Compatibility**: This is a security fix that makes the validators stricter, which is the intended behavior
+- **Test Coverage**: Existing tests should continue to pass since valid usernames should not contain newlines
+- **New Tests Needed**: Tests should verify that usernames with trailing newlines are now rejected
+
+## Files Requiring Changes
+
+Primary file:
+- `django/contrib/auth/validators.py`
+
+Classes to modify:
+1. `ASCIIUsernameValidator` - update regex pattern
+2. `UnicodeUsernameValidator` - update regex pattern
+
+Test files to verify:
+- `tests/auth_tests/test_validators.py` - should add test cases for newline rejection

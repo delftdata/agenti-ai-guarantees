@@ -1,0 +1,60 @@
+The file `django/contrib/auth/validators.py` contains two username validator classes:
+
+## Analysis
+
+### 1. `ASCIIUsernameValidator`
+- Subclass of `validators.RegexValidator`
+- `regex = r'^[\w.@+-]+$'`
+- Has an ASCII-only error message
+- `flags = re.ASCII` (restricts `\w` to ASCII characters only)
+
+### 2. `UnicodeUsernameValidator`
+- Subclass of `validators.RegexValidator`
+- `regex = r'^[\w.@+-]+$'`
+- Has a Unicode-permissive error message
+- `flags = 0` (allows `\w` to match Unicode characters)
+
+### The Problem
+Both validators use the regex pattern `r'^[\w.@+-]+$'`. The intent is to only allow:
+- Word characters (`\w`)
+- Period (`.`)
+- At sign (`@`)
+- Plus (`+`)
+- Hyphen (`-`)
+
+However, in Python regexes, the `$` anchor matches not only at the end of the string but also **just before a trailing newline**. This means a username like `"user\n"` would incorrectly pass validation.
+
+### The Fix
+Replace `^...$` with `\A...\Z`:
+- `\A` matches only at the absolute start of the string
+- `\Z` matches only at the absolute end of the string (no trailing newline allowance)
+
+The regex should be changed to `r'\A[\w.@+-]+\Z'` in both validator classes.
+
+### Notes on Implementation
+Both classes are decorated with `@deconstructible`, meaning changes to the regex won't require a migration change for the deconstruction path itself, but since `AbstractUser.username` uses these validators, existing migrations (like `0008_alter_user_username_max_length.py`) reference the validator via its import path rather than embedding the regex, so the fix is self-contained within `validators.py`.
+
+Here is the diff resolving the problem:
+
+```diff
+--- a/django/contrib/auth/validators.py
++++ b/django/contrib/auth/validators.py
+@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
+ 
+ @deconstructible
+ class ASCIIUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only English letters, '
+         'numbers, and @/./+/-/_ characters.'
+@@ -17,7 +17,7 @@ class ASCIIUsernameValidator(validators.RegexValidator):
+ 
+ @deconstructible
+ class UnicodeUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only letters, '
+         'numbers, and @/./+/-/_ characters.'
+```

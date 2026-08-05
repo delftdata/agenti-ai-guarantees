@@ -1,0 +1,71 @@
+# Analysis of Username Validator Tests
+
+## Current Test Coverage in test_validators.py
+
+Based on the problem statement and Django repository structure, the username validators are located in `django/contrib/auth/validators.py`. The tests for these validators should be in `tests/auth_tests/test_validators.py`.
+
+### Key Points from Problem Statement
+
+1. **Current Regex Pattern**: `r'^[\w.@+-]+$'`
+   - This pattern uses `^` and `$` anchors
+   - The issue is that `$` in Python regex matches before a trailing newline, not strictly at the end of the string
+
+2. **Affected Validators**:
+   - `ASCIIUsernameValidator`
+   - `UnicodeUsernameValidator`
+
+3. **Required Fix**: Change to `r'\A[\w.@+-]+\Z'`
+   - `\A` matches only at the start of the string (not after newlines)
+   - `\Z` matches only at the end of the string (not before newlines)
+
+## Expected Test Analysis
+
+### Tests That Should Exist
+1. Tests validating usernames with alphanumeric characters
+2. Tests validating usernames with allowed special characters (`.`, `@`, `+`, `-`)
+3. Tests rejecting invalid characters
+4. Tests for ASCII vs Unicode handling
+
+### Tests That Are Likely Missing
+1. **Trailing newline tests**: No tests specifically checking that usernames ending with `\n` are rejected
+2. **Leading newline tests**: No tests checking that usernames starting with `\n` are rejected
+3. **Embedded newline tests**: No tests for newlines in the middle of usernames
+
+### Current Vulnerability
+The current regex `r'^[\w.@+-]+$'` would ACCEPT:
+- `"validuser\n"`
+- `"another\n"`
+- Any valid username followed by a newline
+
+This is a security/validation issue because:
+1. It allows usernames with trailing newlines, which is unintended
+2. Usernames stored in databases with newlines could cause issues
+3. Display and processing of such usernames could lead to unexpected behavior
+
+## Recommended New Tests
+
+After the fix is applied, the test suite should include:
+
+1. **test_ascii_username_validator_rejects_trailing_newline()**
+   - Input: `"validuser\n"`
+   - Expected: ValidationError
+
+2. **test_ascii_username_validator_rejects_leading_newline()**
+   - Input: `"\nvaliduser"`
+   - Expected: ValidationError
+
+3. **test_unicode_username_validator_rejects_trailing_newline()**
+   - Input: `"validuser\n"`
+   - Expected: ValidationError
+
+4. **test_unicode_username_validator_rejects_leading_newline()**
+   - Input: `"\nvaliduser"`
+   - Expected: ValidationError
+
+5. **test_usernames_with_embedded_newlines()**
+   - Input: `"valid\nuser"`
+   - Expected: ValidationError
+
+## Summary
+
+The issue is a classic Python regex quirk where `$` matches before trailing newlines. The test suite likely has good coverage for normal cases but is missing explicit tests for newline handling. After implementing the fix with `\A` and `\Z`, additional tests should be added to prevent regression and document this security consideration.

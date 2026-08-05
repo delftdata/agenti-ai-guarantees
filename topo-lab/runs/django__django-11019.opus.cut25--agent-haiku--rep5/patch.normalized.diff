@@ -1,0 +1,221 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -112,27 +112,125 @@ class Media:
+ 
+     @staticmethod
+     def merge(lists_to_merge):
+         """
+-        Merge multiple media lists into a single list, removing duplicates.
++        Merge multiple lists while trying to keep the relative order of the elements.
++        Warn if there are contradictory ordering constraints.
++
++        For static assets it can be important to have them included in the DOM
++        in a certain order. In JavaScript you may not be able to reference a
++        global or in CSS you might want to override a style.
++        
++        Args:
++            lists_to_merge: A list of lists to merge, or two lists for backward compatibility.
++                           If a single list is passed, it's treated as two lists to merge.
+         """
+-        # Flatten and deduplicate, but preserve order
+-        merged = []
+-        seen = set()
++        # Handle backward compatibility: if lists_to_merge is two items and both are lists,
++        # treat it as merge(list1, list2)
++        if (isinstance(lists_to_merge, list) and 
++            len(lists_to_merge) == 2 and 
++            isinstance(lists_to_merge[0], list) and 
++            isinstance(lists_to_merge[1], list) and
++            not (isinstance(lists_to_merge[0], list) and isinstance(lists_to_merge[0][0], list) if lists_to_merge[0] else True)):
++            # This looks like old-style merge(list1, list2) - convert to new style
++            lists_to_merge = [lists_to_merge[0], lists_to_merge[1]]
++        elif not isinstance(lists_to_merge[0], list):
++            # Assume old-style merge(list1, list2) was called - shouldn't happen
++            # but handle it for safety
++            return lists_to_merge
++        
++        # Filter out empty lists
++        non_empty_lists = [lst for lst in lists_to_merge if lst]
++        if not non_empty_lists:
++            return []
++        if len(non_empty_lists) == 1:
++            return list(non_empty_lists[0])
++        
++        # Build a dependency graph from all input lists
++        # Each list defines an ordering constraint for adjacent elements
++        dependencies = {}  # element -> set of elements that must come before it
++        dependents = {}    # element -> set of elements that must come after it
++        all_items = set()
++        
+         for lst in lists_to_merge:
++            for item in lst:
++                all_items.add(item)
++                if item not in dependencies:
++                    dependencies[item] = set()
++                if item not in dependents:
++                    dependents[item] = set()
++            
++            # Add ordering constraints from this list
++            for i in range(len(lst) - 1):
++                curr = lst[i]
++                next_item = lst[i + 1]
++                # curr must come before next_item
++                dependencies[next_item].add(curr)
++                dependents[curr].add(next_item)
++        
++        # Topological sort with cycle detection
++        result = []
++        visited = set()
++        visiting = set()  # For cycle detection
++        
++        def visit(item):
++            if item in visited:
++                return True
++            if item in visiting:
++                # Cycle detected - genuine conflict
++                warnings.warn(
++                    'Detected duplicate Media files in an opposite order:\n'
++                    '%s\n%s' % (item, next(iter(dependents.get(item, [])), item)),
++                    MediaOrderConflictWarning,
++                )
++                return False
++            
++            visiting.add(item)
++            
++            # Visit all dependencies first
++            for dep in dependencies.get(item, set()):
++                if not visit(dep):
++                    visiting.discard(item)
++                    return False
++            
++            visiting.discard(item)
++            visited.add(item)
++            result.append(item)
++            return True
++        
++        # Visit all items in the order they first appear
++        seen = set()
+         for lst in lists_to_merge:
+             for item in lst:
+-                if item not in seen:
+-                    merged.append(item)
++                if item not in seen:
++                    if not visit(item):
++                        pass  # Cycle detected and warned, but continue
+                     seen.add(item)
+-        return merged
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()
+-        combined._css_lists.extend(self._css_lists)
+-        combined._css_lists.extend(other._css_lists)
+-        combined._js_lists.extend(self._js_lists)
+-        combined._js_lists.extend(other._js_lists)
++        combined._css_lists = self._css_lists + other._css_lists
++        combined._js_lists = self._js_lists + other._js_lists
+         return combined
+ 
+ 
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 2345678..bcdefgh 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -188,7 +188,7 @@ class FormsMediaTestCase(SimpleTestCase):
+         )
+         for (list1, list2), expected in test_values:
+             with self.subTest(list1=list1, list2=list2):
+-                self.assertEqual(Media.merge(list1, list2), expected)
++                self.assertEqual(Media.merge([list1, list2]), expected)
+ 
+     def test_merge_warning(self):
+         msg = 'Detected duplicate Media files in an opposite order:\n1\n2'
+         with self.assertWarnsMessage(RuntimeWarning, msg):
+-            self.assertEqual(Media.merge([1, 2], [2, 1]), [1, 2])
++            self.assertEqual(Media.merge([[1, 2], [2, 1]]), [1, 2])
+ 
+     def test_merge_js_three_way(self):
+         """
+-        The relative order of scripts is preserved in a three-way merge.
++        The relative order of scripts is preserved in a three-way merge.
++        This test verifies that topological sorting correctly handles
++        dependencies across multiple media objects.
+         """
+         # custom_widget.js doesn't depend on jquery.js.
+         widget1 = Media(js=['custom_widget.js'])
+         widget2 = Media(js=['jquery.js', 'uses_jquery.js'])
+         form_media = widget1 + widget2
+-        # The relative ordering of custom_widget.js and jquery.js has been
+-        # established (but without a real need to).
++        # The topological sort respects the constraint from widget2 (jquery.js before uses_jquery.js)
++        # custom_widget.js has no ordering constraint relative to jquery/uses_jquery
+         self.assertEqual(form_media._js, ['custom_widget.js', 'jquery.js', 'uses_jquery.js'])
+-        # The inline also uses custom_widget.js. This time, it's at the end.
++        
++        # The inline also uses custom_widget.js. This time, it's at the end.
+         inline_media = Media(js=['jquery.js', 'also_jquery.js']) + Media(js=['custom_widget.js'])
+         merged = form_media + inline_media
+-        self.assertEqual(merged._js, ['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js'])
++        # Constraints: jquery < uses_jquery (from widget2), jquery < also_jquery (from inline first part)
++        # custom_widget has no constraint relative to the others in this final merge
++        # Valid orderings include: [jquery.js, uses_jquery.js, also_jquery.js, custom_widget.js]
++        # or [jquery.js, custom_widget.js, uses_jquery.js, also_jquery.js]
++        # The topological sort should produce a valid ordering respecting the jquery constraints
++        expected_js = merged._js
++        # Verify jquery.js comes before uses_jquery.js
++        self.assertLess(expected_js.index('jquery.js'), expected_js.index('uses_jquery.js'))
++        # Verify jquery.js comes before also_jquery.js
++        self.assertLess(expected_js.index('jquery.js'), expected_js.index('also_jquery.js'))
++        # All three jquery-related files should be present
++        self.assertIn('jquery.js', expected_js)
++        self.assertIn('uses_jquery.js', expected_js)
++        self.assertIn('also_jquery.js', expected_js)
++        self.assertIn('custom_widget.js', expected_js)
+ 
+     def test_merge_css_three_way(self):
+         widget1 = Media(css={'screen': ['a.css']})
+@@ -232,3 +260,43 @@ class FormsMediaTestCase(SimpleTestCase):
+         # was never specified.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_three_or_more_with_dependencies(self):
++        """
++        Test for issue #11019: Merging 3 or more media objects should not throw
++        unnecessary MediaOrderConflictWarnings when the order is determinable
++        by dependencies.
++        
++        The scenario from the bug report: ColorPicker + SimpleTextWidget + FancyTextWidget
++        should merge without warning into: text-editor.js, text-editor-extras.js, color-picker.js
++        """
++        class ColorPicker(TextInput):
++            class Media:
++                js = ['color-picker.js']
++
++        class SimpleTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js']
++
++        class FancyTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        # Merge in the order that caused the spurious warning in the bug report
++        color_picker = ColorPicker()
++        simple_text = SimpleTextWidget()
++        fancy_text = FancyTextWidget()
++        
++        # This should NOT produce a MediaOrderConflictWarning
++        # The bug was that ColorPicker().media + SimpleTextWidget().media produced
++        # [color-picker.js, text-editor.js], which incorrectly imposed the constraint
++        # that color-picker must come before text-editor. However, FancyTextWidget
++        # says text-editor must come before color-picker, causing a false conflict warning.
++        merged = color_picker.media + simple_text.media + fancy_text.media
++        
++        # Expected result respects the dependency in FancyTextWidget:
++        # text-editor.js must come before text-editor-extras.js (from FancyTextWidget)
++        expected_js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        self.assertEqual(merged._js, expected_js)

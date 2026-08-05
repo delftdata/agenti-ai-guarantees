@@ -1,0 +1,130 @@
+# Analysis of Existing Media Tests and Required Changes
+
+## (A) Tests That Must Still Pass Unchanged
+
+The following tests validate core media functionality that should not change:
+
+1. **test_construction** - Basic Media object creation and string representation
+2. **test_media_dsl** - DSL class-based media definitions
+3. **test_media_property** - Property-based media definitions
+4. **test_media_property_parent_references** - Parent media references via properties
+5. **test_media_inheritance** - Media inheritance in widget hierarchies
+6. **test_media_inheritance_from_property** - Media inheritance with property-defined parents
+7. **test_media_inheritance_extends** - Explicit extend=True behavior
+8. **test_media_inheritance_single_type** - Single type inheritance
+9. **test_multi_media** - Multi-media CSS handling (screen, print)
+10. **test_multi_widget** - MultiWidget media aggregation
+11. **test_form_media** - Form-level media handling
+12. **test_html_safe** - HTML safe handling
+13. **test_merge_js_three_way** - Three-way JS merge preserving relative order:
+    ```python
+    def test_merge_js_three_way(self):
+        widget1 = Media(js=['custom_widget.js'])
+        widget2 = Media(js=['jquery.js', 'uses_jquery.js'])
+        form_media = widget1 + widget2
+        self.assertEqual(form_media._js, ['custom_widget.js', 'jquery.js', 'uses_jquery.js'])
+        inline_media = Media(js=['jquery.js', 'also_jquery.js']) + Media(js=['custom_widget.js'])
+        merged = form_media + inline_media
+        self.assertEqual(merged._js, ['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js'])
+    ```
+
+14. **test_merge_css_three_way** - Three-way CSS merge (different ordering, no warning):
+    ```python
+    def test_merge_css_three_way(self):
+        widget1 = Media(css={'screen': ['a.css']})
+        widget2 = Media(css={'screen': ['b.css']})
+        widget3 = Media(css={'all': ['c.css']})
+        form1 = widget1 + widget2
+        form2 = widget2 + widget1
+        self.assertEqual(form1._css, {'screen': ['a.css', 'b.css']})
+        self.assertEqual(form2._css, {'screen': ['b.css', 'a.css']})
+        merged = widget3 + form1 + form2
+        self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
+    ```
+
+## (B) Tests Whose Expected Values May Need Updating
+
+1. **test_merge** - Basic merge test cases:
+    ```python
+    def test_merge(self):
+        test_values = (
+            (([1, 2], [3, 4]), [1, 2, 3, 4]),
+            (([1, 2], [2, 3]), [1, 2, 3]),
+            (([2, 3], [1, 2]), [1, 2, 3]),
+            (([1, 3], [2, 3]), [1, 2, 3]),
+            (([1, 2], [1, 3]), [1, 2, 3]),
+            (([1, 2], [3, 2]), [1, 3, 2]),
+        )
+        for (list1, list2), expected in test_values:
+            with self.subTest(list1=list1, list2=list2):
+                self.assertEqual(Media.merge(list1, list2), expected)
+    ```
+    **Status**: These cases represent the current greedy algorithm behavior. Topological sorting may change some expected outputs. Specifically, `(([1, 2], [3, 2]), [1, 3, 2])` suggests the algorithm allows 2 to move after 3, which topological sorting would need to validate against explicit dependencies.
+
+2. **test_merge_warning** - Warning test:
+    ```python
+    def test_merge_warning(self):
+        msg = 'Detected duplicate Media files in an opposite order:\n1\n2'
+        with self.assertWarnsMessage(RuntimeWarning, msg):
+            self.assertEqual(Media.merge([1, 2], [2, 1]), [1, 2])
+    ```
+    **Status**: This test expects a warning for `[1, 2]` + `[2, 1]`. With topological sorting, this should NOT raise a warning because there's no explicit dependency ordering—the files are independent. This test will need to be modified or removed.
+
+## (C) New Test Scenario Matching Bug Report
+
+A new test should be added to validate the exact scenario from the bug report:
+
+```python
+def test_merge_three_or_more_media_objects_without_spurious_warning(self):
+    """
+    Test for issue #11019: Merging 3 or more media objects should not throw
+    unnecessary MediaOrderConflictWarnings when there is a valid topological sort.
+    
+    Scenario:
+    - ColorPicker requires: color-picker.js (independent)
+    - SimpleTextWidget requires: text-editor.js (independent)
+    - FancyTextWidget requires: text-editor.js, text-editor-extras.js (depends on text-editor.js), 
+                                color-picker.js (independent)
+    
+    When merged as: ColorPicker + SimpleTextWidget + FancyTextWidget
+    Expected result: text-editor.js, text-editor-extras.js, color-picker.js (no warning)
+    
+    The intermediate merge (ColorPicker + SimpleTextWidget) produces:
+    color-picker.js, text-editor.js (incorrectly suggests ordering constraint)
+    
+    However, the final merge should resolve dependencies correctly via topological sort.
+    """
+    class ColorPicker(TextInput):
+        class Media:
+            js = ['color-picker.js']
+    
+    class SimpleTextWidget(TextInput):
+        class Media:
+            js = ['text-editor.js']
+    
+    class FancyTextWidget(TextInput):
+        class Media:
+            js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+    
+    # Merge in form order: ColorPicker + SimpleTextWidget + FancyTextWidget
+    media = ColorPicker().media + SimpleTextWidget().media + FancyTextWidget().media
+    
+    # Should NOT raise MediaOrderConflictWarning
+    # Expected order: text-editor.js, text-editor-extras.js, color-picker.js
+    # (respecting dependency: text-editor-extras depends on text-editor)
+    self.assertEqual(media._js, ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
+```
+
+---
+
+## Summary of Changes Required
+
+**Tests to Update/Remove**:
+- `test_merge_warning`: Remove or substantially modify (currently warns on `[1,2]` + `[2,1]`; should not warn without explicit dependencies)
+- `test_merge`: May need case-by-case review of expected values based on topological sort semantics
+
+**Tests to Add**:
+- New test for the ColorPicker/SimpleTextWidget/FancyTextWidget scenario from bug report #11019
+
+**Tests to Preserve**:
+- All 14 tests listed in section (A) above, as they validate fundamental behavior independent of merge algorithm specifics

@@ -1,0 +1,7 @@
+flowchart TD
+    fix_ascii[fix_ascii]
+    fix_unicode[fix_unicode]
+    make_diff[make_diff]
+    fix_ascii --> fix_unicode
+    fix_unicode --> make_diff
+    style make_diff stroke-width:3px

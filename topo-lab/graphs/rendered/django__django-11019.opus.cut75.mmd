@@ -1,0 +1,14 @@
+flowchart TD
+    analyze_media[analyze_media]
+    study_tests[study_tests]
+    implement_merge[implement_merge]
+    update_tests[update_tests]
+    assemble_diff[assemble_diff]
+    analyze_media -.-> implement_merge
+    study_tests -.-> implement_merge
+    implement_merge -.-> update_tests
+    study_tests --> update_tests
+    implement_merge --> assemble_diff
+    update_tests --> assemble_diff
+    analyze_media --> assemble_diff
+    style assemble_diff stroke-width:3px

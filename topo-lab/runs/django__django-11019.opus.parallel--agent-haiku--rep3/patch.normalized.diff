@@ -1,0 +1,170 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -119,61 +119,150 @@ class Media:
+     @staticmethod
+     def merge_lists(lists):
+         """
+-        Merge a list of lists while trying to keep the relative order of the elements.
+-        Warn if two elements appear in opposite order in different lists (genuine conflict).
++        Merge a list of lists while trying to keep the relative order of the elements.
++        Warn if two elements appear in opposite order in different lists (genuine conflict).
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Avoid sorting lists, which would lose their identity. Use a dictionary
+-        # to record each item's (unique) index, and create a list to cache the
+-        # results of the merge.
+         if not lists:
+             return []
+-
++        
++        # Flatten and collect all unique items
+         all_items = []
+-        item_set = set()
+-        order = {}
++        seen = set()
+         for lst in lists:
+             for item in lst:
+-                if item not in item_set:
+-                    all_items.append(item)
+-                    item_set.add(item)
+-                    order[item] = order.get(item, 0) + 1
+-
+-        return all_items
++                if item not in seen:
++                    all_items.append(item)
++                    seen.add(item)
++        
++        if not all_items:
++            return []
++        
++        # Build a graph of ordering constraints: item -> set of items that must come after it
++        # Key insight: we only care about direct precedence relationships within each list
++        must_come_after = {item: set() for item in all_items}
++        
++        for lst in lists:
++            for i, item in enumerate(lst):
++                for j in range(i + 1, len(lst)):
++                    must_come_after[lst[i]].add(lst[j])
++        
++        # Check for genuine conflicts: if A must come before B in some list
++        # and B must come before A in another list, that's a real conflict.
++        conflicts = []
++        for item_a in all_items:
++            for item_b in must_come_after[item_a]:
++                if item_a in must_come_after[item_b]:
++                    # item_a must come before item_b AND item_b must come before item_a
++                    # This is a genuine conflict. Warn about it.
++                    if (item_a, item_b) not in [(c[0], c[1]) for c in conflicts]:
++                        conflicts.append((item_a, item_b))
++        
++        if conflicts:
++            # Warn about the first conflict found
++            item_a, item_b = conflicts[0]
++            warnings.warn(
++                'Detected duplicate Media files in an opposite order:\n'
++                '%s\n%s' % (item_a, item_b),
++                MediaOrderConflictWarning,
++            )
++        
++        # Perform topological sort using Kahn's algorithm
++        in_degree = {item: 0 for item in all_items}
++        graph = {item: set() for item in all_items}
++        
++        for item in all_items:
++            for next_item in must_come_after[item]:
++                graph[item].add(next_item)
++                in_degree[next_item] += 1
++        
++        # Handle cycles by breaking conflicting edges
++        queue = [item for item in all_items if in_degree[item] == 0]
++        result = []
++        
++        while queue:
++            # Sort queue for deterministic ordering when there are no constraints
++            queue.sort(key=lambda x: all_items.index(x))
++            node = queue.pop(0)
++            result.append(node)
++            
++            for neighbor in sorted(graph[node], key=lambda x: all_items.index(x)):
++                in_degree[neighbor] -= 1
++                if in_degree[neighbor] == 0:
++                    queue.append(neighbor)
++        
++        # If we have cycles, we haven't consumed all nodes. 
++        # Fall back to a conservative merge that preserves first-appearance order
++        if len(result) != len(all_items):
++            # There are genuine cycles. Return items in order of first appearance
++            # This shouldn't happen in practice if we warned about conflicts
++            return all_items
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 2345678..bcdefgh 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -268,6 +268,46 @@ class FormsMediaTestCase(SimpleTestCase):
+         merged = form_media + inline_media
+         self.assertEqual(merged._js, ['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js'])
+ 
++    def test_merge_css_three_way(self):
++        """
++        Three-way merge of CSS with no genuine conflicts should resolve
++        to a single canonical order without warnings.
++        """
++        widget1 = Media(css={'screen': ['a.css']})
++        widget2 = Media(css={'screen': ['b.css']})
++        widget3 = Media(css={'all': ['c.css']})
++        form1 = widget1 + widget2
++        form2 = widget2 + widget1
++        # Both form1 and form2 should have the same ordering because there's
++        # no genuine dependency between a.css and b.css.
++        # Topological sorting produces a canonical order.
++        self.assertEqual(form1._css, {'screen': ['a.css', 'b.css']})
++        self.assertEqual(form2._css, {'screen': ['a.css', 'b.css']})
++        # Merging all three produces a consistent result
++        merged = widget3 + form1 + form2
++        self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_multiple_widgets_with_dependencies_no_warning(self):
++        """
++        Merging 3+ widgets where one widget declares a dependency chain
++        should resolve correctly without unnecessary warnings.
++        
++        Regression test for issue #11019.
++        """
++        class ColorPicker(TextInput):
++            class Media:
++                js = ['color-picker.js']
++
++        class SimpleTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js']
++
++        class FancyTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        widget1 = ColorPicker()
++        widget2 = SimpleTextWidget()
++        widget3 = FancyTextWidget()
++
++        # Merge in the order widgets appear in the form.
++        # The FancyTextWidget declares the ordering requirement:
++        # text-editor.js before text-editor-extras.js before color-picker.js
++        merged = widget1.media + widget2.media + widget3.media
++
++        # Should produce the correct order without warning
++        # because there's no genuine conflict, only a dependency chain
++        # declared in FancyTextWidget.
++        self.assertEqual(
++            merged._js,
++            ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        )

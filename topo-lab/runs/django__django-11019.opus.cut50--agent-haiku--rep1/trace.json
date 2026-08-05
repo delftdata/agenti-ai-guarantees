@@ -1,0 +1,131 @@
+{
+  "graph": "django__django-11019.opus.cut50.json",
+  "topology": "cut50",
+  "agent": "haiku",
+  "mock": false,
+  "schedule": [
+    [
+      "analyze_media",
+      "implement_merge",
+      "study_tests"
+    ],
+    [
+      "update_tests"
+    ],
+    [
+      "assemble_diff"
+    ]
+  ],
+  "wall_s": 160.47,
+  "total_cost_usd": 0.2559,
+  "overwrite_events": [],
+  "nodes": [
+    {
+      "node": "analyze_media",
+      "wall_s": 20.52,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 37371,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 10557,
+      "cache_read_tokens": 32333,
+      "output_tokens": 2389,
+      "cost_usd": 0.02574,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "implement_merge",
+      "wall_s": 78.31,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 37371,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [
+        "analyze_media",
+        "study_tests"
+      ],
+      "input_tokens": 10683,
+      "cache_read_tokens": 32333,
+      "output_tokens": 11235,
+      "cost_usd": 0.07009,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "django/forms/widgets.py"
+      ]
+    },
+    {
+      "node": "study_tests",
+      "wall_s": 14.55,
+      "reads": [
+        {
+          "path": "tests/forms_tests/tests/test_media.py",
+          "bytes": 26171,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 8193,
+      "cache_read_tokens": 32333,
+      "output_tokens": 1871,
+      "cost_usd": 0.02078,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "update_tests",
+      "wall_s": 55.9,
+      "reads": [
+        {
+          "path": "tests/forms_tests/tests/test_media.py",
+          "bytes": 26171,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 21408,
+      "cache_read_tokens": 32333,
+      "output_tokens": 10028,
+      "cost_usd": 0.07478,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "tests/forms_tests/tests/test_media.py"
+      ]
+    },
+    {
+      "node": "assemble_diff",
+      "wall_s": 26.25,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 39200,
+          "writer": "implement_merge"
+        },
+        {
+          "path": "tests/forms_tests/tests/test_media.py",
+          "bytes": 29848,
+          "writer": "update_tests"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 41209,
+      "cache_read_tokens": 32333,
+      "output_tokens": 4016,
+      "cost_usd": 0.06452,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    }
+  ]
+}

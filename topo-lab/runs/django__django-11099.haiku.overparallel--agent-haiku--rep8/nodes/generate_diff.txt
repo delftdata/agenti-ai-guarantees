@@ -1,0 +1,84 @@
+```diff
+diff --git a/django/contrib/auth/validators.py b/django/contrib/auth/validators.py
+index 1234567..abcdefg 100644
+--- a/django/contrib/auth/validators.py
++++ b/django/contrib/auth/validators.py
+@@ -8,7 +8,7 @@ from django.utils.translation import gettext_lazy as _
+ 
+ @deconstructible
+ class ASCIIUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only English letters, '
+         'numbers, and @/./+/-/_ characters.'
+@@ -19,7 +19,7 @@ class ASCIIUsernameValidator(validators.RegexValidator):
+ 
+ @deconstructible
+ class UnicodeUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only letters, '
+         'numbers, and @/./+/-/_ characters.'
+diff --git a/tests/auth_tests/test_validators.py b/tests/auth_tests/test_validators.py
+index 2345678..bcdefgh 100644
+--- a/tests/auth_tests/test_validators.py
++++ b/tests/auth_tests/test_validators.py
+@@ -185,3 +185,61 @@ class UsernameValidatorsTests(SimpleTestCase):
+         for invalid in invalid_usernames:
+             with self.subTest(invalid=invalid):
+                 with self.assertRaises(ValidationError):
+                     v(invalid)
++
++    def test_unicode_validator_rejects_trailing_newline(self):
++        """Test that UnicodeUsernameValidator rejects usernames with trailing newlines."""
++        v = validators.UnicodeUsernameValidator()
++        invalid_usernames_with_newline = [
++            'joe\n',
++            'René\n',
++            'joe\r',
++            'René\r',
++            'joe\r\n',
++            'René\r\n',
++        ]
++        for invalid in invalid_usernames_with_newline:
++            with self.subTest(invalid=invalid):
++                with self.assertRaises(ValidationError):
++                    v(invalid)
++
++    def test_ascii_validator_rejects_trailing_newline(self):
++        """Test that ASCIIUsernameValidator rejects usernames with trailing newlines."""
++        v = validators.ASCIIUsernameValidator()
++        invalid_usernames_with_newline = [
++            'glenn\n',
++            'GLEnN\n',
++            'jean-marc\n',
++            'glenn\r',
++            'GLEnN\r',
++            'jean-marc\r',
++            'glenn\r\n',
++            'GLEnN\r\n',
++            'jean-marc\r\n',
++        ]
++        for invalid in invalid_usernames_with_newline:
++            with self.subTest(invalid=invalid):
++                with self.assertRaises(ValidationError):
++                    v(invalid)
++
++    def test_unicode_validator_accepts_valid_usernames(self):
++        """Test that valid usernames are still accepted by UnicodeUsernameValidator."""
++        v = validators.UnicodeUsernameValidator()
++        valid_usernames = ['joe', 'René', 'ᴮᴵᴳᴮᴵᴿᴰ', 'أحمد', 'joe_smith', 'user@domain', 'user+tag']
++        for valid in valid_usernames:
++            with self.subTest(valid=valid):
++                v(valid)  # Should not raise
++
++    def test_ascii_validator_accepts_valid_usernames(self):
++        """Test that valid usernames are still accepted by ASCIIUsernameValidator."""
++        v = validators.ASCIIUsernameValidator()
++        valid_usernames = ['glenn', 'GLEnN', 'jean-marc', 'user_name', 'user+tag', 'user@domain']
++        for valid in valid_usernames:
++            with self.subTest(valid=valid):
++                v(valid)  # Should not raise
+```

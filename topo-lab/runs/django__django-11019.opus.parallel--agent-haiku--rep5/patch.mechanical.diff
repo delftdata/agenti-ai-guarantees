@@ -1,0 +1,153 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..c08d45383a 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -59,22 +59,27 @@ class Media:
+ 
+     @property
+     def _css(self):
+-        css = self._css_lists[0]
+-        # filter(None, ...) avoids calling merge with empty dicts.
+-        for obj in filter(None, self._css_lists[1:]):
+-            css = {
+-                medium: self.merge(css.get(medium, []), obj.get(medium, []))
+-                for medium in css.keys() | obj.keys()
+-            }
++        # Collect CSS lists per medium
++        media_lists = {}
++        for css_dict in filter(None, self._css_lists):
++            for medium, css_list in css_dict.items():
++                if medium not in media_lists:
++                    media_lists[medium] = []
++                media_lists[medium].append(css_list)
++        
++        # Merge all lists per medium
++        css = {}
++        for medium, lists in media_lists.items():
++            css[medium] = self.merge(*lists) if lists else []
+         return css
+ 
+     @property
+     def _js(self):
+-        js = self._js_lists[0]
+         # filter(None, ...) avoids calling merge() with empty lists.
+-        for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
+-        return js
++        lists = list(filter(None, self._js_lists))
++        if not lists:
++            return []
++        return self.merge(*lists)
+ 
+     def render(self):
+         return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+@@ -115,39 +120,82 @@ class Media:
+         raise KeyError('Unknown media type "%s"' % name)
+ 
+     @staticmethod
+-    def merge(list_1, list_2):
++    def merge(*lists):
+         """
+-        Merge two lists while trying to keep the relative order of the elements.
+-        Warn if the lists have the same two elements in a different relative
+-        order.
++        Merge multiple lists while trying to keep the relative order of the elements.
++        Warn if the lists have elements in genuinely incompatible orders.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++        # Handle empty case
++        if not lists:
++            return []
++        
++        # Handle single list case
++        if len(lists) == 1:
++            return list(lists[0])
++        
++        # Collect all unique elements while preserving first occurrence
++        all_elements = []
++        seen = set()
++        for lst in lists:
++            for item in lst:
++                if item not in seen:
++                    all_elements.append(item)
++                    seen.add(item)
++        
++        # Build a directed graph of ordering constraints
++        # constraints[a].add(b) means "a must come before b"
++        constraints = {elem: set() for elem in all_elements}
++        
++        # Extract constraints from each input list
++        for lst in lists:
++            for i, elem in enumerate(lst):
++                # elem must come before all subsequent elements in this list
++                for later_elem in lst[i + 1:]:
++                    constraints[elem].add(later_elem)
++        
++        # Topological sort with cycle detection
++        result = []
++        visited = set()
++        visiting = set()
++        
++        def visit(elem, path):
++            if elem in visited:
++                return True
++            if elem in visiting:
++                # Cycle detected - find conflicting elements for warning
++                cycle_start = path.index(elem)
++                conflicting_pair = (path[cycle_start], elem)
++                warnings.warn(
++                    'Detected duplicate Media files in an opposite order:\n'
++                    '%s\n%s' % conflicting_pair,
++                    MediaOrderConflictWarning,
++                )
++                return False
++            
++            visiting.add(elem)
++            path.append(elem)
++            
++            # Visit all elements that must come after this one
++            for dependent in constraints[elem]:
++                if not visit(dependent, path):
++                    return False
++            
++            path.pop()
++            visiting.remove(elem)
++            visited.add(elem)
++            result.append(elem)
++            return True
++        
++        # Visit all elements
++        for elem in all_elements:
++            if elem not in visited:
++                visit(elem, [])
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()

@@ -1,0 +1,44 @@
+The bug is that `sqrt(sin(x)**2)` simplifies to `sin(x)` for general complex x. The correct behavior is that `sqrt(sin(x)**2) = |sin(x)|` for complex x, and equals `sin(x)` only when x is real (and in the appropriate range).
+
+===FILE: sympy/simplify/tests/test_issue_sqrt_sin_sq.py===
+from sympy import cos, sin, sqrt, trigsimp, Symbol, Abs
+
+
+def test_trigsimp_sqrt_sin_sq_complex():
+    # For general complex x, sqrt(sin(x)**2) is NOT equal to sin(x);
+    # it equals |sin(x)|. So trigsimp must not collapse
+    # cos(x) + sqrt(sin(x)**2) into cos(x) + sin(x).
+    x = Symbol('x')
+    expr = cos(x) + sqrt(sin(x)**2)
+    result = trigsimp(expr)
+    assert result != cos(x) + sin(x)
+    # The correct simplification keeps the absolute value.
+    assert result == cos(x) + Abs(sin(x))
+
+
+def test_trigsimp_sqrt_sin_sq_real():
+    # For real x, sqrt(sin(x)**2) == Abs(sin(x)); trigsimp should still
+    # not wrongly produce plain sin(x) unless sin(x) is known nonnegative.
+    x = Symbol('x', real=True)
+    expr = cos(x) + sqrt(sin(x)**2)
+    result = trigsimp(expr)
+    assert result != cos(x) + sin(x)
+    assert result == cos(x) + Abs(sin(x))
+
+
+def test_trigsimp_sqrt_sin_sq_positive():
+    # When sin(x) is known to be nonnegative, sqrt(sin(x)**2) == sin(x)
+    # and the simplification to cos(x) + sin(x) is valid.
+    x = Symbol('x', positive=True)
+    y = sin(x)
+    # Use a symbol that is nonnegative to represent sin(x) >= 0 case.
+    z = Symbol('z', nonnegative=True)
+    expr = cos(x) + sqrt(z**2)
+    result = trigsimp(expr)
+    assert result == cos(x) + z
+===END===
+
+This test file verifies:
+1. For general complex `x`, `trigsimp(cos(x) + sqrt(sin(x)**2))` must not equal `cos(x) + sin(x)`, and should be `cos(x) + Abs(sin(x))`.
+2. For real `x`, the same holds since `sin(x)` can be negative.
+3. When the base is known nonnegative, the `sqrt` of the square correctly reduces to the base itself.

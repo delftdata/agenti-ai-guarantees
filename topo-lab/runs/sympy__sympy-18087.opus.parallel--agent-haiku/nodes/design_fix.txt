@@ -1,0 +1,282 @@
+# Fix Design for sqrt(sin(x)**2) Incorrect Simplification Bug
+
+## Problem Summary
+The function `_TR56()` in `sympy/simplify/fu.py` applies power-reduction transformations to expressions like `sin(x)**2` without properly validating that the exponent is a positive even integer. This causes `sqrt(sin(x)**2)` (represented as `sin(x)**(1/2)` or equivalently `(sin(x)**2)**(1/4)` after decomposition) to be incorrectly simplified.
+
+The core issue: `_TR56()` handles fractional exponents the same way it handles integer exponents, which is mathematically incorrect for complex numbers where `sqrt(z**2) ≠ z` in general.
+
+## Root Cause Location
+**File:** `sympy/simplify/fu.py`
+**Function:** `_TR56()` (lines 395-430, approximately)
+**Functions that depend on it:** `TR5()` (line 447) and `TR6()` (line 463)
+
+## Exact Problem in _TR56
+
+Current code structure:
+```python
+def _TR56(rv, f, g, h, max, pow):
+    """Helper for TR5 and TR6 to replace f**2 with h(g**2)
+    ...
+    """
+    def _f(rv):
+        if not (rv.is_Pow and rv.base.func == f):
+            return rv
+        if not rv.exp.is_real:
+            return rv
+
+        if (rv.exp < 0) == True:
+            return rv
+        if (rv.exp > max) == True:
+            return rv
+        if rv.exp == 2:
+            return h(g(rv.base.args[0])**2)
+        else:
+            if rv.exp == 4:
+                e = 2
+            elif not pow:
+                if rv.exp % 2:
+                    return rv
+                e = rv.exp//2
+            else:
+                p = perfect_power(rv.exp)
+                if not p:
+                    return rv
+                e = rv.exp//2
+            return h(g(rv.base.args[0])**2)**e
+
+    return bottom_up(rv, _f)
+```
+
+**The Issues:**
+
+1. **Missing integer validation**: After checking `if not rv.exp.is_real:`, the code proceeds to operations like `rv.exp % 2` and `rv.exp//2` without verifying that `rv.exp` is an integer. For `rv.exp = S.Half` (which is `1/2`), these operations produce unexpected results.
+
+2. **Unsafe modulo operation**: The condition `if rv.exp % 2:` assumes `rv.exp` is an integer. When `rv.exp = S.Rational(1, 2)`, modulo operation behavior is undefined or incorrect.
+
+3. **Unsafe floor division**: The operation `rv.exp//2` on non-integer exponents produces incorrect results (e.g., `S.Half // 2` may not behave as intended).
+
+4. **Logic flaw in special case handling**: The `if rv.exp == 2:` case explicitly handles the `sin(x)**2` → `1 - cos(x)**2` transformation. The `else` clause is meant to handle higher even powers like `sin(x)**4`. However, this logic does not distinguish between integer and non-integer exponents.
+
+## Correct Mathematical Requirement
+
+The transformations `TR5` and `TR6` are based on these identities:
+- `sin(x)**2 = 1 - cos(x)**2`  (Valid for all complex x)
+- `cos(x)**2 = 1 - sin(x)**2`  (Valid for all complex x)
+
+However, these identities only apply when the exponent is an exact positive **even integer**. For non-integer exponents:
+- `sin(x)**(1/2) = sqrt(sin(x))` — cannot be reduced via the above identities
+- `(sin(x)**2)**(1/2) = sqrt(sin(x)**2) = |sin(x)|` for real x, but has no simple form for complex x
+
+Therefore, the transformations must be **strictly limited to positive even integer exponents**.
+
+## Fix Design
+
+### Solution Strategy
+Add an explicit check to ensure the exponent is a positive even integer **before** applying any power-reduction transformation.
+
+### Implementation Approach
+
+**Option A (Recommended): Add early integer and even-ness checks**
+
+Insert validation immediately after the `is_real` check. This ensures:
+1. Exponent must be an integer
+2. Exponent must be positive
+3. Exponent must be even (except for the special case `exp == 2`)
+
+**Option B: Guard the modulo/floor-division operations**
+
+Add integer check before the `else` clause that performs modulo and floor division.
+
+**Option A is cleaner and more maintainable.**
+
+## Exact Code Changes
+
+### BEFORE (Current Code in fu.py, lines 395-430)
+
+```python
+def _TR56(rv, f, g, h, max, pow):
+    """Helper for TR5 and TR6 to replace f**2 with h(g**2)
+
+    Options
+    =======
+
+    max :   controls size of exponent that can appear on f
+            e.g. if max=4 then f**4 will be changed to h(g**2)**2.
+    pow :   controls whether the exponent must be a perfect power of 2
+            e.g. if pow=True (and max >= 6) then f**6 will not be changed
+            but f**8 will be changed to h(g**2)**4
+
+    >>> from sympy.simplify.fu import _TR56 as T
+    >>> from sympy.abc import x
+    >>> from sympy import sin, cos
+    >>> h = lambda x: 1 - x
+    >>> T(sin(x)**3, sin, cos, h, 4, False)
+    sin(x)**3
+    >>> T(sin(x)**6, sin, cos, h, 6, False)
+    (1 - cos(x)**2)**3
+    >>> T(sin(x)**6, sin, cos, h, 6, True)
+    sin(x)**6
+    >>> T(sin(x)**8, sin, cos, h, 10, True)
+    (1 - cos(x)**2)**4
+    """
+
+    def _f(rv):
+        # I'm not sure if this transformation should target all even powers
+        # or only those expressible as powers of 2. Also, should it only
+        # make the changes in powers that appear in sums -- making an isolated
+        # change is not going to allow a simplification as far as I can tell.
+        if not (rv.is_Pow and rv.base.func == f):
+            return rv
+        if not rv.exp.is_real:
+            return rv
+
+        if (rv.exp < 0) == True:
+            return rv
+        if (rv.exp > max) == True:
+            return rv
+        if rv.exp == 2:
+            return h(g(rv.base.args[0])**2)
+        else:
+            if rv.exp == 4:
+                e = 2
+            elif not pow:
+                if rv.exp % 2:
+                    return rv
+                e = rv.exp//2
+            else:
+                p = perfect_power(rv.exp)
+                if not p:
+                    return rv
+                e = rv.exp//2
+            return h(g(rv.base.args[0])**2)**e
+
+    return bottom_up(rv, _f)
+```
+
+### AFTER (Corrected Code in fu.py, lines 395-430)
+
+```python
+def _TR56(rv, f, g, h, max, pow):
+    """Helper for TR5 and TR6 to replace f**2 with h(g**2)
+
+    Options
+    =======
+
+    max :   controls size of exponent that can appear on f
+            e.g. if max=4 then f**4 will be changed to h(g**2)**2.
+    pow :   controls whether the exponent must be a perfect power of 2
+            e.g. if pow=True (and max >= 6) then f**6 will not be changed
+            but f**8 will be changed to h(g**2)**4
+
+    >>> from sympy.simplify.fu import _TR56 as T
+    >>> from sympy.abc import x
+    >>> from sympy import sin, cos
+    >>> h = lambda x: 1 - x
+    >>> T(sin(x)**3, sin, cos, h, 4, False)
+    sin(x)**3
+    >>> T(sin(x)**6, sin, cos, h, 6, False)
+    (1 - cos(x)**2)**3
+    >>> T(sin(x)**6, sin, cos, h, 6, True)
+    sin(x)**6
+    >>> T(sin(x)**8, sin, cos, h, 10, True)
+    (1 - cos(x)**2)**4
+    """
+
+    def _f(rv):
+        # I'm not sure if this transformation should target all even powers
+        # or only those expressible as powers of 2. Also, should it only
+        # make the changes in powers that appear in sums -- making an isolated
+        # change is not going to allow a simplification as far as I can tell.
+        if not (rv.is_Pow and rv.base.func == f):
+            return rv
+        if not rv.exp.is_real:
+            return rv
+        # Ensure exponent is an integer. This prevents non-integer exponents
+        # (like 1/2 from sqrt) from being incorrectly transformed.
+        if not rv.exp.is_integer:
+            return rv
+
+        if (rv.exp < 0) == True:
+            return rv
+        if (rv.exp > max) == True:
+            return rv
+        if rv.exp == 2:
+            return h(g(rv.base.args[0])**2)
+        else:
+            if rv.exp == 4:
+                e = 2
+            elif not pow:
+                if rv.exp % 2:
+                    return rv
+                e = rv.exp//2
+            else:
+                p = perfect_power(rv.exp)
+                if not p:
+                    return rv
+                e = rv.exp//2
+            return h(g(rv.base.args[0])**2)**e
+
+    return bottom_up(rv, _f)
+```
+
+## Precise Textual Replacement
+
+**The exact addition (to be inserted after line: `if not rv.exp.is_real:`)**
+
+```python
+        # Ensure exponent is an integer. This prevents non-integer exponents
+        # (like 1/2 from sqrt) from being incorrectly transformed.
+        if not rv.exp.is_integer:
+            return rv
+```
+
+This is a 3-line addition (1 blank line for spacing, 2 lines for the check and comment):
+- Line 1: `        # Ensure exponent is an integer. This prevents non-integer exponents`
+- Line 2: `        # (like 1/2 from sqrt) from being incorrectly transformed.`
+- Line 3: `        if not rv.exp.is_integer:`
+- Line 4: `            return rv`
+
+All indentation uses **8 spaces** to match the surrounding code (two levels of 4-space indentation).
+
+## Impact Assessment
+
+### What This Fix Protects
+- `sqrt(sin(x)**2)` will NOT be simplified to `sin(x)` anymore
+- `sqrt(cos(x)**2)` will NOT be simplified to `cos(x)` anymore
+- Other fractional exponents like `sin(x)**(3/2)` are also protected
+- All non-integer exponents are now handled correctly
+
+### What This Fix Preserves
+- `sin(x)**2` → `1 - cos(x)**2` (still works, exponent is integer 2)
+- `sin(x)**4` → `(1 - cos(x)**2)**2` (still works, exponent is integer 4)
+- `sin(x)**6` → works as before (exponent is integer 6)
+- All documented behavior of TR5 and TR6 is preserved
+- All existing tests should pass
+
+### Why This Is Safe
+The mathematical identity `sin(x)**2 = 1 - cos(x)**2` is only valid as-is for integer even exponents. By adding the integer check, we respect the mathematical domain of applicability of the transformation rule. This makes the simplifier **more correct**, not less, for complex numbers.
+
+## Testing Recommendations
+
+After applying the fix, verify:
+
+```python
+from sympy import cos, sin, sqrt, trigsimp, simplify
+from sympy.abc import x
+
+# Should NOT simplify sqrt(sin(x)**2) to sin(x)
+expr1 = cos(x) + sqrt(sin(x)**2)
+result1 = trigsimp(expr1)
+# Expected: cos(x) + sqrt(sin(x)**2) or cos(x) + Abs(sin(x)) for real x
+# NOT: cos(x) + sin(x)
+
+# Verify integer exponents still work
+expr2 = sin(x)**2 + cos(x)**2
+result2 = trigsimp(expr2)
+# Expected: 1 (should still simplify correctly)
+
+# Verify even integer powers still work
+expr3 = sin(x)**4
+result3 = trigsimp(expr3)
+# Expected: (1 - cos(x)**2)**2 or equivalent (should still simplify)
+```

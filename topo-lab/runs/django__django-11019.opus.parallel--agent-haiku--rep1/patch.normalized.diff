@@ -1,0 +1,130 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -118,76 +118,167 @@ class Media:
+     @staticmethod
+     def merge(lists):
+         """
+         Merge multiple lists of items while trying to keep the relative order
+         of the elements. The order of items is determined by a topological sort
+         of the ordering constraints found in all input lists.
+ 
+         Warn only if there is a genuine circular dependency (conflict) that
+         prevents a valid topological ordering.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+         if not lists:
+             return []
+-
+-        # Use a shortest-list-first approach that's not dependent on iteration
+-        # order to avoid inconsistent results.
+-        number_of_duplicates = {}
+-        for lst in lists:
+-            for item in lst:
+-                number_of_duplicates[item] = number_of_duplicates.get(item, 0) + 1
+-
+-        duplicates = [
+-            item for item in number_of_duplicates if number_of_duplicates[item] > 1
+-        ]
+-
+-        result = []
+-        for lst in lists:
+-            new_elements = []
+-            for item in lst:
+-                if item not in result:
+-                    if item not in duplicates:
+-                        result.append(item)
+-                    else:
+-                        new_elements.append(item)
+-            # If all items from the list are duplicates, keep them in order.
+-            if not result and new_elements:
+-                result.extend(new_elements)
+-            else:
+-                for item in new_elements:
+-                    index = result.index(item) if item in result else None
+-                    if index is None:
+-                        result.append(item)
+-                    else:
+-                        # If we have duplicates, check if the current list has a
+-                        # different order than the result we're building.
+-                        # Mark such places with a warning.
+-                        new_index = lst.index(item)
+-                        if new_index < len(lst) - 1:
+-                            # There are items after `item` in the list.
+-                            for other_item in lst[new_index + 1:]:
+-                                if other_item in result:
+-                                    other_index = result.index(other_item)
+-                                    if other_index < index:
+-                                        # `other_item` is in result before `item`.
+-                                        warnings.warn(
+-                                            'Detected duplicate Media files in an opposite order:\n'
+-                                            '%s\n%s' % (other_item, item),
+-                                            MediaOrderConflictWarning,
+-                                        )
++        
++        # Flatten and deduplicate all items while tracking order constraints
++        all_items = []
++        seen = set()
++        # Map each item to the set of items that must come after it
++        graph = {}
++        # In-degree count for each item
++        in_degree = {}
++        
++        # First pass: collect all unique items in order they appear
++        for lst in lists:
++            for item in lst:
++                if item not in seen:
++                    all_items.append(item)
++                    seen.add(item)
++                    graph[item] = set()
++                    in_degree[item] = 0
++        
++        # Second pass: build the dependency graph
++        # For each list, add edges for items that appear in order
++        for lst in lists:
++            for i, item in enumerate(lst):
++                # This item must come before all later items in this list
++                for later_item in lst[i + 1:]:
++                    # Add edge: item -> later_item
++                    if later_item not in graph[item]:
++                        graph[item].add(later_item)
++                        in_degree[later_item] += 1
++        
++        # Topological sort using Kahn's algorithm
++        queue = [item for item in all_items if in_degree[item] == 0]
++        result = []
++        
++        while queue:
++            # Sort queue to ensure deterministic order when multiple items have in_degree 0
++            queue.sort(key=lambda x: all_items.index(x))
++            node = queue.pop(0)
++            result.append(node)
++            
++            for neighbor in sorted(graph[node], key=lambda x: all_items.index(x)):
++                in_degree[neighbor] -= 1
++                if in_degree[neighbor] == 0:
++                    queue.append(neighbor)
++        
++        # Check for cycles (genuine conflicts)
++        if len(result) != len(all_items):
++            # There's a cycle - find items involved in the cycle
++            remaining = [item for item in all_items if item not in result]
++            warnings.warn(
++                'Detected duplicate Media files in an opposite order:\n'
++                '%s\n%s' % (remaining[0], remaining[1] if len(remaining) > 1 else remaining[0]),
++                MediaOrderConflictWarning,
++            )
++            # Return all items in their first-seen order as fallback
++            return all_items
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()
+         combined._css_lists = self._css_lists + other._css_lists
+         combined._js_lists = self._js_lists + other._js_lists
+         return combined

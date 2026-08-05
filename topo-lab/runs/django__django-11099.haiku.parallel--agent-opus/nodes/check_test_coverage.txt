@@ -1,0 +1,74 @@
+## Analysis of Username Validation Tests and Newline Handling
+
+### Current Test Coverage
+
+The `UsernameValidatorsTests` class in `tests/auth_tests/test_validators.py` contains two test methods:
+
+1. **`test_unicode_validator`** — tests `UnicodeUsernameValidator()`
+   - Valid: `['joe', 'René', 'ᴮᴵᴳᴮᴵᴿᴰ', 'أحمد']`
+   - Invalid: `["o'connell", "عبد ال", "zerowidth\u200Bspace", "nonbreaking\u00A0space", "en\u2013dash"]`
+
+2. **`test_ascii_validator`** — tests `ASCIIUsernameValidator()`
+   - Valid: `['glenn', 'GLEnN', 'jean-marc']`
+   - Invalid: `["o'connell", 'Éric', 'jean marc', "أحمد"]`
+
+Both use the same pattern: loop over valid usernames (expecting no error) and invalid usernames (expecting `ValidationError`), each wrapped in `self.subTest(...)`.
+
+### Newline Handling Gap
+
+**There are currently NO tests for newline handling.** Neither the valid nor invalid username lists contain any entries with trailing newlines (e.g., `'joe\n'`). This is precisely the untested edge case that allows the bug described in the problem statement to go undetected.
+
+### Root Cause
+
+The validators in `django/contrib/auth/validators.py` use the regex `r'^[\w.@+-]+$'`. In Python regexes, `$` matches at the end of the string **or immediately before a trailing newline**. Therefore a username like `'trailingnewline\n'` incorrectly passes validation.
+
+### Required Changes
+
+1. **Fix the validators** (`django/contrib/auth/validators.py`): change both `ASCIIUsernameValidator.regex` and `UnicodeUsernameValidator.regex` from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'`. The `\A` and `\Z` anchors match only the absolute start and end of the string and do not permit a trailing newline.
+
+2. **Add newline test cases** (`tests/auth_tests/test_validators.py`): append a newline-terminated username (e.g., `'trailingnewline\n'`) to the `invalid_usernames` list in **both** `test_unicode_validator` and `test_ascii_validator`. The existing `subTest` loop infrastructure handles these additions automatically, and they will confirm the fix rejects trailing-newline usernames.
+
+Below is the diff implementing both the fix and the new tests:
+
+```diff
+--- a/django/contrib/auth/validators.py
++++ b/django/contrib/auth/validators.py
+@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
+ 
+ @deconstructible
+ class ASCIIUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only English letters, '
+         'numbers, and @/./+/-/_ characters.'
+@@ -17,7 +17,7 @@ class ASCIIUsernameValidator(validators.RegexValidator):
+ 
+ @deconstructible
+ class UnicodeUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only letters, '
+         'numbers, and @/./+/-/_ characters.'
+--- a/tests/auth_tests/test_validators.py
++++ b/tests/auth_tests/test_validators.py
+@@ -237,7 +237,7 @@ class UsernameValidatorsTests(SimpleTestCase):
+         invalid_usernames = [
+             "o'connell", "عبد ال",
+             "zerowidth\u200Bspace", "nonbreaking\u00A0space",
+-            "en\u2013dash",
++            "en\u2013dash", 'trailingnewline\u000A',
+         ]
+         v = validators.UnicodeUsernameValidator()
+         for valid in valid_usernames:
+@@ -250,7 +250,7 @@ class UsernameValidatorsTests(SimpleTestCase):
+ 
+     def test_ascii_validator(self):
+         valid_usernames = ['glenn', 'GLEnN', 'jean-marc']
+-        invalid_usernames = ["o'connell", 'Éric', 'jean marc', "أحمد"]
++        invalid_usernames = ["o'connell", 'Éric', 'jean marc', "أحمد", 'trailingnewline\n']
+         v = validators.ASCIIUsernameValidator()
+         for valid in valid_usernames:
+             with self.subTest(valid=valid):
+```

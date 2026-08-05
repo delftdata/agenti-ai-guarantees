@@ -1,0 +1,140 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..5e69130895 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -48,6 +48,7 @@ class Media:
+                 css = {}
+             if js is None:
+                 js = []
++        # Store as lists of lists to avoid eager merging
+         self._css_lists = [css]
+         self._js_lists = [js]
+ 
+@@ -59,21 +60,23 @@ class Media:
+ 
+     @property
+     def _css(self):
++        # Merge all CSS lists
+         css = self._css_lists[0]
+         # filter(None, ...) avoids calling merge with empty dicts.
+         for obj in filter(None, self._css_lists[1:]):
+             css = {
+-                medium: self.merge(css.get(medium, []), obj.get(medium, []))
++                medium: self.merge([css.get(medium, []), obj.get(medium, [])])
+                 for medium in css.keys() | obj.keys()
+             }
+         return css
+ 
+     @property
+     def _js(self):
++        # Merge all JS lists using the new merge algorithm
+         js = self._js_lists[0]
+         # filter(None, ...) avoids calling merge() with empty lists.
+         for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
++            js = self.merge([js, obj])
+         return js
+ 
+     def render(self):
+@@ -115,39 +118,78 @@ class Media:
+         raise KeyError('Unknown media type "%s"' % name)
+ 
+     @staticmethod
+-    def merge(list_1, list_2):
++    def merge(lists):
+         """
+-        Merge two lists while trying to keep the relative order of the elements.
+-        Warn if the lists have the same two elements in a different relative
+-        order.
++        Merge a list of lists while trying to keep the relative order of the elements.
++        Warn if there are conflicting orderings (a genuine cycle).
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
++        # Filter out empty lists
++        lists = [lst for lst in lists if lst]
++        if not lists:
++            return []
++        if len(lists) == 1:
++            return list(lists[0])
++
++        # Build a dependency graph: for each item, track what must come before it
++        # by examining each input list
++        items = set()
++        for lst in lists:
++            items.update(lst)
++
++        # Build constraints from each list
++        constraints = {item: set() for item in items}
++        for lst in lists:
++            for i, item in enumerate(lst):
++                # Items at position i must come after all items before position i
++                for j in range(i):
++                    constraints[item].add(lst[j])
++
++        # Topological sort with cycle detection
++        result = []
++        remaining = set(items)
++
++        while remaining:
++            # Find items with no unsatisfied constraints
++            ready = [item for item in remaining
++                     if not (constraints[item] & remaining)]
++
++            if not ready:
++                # Cycle detected: we have conflicting constraints
++                # Find which items conflict
++                conflicting_pairs = set()
++                for item in remaining:
++                    unsatisfied = constraints[item] & remaining
++                    if unsatisfied:
++                        for unsatisfied_item in unsatisfied:
++                            conflicting_pairs.add((item, unsatisfied_item))
++
++                # Report the first conflict found
++                if conflicting_pairs:
++                    item1, item2 = next(iter(conflicting_pairs))
+                     warnings.warn(
+                         'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
++                        '%s\n%s' % (item1, item2),
+                         MediaOrderConflictWarning,
+                     )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++                # Break the cycle by taking any remaining item
++                item = next(iter(remaining))
++                result.append(item)
++                remaining.remove(item)
++            else:
++                # Add ready items in the order they appear in the original lists
++                # to maintain stable ordering
++                for lst in lists:
++                    for item in lst:
++                        if item in ready:
++                            result.append(item)
++                            remaining.remove(item)
++                            ready.remove(item)
++
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()

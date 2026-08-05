@@ -1,0 +1,57 @@
+The bug is in `sqrt(sin(x)**2)` being simplified to `sin(x)` for general complex `x`. Correctly, `sqrt(z**2)` equals `Abs(z)` only for real `z`; for complex it should stay as `sqrt(sin(x)**2)` or `Abs(sin(x))` only when real.
+
+===FILE: sympy/simplify/tests/test_trigsimp_sqrt_bug.py===
+from sympy import (
+    cos, sin, sqrt, Abs, Symbol, trigsimp, simplify, symbols, I
+)
+
+
+def test_trigsimp_sqrt_sin_squared_complex():
+    # For a general (possibly complex) symbol, sqrt(sin(x)**2) must NOT
+    # be simplified to sin(x), since sqrt(z**2) == sin(x) only when the
+    # real/nonnegative branch conditions hold.
+    x = Symbol('x')
+    expr = cos(x) + sqrt(sin(x)**2)
+
+    result = trigsimp(expr)
+
+    # It must NOT collapse to cos(x) + sin(x) for general complex x.
+    assert result != cos(x) + sin(x)
+
+    # The result must be numerically consistent with the original for a
+    # complex value of x where sin(x) has negative real part / is complex.
+    val = 2 + 3*I
+    orig_num = complex(expr.subs(x, val))
+    res_num = complex(result.subs(x, val))
+    assert abs(orig_num - res_num) < 1e-9
+
+
+def test_trigsimp_sqrt_sin_squared_real():
+    # For a real symbol, sqrt(sin(x)**2) == Abs(sin(x)) and this is a valid
+    # simplification.
+    x = Symbol('x', real=True)
+    expr = cos(x) + sqrt(sin(x)**2)
+
+    result = trigsimp(expr)
+
+    # For real x, the correct simplification is cos(x) + |sin(x)|,
+    # and it must not become cos(x) + sin(x) (which would be wrong when
+    # sin(x) < 0).
+    assert result != cos(x) + sin(x)
+
+    # Should equal cos(x) + Abs(sin(x)) (allowing for simplification).
+    assert simplify(result - (cos(x) + Abs(sin(x)))) == 0
+
+
+def test_trigsimp_sqrt_sin_squared_positive():
+    # If x is such that sin(x) is nonnegative, then simplifying to
+    # cos(x) + sin(x) is acceptable.
+    x = Symbol('x', positive=True)
+    # sin(x) is not guaranteed nonnegative just from x positive, so this
+    # should still not blindly become cos(x) + sin(x).
+    expr = cos(x) + sqrt(sin(x)**2)
+    result = trigsimp(expr)
+    assert result != cos(x) + sin(x)
+===END===
+
+These tests verify the reported bug: `trigsimp(cos(x) + sqrt(sin(x)**2))` must not incorrectly become `cos(x) + sin(x)` for general complex `x`, checks numerical consistency, and validates the correct behavior of `cos(x) + Abs(sin(x))` for real `x`.

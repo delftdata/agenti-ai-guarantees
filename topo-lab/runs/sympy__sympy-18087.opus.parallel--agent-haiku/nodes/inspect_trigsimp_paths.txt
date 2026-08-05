@@ -1,0 +1,101 @@
+# Analysis of sqrt(sin(x)**2) Simplification in trigsimp.py
+
+## Problem Context
+The issue is that `trigsimp(cos(x) + sqrt(sin(x)**2))` incorrectly simplifies to `cos(x) + sin(x)` for general complex `x`, when it should only simplify to `cos(x) + |sin(x)|` or remain as `cos(x) + sqrt(sin(x)**2)`.
+
+## Code Paths Analysis
+
+### 1. Main Entry Point: trigsimp() function (lines 406-449)
+The `trigsimp()` function dispatches to different methods based the `method` parameter:
+- 'fu': uses `fu(x, **opts)` 
+- 'matching': uses `futrig(x)` (default)
+- 'groebner': uses `groebnersimp(x, **opts)`
+- 'combined': uses `futrig(groebnersimp(...))`
+- 'old': uses `trigsimp_old(x, **opts)`
+
+**Default is 'matching' → futrig()**
+
+### 2. futrig() function (lines 1065-1093)
+This is the default simplification path called by `trigsimp()` with method='matching'.
+
+Key aspects:
+- Lines 1088-1089: Applies `bottom_up(e, lambda x: _futrig(x, **kwargs))`
+- Lines 1091-1093: May rewrite hyperbolic functions if `hyper=True`
+
+The `bottom_up` traversal applies `_futrig()` to every sub-expression from leaves to root.
+
+### 3. _futrig() function (lines 1096-1145)
+This is the core simplification engine that applies a series of transformations via a greedy tree strategy.
+
+**Critical transformation rules applied (lines 1106-1140):**
+- TR1 through TR22: Various trigonometric transformations
+- **Lines 1122-1123: TR5** - "sin-pow -> cos_pow" - This could rewrite powers of sin
+- **Lines 1135-1140: TR15 and TR16** - "pos/neg powers of sin" and "pos/neg powers of cos"
+- Line 1121: **TR10** - "sin-cos of sums -> sin-cos prod"
+
+The greedy strategy (line 1141) minimizes `Lops(x)` which counts operations, encouraging simplification.
+
+### 4. Pattern Matching in __trigsimp() (lines 882-1024)
+While this handles Mul and Add expressions through pattern matching:
+- Lines 896-924: Division rewrite patterns (matchers_division)
+- Lines 926-935: Addition patterns (matchers_add)  
+- Lines 937-952: Identity patterns (matchers_identity)
+- Lines 954-978: Artifact reduction patterns
+
+**Note:** These patterns operate on Mul/Add structures, not directly on Power expressions like `sqrt(sin(x)**2)`.
+
+However, there's indirect relevance:
+- Lines 962-967: Artifact reduction could theoretically interact with simplified subexpressions
+
+### 5. Related Transformation Rules in fu.py (imported)
+The `_futrig()` function imports and uses transformations from `sympy/simplify/fu.py`:
+- TR1, TR2, TR3, TR5, TR6, TR8, TR10, TR10i, TR11, TR12, TR14, TR15, TR16, TR22, TR111, TRmorrie, L
+
+**TR5 appears particularly relevant** (line 1122 usage):
+- Documented as "sin-pow -> cos_pow"
+- Could be simplifying `sin(x)**2` to `1 - cos(x)**2` or vice versa
+
+**TR15 and TR16** (lines 1135-1140):
+- Expand positive/negative powers of sin and cos
+- Could interact with sqrt(sin(x)**2) = sin(x)**1
+
+## Sqrt(sin(x)**2) Simplification Path
+
+The expression `sqrt(sin(x)**2)` would be encountered as a **Power expression** in the AST:
+```
+Power(sin(x), Rational(1, 2))  # sqrt() is Pow(..., 1/2)
+```
+
+When `bottom_up()` processes this in `futrig()`:
+1. It processes from leaves upward
+2. Applies `_futrig()` to the Power node
+3. The Power node doesn't match Mul or Add conditions in `_futrig()` itself
+4. **Falls through to line 1145**: `expr = expr.func(*[_futrig(a, deep) for a in expr.args])`
+5. This recursively applies to arguments
+
+The actual simplification likely occurs in **fu.py transformations** (TR5, TR15, TR16) or in the **rewrite(exp)** attempt at lines 1003-1014 in `__trigsimp()`.
+
+## Abs/Simplification Check
+
+**Critical gap identified:**
+Neither `_futrig()` nor `futrig()` performs explicit absolute value checking for `sqrt(x**2)` simplifications.
+
+The simplification appears to rely entirely on `fu.py` transformations, which may not properly account for the complex-number case where `sqrt(sin(x)**2) ≠ sin(x)` in general.
+
+## Conclusion
+
+**The fix location:**
+1. **Primary location: fu.py** - Where TR5, TR15, TR16 and related transformations handle power simplifications
+2. **Secondary consideration: trigsimp.py** - Specifically in `_futrig()` function (lines 1096-1145), the `futrig()` wrapper (lines 1065-1093), or the artifact reduction section of `__trigsimp()` (lines 954-978)
+
+**Specific functions needing review in trigsimp.py:**
+- `futrig()` (line 1065): Main entry point for default simplification
+- `_futrig()` (line 1096): Core transformation engine
+- `__trigsimp()` (line 882): Pattern matcher that could apply artifact reductions inappropriately
+
+**The fix belongs primarily in fu.py**, but **trigsimp.py may need protective changes** in `_futrig()` or `futrig()` to:
+1. Skip or guard sqrt(trig(x)**2) expressions from aggressive simplification
+2. Add explicit assumptions checking before applying transformations
+3. Or implement a pre-processing step to protect sqrt(sin(x)**2) from incorrect simplification
+
+The default 'matching' method (which uses futrig) is where the bug manifests, making `_futrig()` a key point for a guard condition.

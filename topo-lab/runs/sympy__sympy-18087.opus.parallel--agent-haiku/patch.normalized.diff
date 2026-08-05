@@ -1,0 +1,44 @@
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ -393,6 +393,9 @@ def _TR56(rv, f, g, h, max, pow):
+         if not (rv.is_Pow and rv.base.func == f):
+             return rv
+         if not rv.exp.is_real:
+             return rv
++        # Ensure exponent is an integer. This prevents non-integer exponents
++        # (like 1/2 from sqrt) from being incorrectly transformed.
++        if not rv.exp.is_integer:
++            return rv
+ 
+         if (rv.exp < 0) == True:
+             return rv
+--- a/sympy/simplify/tests/test_fu.py
++++ b/sympy/simplify/tests/test_fu.py
+@@ -375,3 +375,24 @@ def test_fu():
+     assert fu(sin(x)**6) == -15*cos(2*x)/32 + 3*cos(4*x)/16 - cos(6*x)/32 + 5/16
+     assert fu(sin(x)**3*cos(2*x)**4) == \
+         (3*sin(x)/4 - sin(3*x)/4)*(cos(4*x)/2 + cos(8*x)/8 + 3/8)
++
++
++def test_TR5_TR6_issue_18087():
++    """Regression test for issue #18087
++
++    TR5 and TR6 should NOT apply power-reducing transformations
++    to non-integer exponents. This prevents sqrt(sin(x)**2) from
++    being incorrectly simplified to sin(x).
++    """
++    # Test TR5 with non-integer exponents
++    assert TR5(sin(x)**(Rational(1, 2))) == sin(x)**(Rational(1, 2))
++    assert TR5(sin(x)**(Rational(3, 2))) == sin(x)**(Rational(3, 2))
++    assert TR5(sin(x)**(Rational(5, 2))) == sin(x)**(Rational(5, 2))
++    
++    # Test TR6 with non-integer exponents
++    assert TR6(cos(x)**(Rational(1, 2))) == cos(x)**(Rational(1, 2))
++    assert TR6(cos(x)**(Rational(3, 2))) == cos(x)**(Rational(3, 2))
++    assert TR6(cos(x)**(Rational(5, 2))) == cos(x)**(Rational(5, 2))
++    
++    # But integer exponents should still work
++    assert TR5(sin(x)**2) == 1 - cos(x)**2
++    assert TR5(sin(x)**4) == (1 - cos(x)**2)**2
++    assert TR6(cos(x)**2) == 1 - sin(x)**2
++    assert TR6(cos(x)**4) == (1 - sin(x)**2)**2

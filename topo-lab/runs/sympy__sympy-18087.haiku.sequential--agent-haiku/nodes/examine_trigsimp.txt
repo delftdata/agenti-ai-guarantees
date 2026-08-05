@@ -1,0 +1,65 @@
+# Analysis of trigsimp.py for sqrt(sin(x)**2) Issue
+
+## Problem Summary
+The issue is that `trigsimp(cos(x) + sqrt(sin(x)**2))` incorrectly simplifies to `cos(x) + sin(x)` for general complex `x`, when it should remain `cos(x) + abs(sin(x))` or similar. The function works correctly for real `x`.
+
+## Key Entry Points
+
+1. **Main `trigsimp()` function (line ~285)**
+   - Routes to different methods: 'matching' (default), 'groebner', 'combined', 'fu', or 'old'
+   - Default is 'matching' which calls `futrig(x)`
+
+2. **`futrig()` function (line ~755)**
+   - Calls `bottom_up(e, lambda x: _futrig(x, **kwargs))`
+   - This recursively applies `_futrig()` to all subexpressions
+
+3. **`_futrig()` function (line ~778)**
+   - Core transformation engine using a tree of transformations
+   - Applies various trigonometric reduction rules from `sympy.simplify.fu` module
+   - Uses greedy optimization to find simplest form
+
+## Root Cause Analysis
+
+The problem likely originates in the **Fu transformations** (imported from `sympy/simplify/fu.py`), particularly:
+
+1. **TR5** (line ~823): "sin-pow -> cos_pow" - could be converting sin(x)**2 expressions
+2. **TR6** and **TR16** (line ~832-836): "pos/neg powers of cos/sin" - handles power reductions
+3. **The greedy tree optimizer** (line ~841): Applies transformations that minimize operation count
+
+The issue is that when `sqrt(sin(x)**2)` is encountered, the transformation pipeline:
+- Sees `sin(x)**2` under a square root
+- Applies power simplification rules that assume real domains
+- Simplifies `sqrt(sin(x)**2)` to `sin(x)` without checking if `sin(x)` is actually real
+
+## Specific Problem Location
+
+The vulnerability is in the **power simplification transformations (TR5, TR6, TR16)** combined with the **greedy optimization** that prioritizes minimal operation count. These transformations don't respect domain restrictions:
+
+- `sqrt(a**2)` should simplify to `abs(a)` in general, but
+- The Fu transformations likely simplify it to `a` directly
+- This is only valid when `a` is guaranteed to be real/non-negative
+
+## Why It Works for Real x
+
+When `x` is declared as real via assumptions, SymPy's type system prevents these invalid simplifications because:
+- The assumption system catches that `sin(x)` is real when `x` is real
+- Simplifications respect these domain constraints
+- The transformations become mathematically valid
+
+## Why It Fails for Complex x
+
+For complex `x`:
+- No domain restriction on `sin(x)` 
+- The transformation rules fire unconditionally
+- `sqrt(sin(x)**2)` → `sin(x)` happens without domain checking
+- This is mathematically incorrect for complex values
+
+## Solution Approach
+
+The fix should be in one of these locations:
+
+1. **In `_futrig()` or the Fu transformations**: Add domain checking before applying power simplifications
+2. **In the greedy optimizer**: Filter out transformations that violate domain assumptions
+3. **In the specific TR functions** (TR5, TR6, TR16 from fu.py): Add guards to check if the base expression is guaranteed to be in the domain required by the simplification
+
+The most robust solution would be to modify the power simplification transformations to only simplify `sqrt(expr**2)` to `expr` when `expr.is_real` or similar assumptions hold, otherwise keep it as `abs(expr)` or leave it unchanged.

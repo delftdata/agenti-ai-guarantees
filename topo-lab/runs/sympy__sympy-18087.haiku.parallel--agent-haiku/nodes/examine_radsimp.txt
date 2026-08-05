@@ -1,0 +1,38 @@
+# Analysis of radsimp.py for sqrt(sin(x)**2) Issue
+
+## Problem Summary
+The issue states that `trigsimp` incorrectly simplifies `cos(x) + sqrt(sin(x)**2)` as though it were `cos(x) + sin(x)` for general complex `x`, when it should recognize that `sqrt(sin(x)**2) = |sin(x)|` in general.
+
+## Examination of radsimp.py
+
+The `radsimp.py` file is primarily concerned with rationalizing denominators by removing square roots, particularly handling expressions like `1/(a + b*sqrt(c))`. Looking at the code:
+
+### Key Functions:
+1. **radsimp()** - Main function for rationalizing denominators
+2. **rad_rationalize()** - Helper for removing square roots from denominators
+3. **split_surds()** - Splits expressions with radical terms
+4. **collect_sqrt()** - Collects terms with common square roots
+5. Helper utilities like **fraction()**, **denom()**, **numer()**
+
+### Analysis:
+
+**This file is NOT the direct source of the issue** for the following reasons:
+
+1. **Purpose Mismatch**: `radsimp()` is specifically designed for rationalizing *denominators* by removing square roots. The problematic expression `cos(x) + sqrt(sin(x)**2)` doesn't have a denominator that needs rationalization.
+
+2. **No Direct Simplification of `sqrt(x**2)`**: The code in `radsimp.py` doesn't contain logic to simplify `sqrt(x**2)` to `|x|`. The `ispow2()` and related functions are focused on detecting and handling radical forms in denominators.
+
+3. **The Issue is in trigsimp**: The problem is in the trigonometric simplification logic (`sympy/simplify/trigsimp.py`), not in radical simplification. The `trigsimp` function should handle the simplification of `sqrt(sin(x)**2)` to `|sin(x)|` correctly by:
+   - Checking if the argument of sqrt is a perfect square
+   - Applying appropriate absolute value wrapping for complex arguments
+   - For real-valued `x`, correctly simplifying to `|sin(x)|`
+
+## Conclusion
+
+The `radsimp.py` file is not responsible for this bug. The issue lies in `trigsimp` or related trigonometric simplification functions which need to:
+
+1. Recognize that `sqrt(expr**2)` should become `|expr|` in general
+2. Avoid incorrectly assuming `sqrt(sin(x)**2) = sin(x)` without domain restrictions
+3. Apply proper handling of absolute values when dealing with complex arguments
+
+The fix should be sought in `sympy/simplify/trigsimp.py` and possibly in helper functions that simplify power expressions under the square root.

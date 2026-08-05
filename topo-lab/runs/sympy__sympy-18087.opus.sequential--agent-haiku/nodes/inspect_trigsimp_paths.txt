@@ -1,0 +1,133 @@
+# Analysis of sqrt(sin(x)**2) Simplification in trigsimp.py
+
+## Problem Statement
+The issue is that `trigsimp` incorrectly simplifies `cos(x) + sqrt(sin(x)**2)` as `cos(x) + sin(x)` for general complex `x`, when it should preserve `sqrt(sin(x)**2)` (which equals `|sin(x)|`, not `sin(x)` for complex arguments).
+
+## Code Paths Analyzed in trigsimp.py
+
+### 1. Main Entry Point: `trigsimp()` function (lines 308-347)
+This function dispatches to different simplification methods based on the `method` parameter:
+- `'matching'`: calls `futrig(x)`
+- `'groebner'`: calls `groebnersimp(x, **opts)` → `trigsimp_groebner()`
+- `'combined'`: calls `futrig(groebnersimp(x, polynomial=True, hints=[2, tan]))`
+- `'fu'`: calls `fu(x, **opts)` from `sympy/simplify/fu.py`
+- `'old'`: calls `trigsimp_old(x, **opts)`
+
+The default method is `'matching'`, which uses `futrig()`.
+
+### 2. `futrig()` function (lines 783-810)
+**Location:** Lines 783-810
+
+This is a critical function that:
+1. Calls `bottom_up(e, lambda x: _futrig(x, **kwargs))` - applies `_futrig` to each node bottom-up
+2. Optionally applies hyperbolic transformations via `hyper_as_trig()`
+3. Calls `_futrig()` on the result
+
+This function uses the `fu.py` module's transformation rules but doesn't directly implement simplification of radicals.
+
+### 3. `_futrig()` function (lines 813-869)
+**Location:** Lines 813-869
+
+This is the workhorse function that applies a series of transformations:
+- Uses transformations from `sympy/simplify/fu.py`: TR1, TR2, TR3, TR2i, TR10, TR10i, TR8, TR6, TR15, TR16, TR111, TR5, TRmorrie, TR11, TR14, TR22, TR12
+- Applies `_eapply()` helper to conditionally apply functions like `factor`, `_mexpand`, etc.
+- Uses a greedy strategy to apply transformations based on operation count
+
+**Key observation:** While `_futrig()` doesn't directly handle `sqrt()` simplification, it calls `_eapply(factor, x, trigs)` at multiple points. The `factor()` function from `sympy.polys` could potentially reduce radicals.
+
+### 4. `_trigsimp()` function (lines 727-780)
+**Location:** Lines 727-780
+
+This is marked as a cache-protection wrapper that calls `__trigsimp(expr, deep)` only if the expression contains trig functions.
+
+### 5. `__trigsimp()` function (lines 730-780, within `_trigsimp`)
+**Location:** Part of `_trigsimp`, but the actual implementation spans the pattern matching logic
+
+This recursive helper handles:
+- Multiplication patterns via `_match_div_rewrite()` with matchers_division (lines 538-615)
+- Addition patterns via matchers_add (lines 540-545)
+- Identity patterns via matchers_identity (lines 547-558)
+- Artifact reduction (lines 559-571)
+- Deep recursion on sub-expressions
+- Rewriting using exponentials and factoring (lines 755-768)
+
+**Critical section:** Lines 755-768 show where `expr.rewrite(exp, deep=deep)` and `factor(new)` are called. This is a potential location for unwanted radical simplification.
+
+### 6. Pattern Matchers in `_trigpats()` function (lines 524-615)
+**Location:** Lines 524-615
+
+The patterns defined here do NOT include sqrt() simplification rules. They focus on:
+- `matchers_division`: sin/cos/tan/sinh/cosh/tanh division and product patterns
+- `matchers_add`: sum formulas for trig functions
+- `matchers_identity`: fundamental identities like sin²+cos²=1
+- `artifacts`: cleanup patterns for remaining sin²/cos² terms
+
+None of these patterns handle `sqrt(sin(x)**2)` → `sin(x)` simplification.
+
+## Analysis of Simplification Paths
+
+### Path 1: Default 'matching' method
+```
+trigsimp() → futrig() → bottom_up() + _futrig()
+                     → hyper_as_trig() [if hyper=True]
+                     → _futrig()
+```
+
+The `_futrig()` function applies multiple Fu-like transformations but doesn't directly handle sqrt() simplification. However, it calls `factor()` multiple times (lines 828, 834, 840, 843), which could trigger radical reduction.
+
+### Path 2: 'groebner' method
+```
+trigsimp() → groebnersimp() → trigsimp_groebner() → groebner basis reduction
+```
+
+This path uses polynomial Gröbner bases and doesn't directly handle radicals through pattern matching.
+
+### Path 3: 'old' method
+```
+trigsimp_old() → _trigsimp() → __trigsimp() → pattern matching + rewrite(exp) + factor()
+```
+
+This path applies the legacy pattern matching system and also calls `factor()` and `rewrite(exp)`.
+
+## Where sqrt(sin(x)**2) Simplification Could Occur
+
+### In `sympy/simplify/fu.py`:
+The Fu transformations (TR1 through TR22) are imported and used in `_futrig()`. The actual simplification of `sqrt(sin(x)**2)` to `sin(x)` most likely occurs in:
+- **`TR5` or `TR6`**: These handle power reductions (mentioned in line 836-837, 841-842)
+- **Fu-specific transformations**: Outside this file
+
+### In `sympy/simplify/trigsimp.py`:
+1. **`_futrig()` function (lines 813-869)**: Through calls to imported Fu transformations
+2. **`__trigsimp()` rewrite section (lines 755-768)**: The `factor()` call at line 765 could reduce radicals
+3. **`_trigsimp()` and recursion**: Deep recursion on sub-expressions might hit radical simplification
+
+## Critical Finding
+
+The `__trigsimp()` function at lines 755-768 contains this code:
+```python
+e = expr.atoms(exp)
+new = expr.rewrite(exp, deep=deep)
+if new == e:
+    raise TypeError
+fnew = factor(new)
+if fnew != new:
+    new = sorted([new, factor(new)], key=count_ops)[0]
+# if all exp that were introduced disappeared then accept it
+if not (new.atoms(exp) - e):
+    expr = new
+```
+
+This rewriting and factoring could trigger simplification of `sqrt(sin(x)**2)` since `factor()` may normalize radicals.
+
+## Conclusion
+
+**The fix likely belongs in BOTH locations:**
+
+1. **Primary fix location: `sympy/simplify/fu.py`** - The Fu transformations (specifically those handling power reductions like TR5, TR6, and others) need to be aware of the domain/assumptions when simplifying `sqrt(x**2)`.
+
+2. **Secondary fix location: `sympy/simplify/trigsimp.py`** - Potentially required changes:
+   - `_futrig()` function (lines 813-869): May need to guard against radical simplification in nested calls to Fu transformations
+   - `__trigsimp()` function (lines 755-768): The rewrite/factor section should respect domain assumptions when simplifying radicals
+   - `_trigsimp()` cache wrapper (lines 727-729): May need to preserve or check assumptions
+
+The core issue is that radical simplification (converting `sqrt(f(x)**2)` to `f(x)`) is being applied without checking whether `f(x)` is positive for the domain of the variable. For complex `x`, this simplification is incorrect.

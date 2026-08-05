@@ -1,0 +1,163 @@
+# Analysis of the Bug: cos(x)+sqrt(sin(x)**2) Incorrectly Simplified
+
+## Problem Statement
+The function `trigsimp` incorrectly simplifies `cos(x)+sqrt(sin(x)**2)` to `cos(x)+sin(x)` for general complex `x`, when it should remain as `cos(x)+sqrt(sin(x)**2)` or be simplified to `cos(x)+|sin(x)|`.
+
+For real `x`, the simplification would be correct since `sqrt(sin(x)**2) = |sin(x)|`, but for complex `x`, this is invalid.
+
+## Root Cause Analysis
+
+The issue originates in the `fu.py` module, specifically in the power-reducing transformations that treat `sqrt(sin(x)**2)` (i.e., `sin(x)**2` raised to the power `1/2`) as equivalent to `sin(x)`.
+
+### Key Problematic Function: `_TR56`
+
+**Location**: `sympy/simplify/fu.py`, function `_TR56` (lines approximately 385-430)
+
+**Purpose**: Helper function for `TR5` and `TR6` to replace `f**2` with `h(g**2)` where `f` is either `sin` or `cos`, `g` is the other function, and `h` is a lambda function.
+
+**The Problem**:
+
+```python
+def _TR56(rv, f, g, h, max, pow):
+    def _f(rv):
+        if not (rv.is_Pow and rv.base.func == f):
+            return rv
+        if not rv.exp.is_real:
+            return rv
+
+        if (rv.exp < 0) == True:
+            return rv
+        if (rv.exp > max) == True:
+            return rv
+        if rv.exp == 2:
+            return h(g(rv.base.args[0])**2)
+        else:
+            # ... more code for handling other exponents
+```
+
+The condition `if rv.exp == 2:` handles the case where we have something like `sin(x)**2`, replacing it with `1 - cos(x)**2` (via the lambda `h`).
+
+However, this function is called on expressions like `sin(x)**1` (where the exponent is technically `1/2` after a rewrite step), and the logic that follows in the `else` clause doesn't properly distinguish between:
+- Integer exponents (which can be power-reduced)
+- Non-integer exponents like `1/2` (which should NOT be power-reduced in the same way)
+
+**The actual issue**: When we have `sqrt(sin(x)**2)`, this is represented as `sin(x)**2**0.5` or `(sin(x)**2)**(1/2)`. The problem is that somewhere in the simplification chain, this is being treated as if the base is `sin(x)` with exponent `1`, which then gets further simplified.
+
+### Secondary Problem: Handling in TR5 and TR6
+
+**Functions**: `TR5` (line ~447) and `TR6` (line ~463)
+
+```python
+def TR5(rv, max=4, pow=False):
+    """Replacement of sin**2 with 1 - cos(x)**2."""
+    return _TR56(rv, sin, cos, lambda x: 1 - x, max=max, pow=pow)
+
+def TR6(rv, max=4, pow=False):
+    """Replacement of cos**2 with 1 - sin(x)**2."""
+    return _TR56(rv, cos, sin, lambda x: 1 - x, max=max, pow=pow)
+```
+
+These functions are designed to work with integer powers (specifically `2` and higher even powers). However, they don't explicitly check that the exponent is an even integer before applying transformations.
+
+### The Critical Conditional That Needs Fixing
+
+In `_TR56`, the logic flow:
+
+1. Line checking `if rv.exp == 2:` - handles `f(x)**2` case correctly
+2. The `else` branch (lines ~420-428) handles other exponents but uses `perfect_power` and division operations that don't properly validate the exponent is an integer power of 2.
+
+The problematic code path:
+```python
+else:
+    if rv.exp == 4:
+        e = 2
+    elif not pow:
+        if rv.exp % 2:  # <-- THIS IS THE BUG
+            return rv
+        e = rv.exp//2
+    else:
+        p = perfect_power(rv.exp)
+        if not p:
+            return rv
+        e = rv.exp//2
+    return h(g(rv.base.args[0])**2)**e
+```
+
+The issue is that `rv.exp % 2` checks if the exponent is odd or even, but this operation is only valid when `rv.exp` is an integer. For non-integer exponents like `0.5` or `1/2`, this check should fail differently.
+
+**Specific problem**: When `rv.exp = S.Half` (which is `1/2`):
+- `rv.exp % 2` may not work as expected depending on SymPy's handling
+- Even if it returns a value, the code doesn't explicitly reject fractional exponents
+- The condition `elif not pow:` and the subsequent `if rv.exp % 2:` logic assumes we have integer exponents
+
+### The Real Culprit: Missing Integer Check
+
+The condition that SHOULD be present but is MISSING:
+
+```python
+if not rv.exp.is_integer:  # <-- THIS CHECK IS MISSING
+    return rv
+```
+
+This check should appear early in the `_f` function inside `_TR56`, after checking `if not rv.exp.is_real:`.
+
+## Precise Location of the Bug
+
+**File**: `sympy/simplify/fu.py`
+
+**Function**: `_TR56` (starting around line 395)
+
+**Specific problematic code block** (the `_f` inner function):
+
+```python
+def _f(rv):
+    # I'm not sure if this transformation should target all even powers
+    # or only those expressible as powers of 2. Also, should it only
+    # make the changes in powers that appear in sums -- making an isolated
+    # change is not going to allow a simplification as far as I can tell.
+    if not (rv.is_Pow and rv.base.func == f):
+        return rv
+    if not rv.exp.is_real:
+        return rv
+    # <<< MISSING CHECK HERE >>>
+    if (rv.exp < 0) == True:
+        return rv
+    if (rv.exp > max) == True:
+        return rv
+    if rv.exp == 2:
+        return h(g(rv.base.args[0])**2)
+    else:
+        # ... problematic else clause that doesn't properly handle non-integers
+```
+
+## Required Fix
+
+After the line `if not rv.exp.is_real:`, add:
+
+```python
+if not rv.exp.is_integer:
+    return rv
+```
+
+This will ensure that expressions like `sqrt(sin(x)**2)` (which has a non-integer exponent `1/2` on the outer power, or equivalently represents `sin(x)**2**(1/2)`) are not processed by the power-reduction logic.
+
+Alternatively, within the `else` clause that handles non-2 exponents, the check for `rv.exp % 2` should be guarded with an explicit integer check:
+
+```python
+else:
+    if rv.exp == 4:
+        e = 2
+    elif not pow:
+        if not rv.exp.is_integer or rv.exp % 2:  # <-- Add is_integer check here
+            return rv
+        e = rv.exp//2
+    else:
+        p = perfect_power(rv.exp)
+        if not p:
+            return rv
+        e = rv.exp//2
+```
+
+## Summary
+
+The bug is in the `_TR56` function in `sympy/simplify/fu.py`. The function lacks proper validation that the exponent is an integer before attempting power-reduction transformations. The fix requires adding `if not rv.exp.is_integer: return rv` after the existing `if not rv.exp.is_real: return rv` check, ensuring that non-integer exponents (like `1/2` from square roots) are not subjected to power-reduction transformations designed only for integer powers.

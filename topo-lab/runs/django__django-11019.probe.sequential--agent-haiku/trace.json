@@ -1,0 +1,118 @@
+{
+  "graph": "django__django-11019.probe.sequential.json",
+  "topology": "sequential",
+  "agent": "haiku",
+  "mock": false,
+  "schedule": [
+    [
+      "fix_css"
+    ],
+    [
+      "fix_js"
+    ],
+    [
+      "fix_merge"
+    ],
+    [
+      "make_diff"
+    ]
+  ],
+  "wall_s": 232.99,
+  "total_cost_usd": 0.2489,
+  "overwrite_events": [
+    {
+      "path": "django/forms/widgets.py",
+      "prev_writer": "fix_css",
+      "new_writer": "fix_js"
+    },
+    {
+      "path": "django/forms/widgets.py",
+      "prev_writer": "fix_js",
+      "new_writer": "fix_merge"
+    }
+  ],
+  "nodes": [
+    {
+      "node": "fix_css",
+      "wall_s": 75.0,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 37371,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 10634,
+      "cache_read_tokens": 0,
+      "output_tokens": 10599,
+      "cost_usd": 0.06363,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "django/forms/widgets.py"
+      ]
+    },
+    {
+      "node": "fix_js",
+      "wall_s": 73.91,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 37316,
+          "writer": "fix_css"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 10514,
+      "cache_read_tokens": 32333,
+      "output_tokens": 10535,
+      "cost_usd": 0.06642,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "django/forms/widgets.py"
+      ]
+    },
+    {
+      "node": "fix_merge",
+      "wall_s": 71.18,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 37151,
+          "writer": "fix_js"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 10909,
+      "cache_read_tokens": 32333,
+      "output_tokens": 10551,
+      "cost_usd": 0.0669,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "django/forms/widgets.py"
+      ]
+    },
+    {
+      "node": "make_diff",
+      "wall_s": 12.89,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 37029,
+          "writer": "fix_merge"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 42113,
+      "cache_read_tokens": 32333,
+      "output_tokens": 1326,
+      "cost_usd": 0.05198,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    }
+  ]
+}

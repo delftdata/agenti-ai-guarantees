@@ -1,0 +1,185 @@
+{
+  "graph": "django__django-11099.haiku.overparallel.json",
+  "topology": "overparallel",
+  "agent": "haiku",
+  "mock": false,
+  "schedule": [
+    [
+      "check_test_coverage",
+      "create_test_case",
+      "identify_issue",
+      "read_validator_tests",
+      "read_validators",
+      "update_validators",
+      "verify_regex_change"
+    ],
+    [
+      "generate_diff"
+    ]
+  ],
+  "wall_s": 30.96,
+  "total_cost_usd": 0.0844,
+  "overwrite_events": [],
+  "nodes": [
+    {
+      "node": "check_test_coverage",
+      "wall_s": 9.03,
+      "reads": [],
+      "missing_deps": [
+        "read_validator_tests"
+      ],
+      "input_tokens": 63,
+      "cache_read_tokens": 32175,
+      "output_tokens": 915,
+      "cost_usd": 0.00786,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "create_test_case",
+      "wall_s": 25.72,
+      "reads": [
+        {
+          "path": "tests/auth_tests/test_validators.py",
+          "bytes": 11347,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [
+        "check_test_coverage",
+        "verify_regex_change"
+      ],
+      "input_tokens": 3233,
+      "cache_read_tokens": 32175,
+      "output_tokens": 4281,
+      "cost_usd": 0.02786,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "tests/auth_tests/test_validators.py"
+      ]
+    },
+    {
+      "node": "identify_issue",
+      "wall_s": 7.03,
+      "reads": [],
+      "missing_deps": [
+        "read_validators"
+      ],
+      "input_tokens": 105,
+      "cache_read_tokens": 32175,
+      "output_tokens": 567,
+      "cost_usd": 0.00616,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "read_validator_tests",
+      "wall_s": 7.01,
+      "reads": [
+        {
+          "path": "tests/auth_tests/test_validators.py",
+          "bytes": 11347,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 3149,
+      "cache_read_tokens": 32175,
+      "output_tokens": 547,
+      "cost_usd": 0.0091,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "read_validators",
+      "wall_s": 6.61,
+      "reads": [
+        {
+          "path": "django/contrib/auth/validators.py",
+          "bytes": 685,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 281,
+      "cache_read_tokens": 32175,
+      "output_tokens": 501,
+      "cost_usd": 0.006,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "update_validators",
+      "wall_s": 4.98,
+      "reads": [
+        {
+          "path": "django/contrib/auth/validators.py",
+          "bytes": 685,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [
+        "identify_issue"
+      ],
+      "input_tokens": 374,
+      "cache_read_tokens": 32175,
+      "output_tokens": 354,
+      "cost_usd": 0.00536,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "django/contrib/auth/validators.py"
+      ]
+    },
+    {
+      "node": "verify_regex_change",
+      "wall_s": 6.17,
+      "reads": [
+        {
+          "path": "django/contrib/auth/validators.py",
+          "bytes": 685,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [
+        "update_validators"
+      ],
+      "input_tokens": 308,
+      "cache_read_tokens": 32175,
+      "output_tokens": 450,
+      "cost_usd": 0.00578,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "generate_diff",
+      "wall_s": 5.23,
+      "reads": [
+        {
+          "path": "django/contrib/auth/validators.py",
+          "bytes": 689,
+          "writer": "update_validators"
+        },
+        {
+          "path": "tests/auth_tests/test_validators.py",
+          "bytes": 13294,
+          "writer": "create_test_case"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 8390,
+      "cache_read_tokens": 32175,
+      "output_tokens": 930,
+      "cost_usd": 0.01626,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+# Analysis of tests/auth_tests/test_validators.py
+
+## Current State of Username Validator Tests
+
+The `UsernameValidatorsTests` class contains tests for two username validators:
+
+1. **UnicodeUsernameValidator** - test_unicode_validator()
+   - Valid usernames: 'joe', 'René', 'ᴮᴵᴳᴮᴵᴿᴰ', 'أحمد'
+   - Invalid usernames: "o'connell", "عبد ال", "zerowidth\u200Bspace", "nonbreaking\u00A0space", "en\u2013dash"
+
+2. **ASCIIUsernameValidator** - test_ascii_validator()
+   - Valid usernames: 'glenn', 'GLEnN', 'jean-marc'
+   - Invalid usernames: "o'connell", 'Éric', 'jean marc', "أحمد"
+
+## Issue with Current Tests
+
+**Critical Gap:** Neither test includes cases for trailing newlines. The problem statement indicates that both validators currently accept usernames with trailing newlines due to the use of `$` in their regex patterns instead of `\Z`.
+
+### Examples of Missing Test Cases
+
+The tests should include assertions that reject:
+- 'joe\n' (username with trailing newline)
+- 'glenn\n' (username with trailing newline)
+- 'René\n' (unicode username with trailing newline)
+
+### How the Bug Manifests
+
+The current regex patterns `r'^[\w.@+-]+$'` in both `ASCIIUsernameValidator` and `UnicodeUsernameValidator` use `$` which matches before a trailing newline. This means:
+- `re.match(r'^[\w.@+-]+$', 'username\n')` would incorrectly succeed
+- `re.match(r'\A[\w.@+-]+\Z', 'username\n')` would correctly fail
+
+## What Needs to Be Done
+
+1. **Fix the regex patterns** in `django/contrib/auth/validators.py` to use `\A` and `\Z` instead of `^` and `$`
+2. **Add test cases** to `test_validators.py` that verify usernames with trailing newlines are rejected
+
+These tests should be added to both `test_unicode_validator()` and `test_ascii_validator()` methods to ensure the validators properly reject such invalid usernames.

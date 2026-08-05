@@ -1,0 +1,87 @@
+===== test_Factors: FAIL =====
+
+=================================== ERRORS ====================================
+_____________ ERROR collecting sympy/core/tests/test_exprtools.py _____________
+sympy\core\tests\test_exprtools.py:11: in <module>
+    from sympy.utilities.pytest import raises
+sympy\utilities\pytest.py:204: in <module>
+    XFAIL = py.test.mark.xfail
+E   AttributeError: module 'py' has no attribute 'test'
+============================== warnings summary ===============================
+..\..\..\..\..\..\Asus TUF\desktop\topo-lab\.venv38\lib\site-packages\_pytest\config\__init__.py:1441
+  C:\Users\Asus TUF\desktop\topo-lab\.venv38\lib\site-packages\_pytest\config\__init__.py:1441: PytestConfigWarning: Unknown config option: doctestplus
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+                               DO *NOT* COMMIT!                               
+=========================== short test summary info ===========================
+ERROR sympy/core/tests/test_exprtools.py - AttributeError: module 'py' has no...
+1 warning, 1 error in 0.50s
+
+--- stderr ---
+ERROR: found no collectors for C:\Users\ASUSTU~1\AppData\Local\Temp\tmpnuvuwhak\wt\sympy\core\tests\test_exprtools.py::test_Factors
+
+
+
+===== test_fu: FAIL =====
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________________________________ test_fu ___________________________________
+
+    def test_fu():
+    
+        assert fu(sin(50)**2 + cos(50)**2 + sin(pi/6)) == Rational(3, 2)
+        assert fu(sqrt(6)*cos(x) + sqrt(2)*sin(x)) == 2*sqrt(2)*sin(x + pi/3)
+    
+    
+        eq = sin(x)**4 - cos(y)**2 + sin(y)**2 + 2*cos(x)**2
+        assert fu(eq) == cos(x)**4 - 2*cos(y)**2 + 2
+    
+        assert fu(S.Half - cos(2*x)/2) == sin(x)**2
+    
+        assert fu(sin(a)*(cos(b) - sin(b)) + cos(a)*(sin(b) + cos(b))) == \
+            sqrt(2)*sin(a + b + pi/4)
+    
+        assert fu(sqrt(3)*cos(x)/2 + sin(x)/2) == sin(x + pi/3)
+    
+        assert fu(1 - sin(2*x)**2/4 - sin(y)**2 - cos(x)**4) == \
+            -cos(x)**2 + cos(y)**2
+    
+        assert fu(cos(pi*Rational(4, 9))) == sin(pi/18)
+        assert fu(cos(pi/9)*cos(pi*Rational(2, 9))*cos(pi*Rational(3, 9))*cos(pi*Rational(4, 9))) == Rational(1, 16)
+    
+        assert fu(
+            tan(pi*Rational(7, 18)) + tan(pi*Rational(5, 18)) - sqrt(3)*tan(pi*Rational(5, 18))*tan(pi*Rational(7, 18))) == \
+            -sqrt(3)
+    
+        assert fu(tan(1)*tan(2)) == tan(1)*tan(2)
+    
+        expr = Mul(*[cos(2**i) for i in range(10)])
+        assert fu(expr) == sin(1024)/(1024*sin(1))
+    
+        # issue #18059:
+>       assert fu(cos(x) + sqrt(sin(x)**2)) == cos(x) + sqrt(sin(x)**2)
+E       assert sqrt(2)*sin(x + pi/4) == (cos(x) + sqrt(sin(x)**2))
+E        +  where sqrt(2)*sin(x + pi/4) = fu((cos(x) + sqrt(sin(x)**2)))
+E        +    where cos(x) = cos(x)
+E        +    and   sqrt(sin(x)**2) = sqrt((sin(x) ** 2))
+E        +      where sin(x) = sin(x)
+E        +  and   cos(x) = cos(x)
+E        +  and   sqrt(sin(x)**2) = sqrt((sin(x) ** 2))
+E        +    where sin(x) = sin(x)
+
+sympy\simplify\tests\test_fu.py:280: AssertionError
+============================== warnings summary ===============================
+..\..\..\..\..\..\Asus TUF\desktop\topo-lab\.venv38\lib\site-packages\_pytest\config\__init__.py:1441
+  C:\Users\Asus TUF\desktop\topo-lab\.venv38\lib\site-packages\_pytest\config\__init__.py:1441: PytestConfigWarning: Unknown config option: doctestplus
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+                               DO *NOT* COMMIT!                               
+=========================== short test summary info ===========================
+FAILED sympy/simplify/tests/test_fu.py::test_fu - assert sqrt(2)*sin(x + pi/4...
+1 failed, 1 warning in 0.96s
+
+--- stderr ---

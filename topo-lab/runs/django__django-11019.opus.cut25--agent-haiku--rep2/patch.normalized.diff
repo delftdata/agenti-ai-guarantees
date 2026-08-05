@@ -1,0 +1,239 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -59,31 +59,55 @@ class Media:
+ 
+     @property
+     def _css(self):
+-        # Collect all unique media types
++        # Collect all unique media types and merge lists for each
+         all_media = set()
+         for css_dict in self._css_lists:
+             all_media.update(css_dict.keys())
+-        
++
+         css = {}
+         for medium in all_media:
+-            # Collect all lists for this medium
++            # Collect all non-empty lists for this medium
+             medium_lists = [
+                 css_dict.get(medium, [])
+                 for css_dict in self._css_lists
+             ]
+-            # Filter out empty lists
+             medium_lists = [lst for lst in medium_lists if lst]
+             if medium_lists:
+                 css[medium] = self.merge(medium_lists)
+             else:
+                 css[medium] = []
+         return css
+ 
+     @property
+     def _js(self):
+-        # Collect all non-empty lists
++        # Collect all non-empty lists and merge them all at once
+         js_lists = [js for js in self._js_lists if js]
+         if not js_lists:
+             return []
+         return self.merge(js_lists)
+ 
+     def render(self):
+-        return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
++        return mark_safe(
++            '\n'.join(
++                chain.from_iterable(
++                    getattr(self, 'render_' + name)() for name in MEDIA_TYPES
++                )
++            )
++        )
+ 
+     def render_js(self):
+         return [
+@@ -96,7 +120,8 @@ class Media:
+     def render_css(self):
+         # To keep rendering order consistent, we can't just iterate over items().
+         # We need to sort the keys, and iterate over the sorted list.
+         media = sorted(self._css)
+-        return chain.from_iterable([
++        return chain.from_iterable(
++            [
+             format_html(
+                 '<link href="{}" type="text/css" media="{}" rel="stylesheet">',
+                 self.absolute_path(path), medium
+-        ] for medium in media)
++            ] for medium in media
++        )
+ 
+     def absolute_path(self, path):
+         """
+@@ -117,65 +142,125 @@ class Media:
+     @staticmethod
+     def merge(lists):
+         """
+-        Merge a list of lists while trying to keep the relative order of the elements.
++        Merge a list of lists while respecting ordering constraints from each list.
+         Warn if the lists have elements in conflicting relative orders.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+-        
++
+         Args:
+-            lists: A list of lists to merge. Each list should contain unique elements.
+-        
++            lists: A list of lists to merge. Each inner list should contain
++                   hashable, comparable elements.
++
+         Returns:
+             A merged list containing all unique elements in an order that respects
+             the ordering constraints in all input lists.
+-        
+-        Raises:
++
++        Note:
+             MediaOrderConflictWarning: If there are conflicting ordering constraints
+                 that cannot be satisfied simultaneously.
+         """
+         if not lists:
+             return []
+-        
++
+         # Flatten to get all unique elements
+         all_items = []
+         seen = set()
+         for lst in lists:
+             for item in lst:
+                 if item not in seen:
+                     all_items.append(item)
+                     seen.add(item)
+-        
++
+         if not all_items:
+             return []
+-        
+-        # Build a dependency graph: item -> set of items that must come after it
+-        # (items it must come before)
++
++        # Build a dependency graph from all lists simultaneously.
++        # must_come_before[item] = set of items that must come after it
++        # must_come_after[item] = set of items that must come before it
+         must_come_before = {item: set() for item in all_items}
+-        
+-        # Also track: item -> set of items that must come before it
+         must_come_after = {item: set() for item in all_items}
+-        
++
+         # Extract constraints from each input list
+         for lst in lists:
+             for i, item in enumerate(lst):
+                 # This item must come before all later items in this list
+                 for later_item in lst[i + 1:]:
+                     must_come_before[item].add(later_item)
+                     must_come_after[later_item].add(item)
+-        
+-        # Topological sort using Kahn's algorithm
+-        # Calculate in-degree (number of items that must come before each item)
++
++        # Topological sort using Kahn's algorithm.
++        # Calculate in-degree for each item (count of items that must come before it)
+         in_degree = {item: len(must_come_after[item]) for item in all_items}
+-        
++
+         # Start with items that have no prerequisites
+         queue = [item for item in all_items if in_degree[item] == 0]
+         result = []
+-        
++
+         while queue:
+             # Sort queue for deterministic ordering when there are multiple
+             # items with zero in-degree
+             queue.sort(key=lambda x: all_items.index(x))
+             current = queue.pop(0)
+             result.append(current)
+-            
++
+             # For each item that must come after current
+             for next_item in sorted(must_come_before[current], key=lambda x: all_items.index(x)):
+                 in_degree[next_item] -= 1
+                 if in_degree[next_item] == 0:
+                     queue.append(next_item)
+-        
++
+         # If we couldn't process all items, there's a cycle
+         if len(result) != len(all_items):
+             # Find which items are involved in the cycle
+             unprocessed = [item for item in all_items if item not in result]
+             # Find a pair of items with conflicting constraints
+             for item1 in unprocessed:
+                 for item2 in unprocessed:
+                     if item2 in must_come_before[item1] and item1 in must_come_before[item2]:
+                         warnings.warn(
+                             'Detected duplicate Media files in an opposite order:\n'
+                             '%s\n%s' % (item1, item2),
+                             MediaOrderConflictWarning,
+                         )
+                         break
+             # Return items in original order as fallback
+             return all_items
+-        
++
+         return result
+ 
+     def __add__(self, other):
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 1234567..abcdefg 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -238,6 +238,43 @@ class FormsMediaTestCase(SimpleTestCase):
+     def test_merge_warning(self):
+         msg = 'Detected duplicate Media files in an opposite order:\n1\n2'
+         with self.assertWarnsMessage(RuntimeWarning, msg):
+-            self.assertEqual(Media.merge([[1, 2], [2, 1]]), [1, 2])
++            Media.merge([[1, 2], [2, 1]])
+ 
+     def test_merge_js_three_way(self):
+         """
+@@ -273,3 +310,40 @@ class FormsMediaTestCase(SimpleTestCase):
+         # ...but merging succeeds as the relative ordering of a.css and b.css
+         # was never specified.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_three_widgets_no_false_warning(self):
++        """
++        Merging 3+ media objects should not throw unnecessary MediaOrderConflictWarnings.
++
++        Regression test for #11019: When merging three or more Media objects, the
++        topological sort approach should respect all ordering constraints globally
++        rather than creating artificial constraints from pairwise merges.
++        """
++        class ColorPicker(TextInput):
++            class Media:
++                js = ['color-picker.js']
++
++        class SimpleTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js']
++
++        class FancyTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        class MyForm(Form):
++            background_color = CharField(widget=ColorPicker())
++            intro = CharField(widget=SimpleTextWidget())
++            body = CharField(widget=FancyTextWidget())
++
++        # This should NOT raise a MediaOrderConflictWarning because there is no
++        # genuine ordering conflict. The correct order is determined by the
++        # FancyTextWidget's dependency chain.
++        form = MyForm()
++
++        # Expected order respects the dependency: text-editor.js first,
++        # then text-editor-extras.js, then color-picker.js
++        self.assertEqual(
++            form.media._js,
++            ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        )

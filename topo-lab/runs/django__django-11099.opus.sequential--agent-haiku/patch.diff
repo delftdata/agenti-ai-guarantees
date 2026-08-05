@@ -1,0 +1,71 @@
+```diff
+diff --git a/django/contrib/auth/validators.py b/django/contrib/auth/validators.py
+index 1234567..abcdefg 100644
+--- a/django/contrib/auth/validators.py
++++ b/django/contrib/auth/validators.py
+@@ -6,7 +6,7 @@ from django.utils.translation import gettext_lazy as _
+ 
+ @deconstructible
+ class ASCIIUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only English letters, '
+         'numbers, and @/./+/-/_ characters.'
+@@ -16,7 +16,7 @@ class ASCIIUsernameValidator(validators.RegexValidator):
+ 
+ @deconstructible
+ class UnicodeUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only letters, '
+         'numbers, and @/./+/-/_ characters.'
+diff --git a/tests/auth_tests/test_validators.py b/tests/auth_tests/test_validators.py
+index 1234567..abcdefg 100644
+--- a/tests/auth_tests/test_validators.py
++++ b/tests/auth_tests/test_validators.py
+@@ -107,6 +107,42 @@ class UsernameValidatorsTests(SimpleTestCase):
+             with self.assertRaises(ValidationError):
+                 v(invalid)
+ 
++    def test_unicode_validator_rejects_trailing_newline(self):
++        """UnicodeUsernameValidator should reject usernames with trailing newlines."""
++        v = validators.UnicodeUsernameValidator()
++        with self.assertRaises(ValidationError):
++            v('trailingnewline\n')
++
++    def test_unicode_validator_rejects_leading_newline(self):
++        """UnicodeUsernameValidator should reject usernames with leading newlines."""
++        v = validators.UnicodeUsernameValidator()
++        with self.assertRaises(ValidationError):
++            v('\nleadingnewline')
++
++    def test_unicode_validator_rejects_embedded_newline(self):
++        """UnicodeUsernameValidator should reject usernames with embedded newlines."""
++        v = validators.UnicodeUsernameValidator()
++        with self.assertRaises(ValidationError):
++            v('embedded\nnewline')
++
++    def test_ascii_validator_rejects_trailing_newline(self):
++        """ASCIIUsernameValidator should reject usernames with trailing newlines."""
++        v = validators.ASCIIUsernameValidator()
++        with self.assertRaises(ValidationError):
++            v('trailingnewline\n')
++
++    def test_ascii_validator_rejects_leading_newline(self):
++        """ASCIIUsernameValidator should reject usernames with leading newlines."""
++        v = validators.ASCIIUsernameValidator()
++        with self.assertRaises(ValidationError):
++            v('\nleadingnewline')
++
++    def test_ascii_validator_rejects_embedded_newline(self):
++        """ASCIIUsernameValidator should reject usernames with embedded newlines."""
++        v = validators.ASCIIUsernameValidator()
++        with self.assertRaises(ValidationError):
++            v('embedded\nnewline')
++
+ 
+ @override_settings(AUTH_PASSWORD_VALIDATORS=[
+     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+```

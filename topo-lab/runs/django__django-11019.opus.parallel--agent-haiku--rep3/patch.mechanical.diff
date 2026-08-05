@@ -1,0 +1,149 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..78709da439 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -63,18 +63,19 @@ class Media:
+         # filter(None, ...) avoids calling merge with empty dicts.
+         for obj in filter(None, self._css_lists[1:]):
+             css = {
+-                medium: self.merge(css.get(medium, []), obj.get(medium, []))
++                medium: self.merge_lists([css.get(medium, []), obj.get(medium, [])])
+                 for medium in css.keys() | obj.keys()
+             }
+         return css
+ 
+     @property
+     def _js(self):
+-        js = self._js_lists[0]
+-        # filter(None, ...) avoids calling merge() with empty lists.
+-        for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
+-        return js
++        js_lists = [lst for lst in self._js_lists if lst]
++        if not js_lists:
++            return []
++        if len(js_lists) == 1:
++            return list(js_lists[0])
++        return self.merge_lists(js_lists)
+ 
+     def render(self):
+         return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+@@ -115,39 +116,91 @@ class Media:
+         raise KeyError('Unknown media type "%s"' % name)
+ 
+     @staticmethod
+-    def merge(list_1, list_2):
++    def merge_lists(lists):
+         """
+-        Merge two lists while trying to keep the relative order of the elements.
+-        Warn if the lists have the same two elements in a different relative
+-        order.
++        Merge a list of lists while trying to keep the relative order of the elements.
++        Warn if two elements appear in opposite order in different lists (genuine conflict).
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++        if not lists:
++            return []
++        
++        # Flatten and collect all unique items
++        all_items = []
++        seen = set()
++        for lst in lists:
++            for item in lst:
++                if item not in seen:
++                    all_items.append(item)
++                    seen.add(item)
++        
++        if not all_items:
++            return []
++        
++        # Build a graph of ordering constraints: item -> set of items that must come after it
++        # Key insight: we only care about direct precedence relationships within each list
++        must_come_after = {item: set() for item in all_items}
++        
++        for lst in lists:
++            for i, item in enumerate(lst):
++                for j in range(i + 1, len(lst)):
++                    must_come_after[lst[i]].add(lst[j])
++        
++        # Check for genuine conflicts: if A must come before B in some list
++        # and B must come before A in another list, that's a real conflict.
++        conflicts = []
++        for item_a in all_items:
++            for item_b in must_come_after[item_a]:
++                if item_a in must_come_after[item_b]:
++                    # item_a must come before item_b AND item_b must come before item_a
++                    # This is a genuine conflict. Warn about it.
++                    if (item_a, item_b) not in [(c[0], c[1]) for c in conflicts]:
++                        conflicts.append((item_a, item_b))
++        
++        if conflicts:
++            # Warn about the first conflict found
++            item_a, item_b = conflicts[0]
++            warnings.warn(
++                'Detected duplicate Media files in an opposite order:\n'
++                '%s\n%s' % (item_a, item_b),
++                MediaOrderConflictWarning,
++            )
++        
++        # Perform topological sort using Kahn's algorithm
++        in_degree = {item: 0 for item in all_items}
++        graph = {item: set() for item in all_items}
++        
++        for item in all_items:
++            for next_item in must_come_after[item]:
++                graph[item].add(next_item)
++                in_degree[next_item] += 1
++        
++        # Handle cycles by breaking conflicting edges
++        queue = [item for item in all_items if in_degree[item] == 0]
++        result = []
++        
++        while queue:
++            # Sort queue for deterministic ordering when there are no constraints
++            queue.sort(key=lambda x: all_items.index(x))
++            node = queue.pop(0)
++            result.append(node)
++            
++            for neighbor in sorted(graph[node], key=lambda x: all_items.index(x)):
++                in_degree[neighbor] -= 1
++                if in_degree[neighbor] == 0:
++                    queue.append(neighbor)
++        
++        # If we have cycles, we haven't consumed all nodes. 
++        # Fall back to a conservative merge that preserves first-appearance order
++        if len(result) != len(all_items):
++            # There are genuine cycles. Return items in order of first appearance
++            # This shouldn't happen in practice if we warned about conflicts
++            return all_items
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()

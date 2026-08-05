@@ -1,0 +1,7 @@
+# regenerate with: python scripts/task_setup.py
+tasks/*/repo/
+.venv/
+.venv38/
+__pycache__/
+*.pyc
+runs/*--mock*/

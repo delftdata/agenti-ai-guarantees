@@ -1,0 +1,39 @@
+The current file contents show that the regex patterns have NOT yet been changed. Both validators still use the old anchors:
+
+- `ASCIIUsernameValidator.regex = r'^[\w.@+-]+$'`
+- `UnicodeUsernameValidator.regex = r'^[\w.@+-]+$'`
+
+To resolve the issue, both need to be changed to `r'\A[\w.@+-]+\Z'`. Below is the unified diff that makes this change.
+
+```diff
+--- a/django/contrib/auth/validators.py
++++ b/django/contrib/auth/validators.py
+@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
+ 
+ @deconstructible
+ class ASCIIUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only English letters, '
+         'numbers, and @/./+/-/_ characters.'
+@@ -17,7 +17,7 @@ class ASCIIUsernameValidator(validators.RegexValidator):
+ 
+ @deconstructible
+ class UnicodeUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only letters, '
+         'numbers, and @/./+/-/_ characters.'
+```
+
+Analysis summary:
+
+1. The `^` anchor matches the start of the string (or line in MULTILINE mode), and `\A` matches only the start of the string. Since MULTILINE is not enabled here, `^` and `\A` behave the same in practice for the start.
+
+2. The critical difference is at the end: `$` matches at the end of the string OR just before a trailing newline. This means a username like `"user\n"` would incorrectly pass validation. Replacing `$` with `\Z` (which matches only at the very end of the string) fixes this, rejecting usernames ending in a newline.
+
+3. Both `ASCIIUsernameValidator` and `UnicodeUsernameValidator` must be updated, since they both had the same flawed pattern.
+
+After applying the diff, both validators will use `r'\A[\w.@+-]+\Z'`, which correctly rejects trailing newlines while preserving all other valid username behavior.

@@ -1,0 +1,41 @@
+Looking at the problem, I need to understand the issue:
+
+1. The current regex patterns use `^` and `$` which in Python regex will match the beginning and end of a string, but `$` also matches before a trailing newline character.
+2. The fix is to use `\A` (absolute beginning of string) and `\Z` (absolute end of string) instead, which don't have this behavior.
+3. I need to update both `ASCIIUsernameValidator` and `UnicodeUsernameValidator` classes.
+
+Let me verify this is the correct approach by examining the current file content provided. Both validators use `regex = r'^[\w.@+-]+$'` and need to be changed to `regex = r'\A[\w.@+-]+\Z'`.
+
+===FILE: django/contrib/auth/validators.py===
+import re
+
+from django.core import validators
+from django.utils.deconstruct import deconstructible
+from django.utils.translation import gettext_lazy as _
+
+
+@deconstructible
+class ASCIIUsernameValidator(validators.RegexValidator):
+    regex = r'\A[\w.@+-]+\Z'
+    message = _(
+        'Enter a valid username. This value may contain only English letters, '
+        'numbers, and @/./+/-/_ characters.'
+    )
+    flags = re.ASCII
+
+
+@deconstructible
+class UnicodeUsernameValidator(validators.RegexValidator):
+    regex = r'\A[\w.@+-]+\Z'
+    message = _(
+        'Enter a valid username. This value may contain only letters, '
+        'numbers, and @/./+/-/_ characters.'
+    )
+    flags = 0
+===END===
+
+The changes made:
+- Updated `ASCIIUsernameValidator.regex` from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'`
+- Updated `UnicodeUsernameValidator.regex` from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'`
+
+These changes ensure that usernames with trailing newlines will be rejected by both validators, fixing the security/validation issue described in the problem statement.

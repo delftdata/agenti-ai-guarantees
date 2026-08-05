@@ -1,0 +1,49 @@
+The bug is in the `_TR56` helper function in `sympy/simplify/fu.py`, which is used by both `TR5` (sin-pow → cos-pow) and `TR6` (cos-pow → sin-pow).
+
+The problematic guard checks only `rv.exp.is_real`:
+
+```python
+if not rv.exp.is_real:
+    return rv
+```
+
+This allows non-integer exponents such as `1/2` (from `sqrt`) to pass through. When processing `sqrt(sin(x)**2)`, the transformation applies the Pythagorean identity `sin(x)**2 -> 1 - cos(x)**2` to the base of a fractional power. That identity is only unconditionally valid inside a `Pow` when the exponent is an integer, or when the base is known to be positive (so square-root branch behavior is predictable). For a general complex `x`, `sqrt(sin(x)**2) != sin(x)`.
+
+The fix is to change the guard to require an integer exponent or a positive base, consistent with the checks used elsewhere in `fu.py` (e.g. TR8, TR2i, TR14, TR111 all condition on `e.is_integer or base.is_positive`):
+
+```diff
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ def _TR56(rv, f, g, h, max, pow):
+     def _f(rv):
+         # I'm not sure if this transformation should target all even powers
+         # or only those expressible as powers of 2. Also, should it only
+         # make the changes in powers that appear in sums -- making an isolated
+         # change is not going to allow a simplification as far as I can tell.
+         if not (rv.is_Pow and rv.base.func == f):
+             return rv
+-        if not rv.exp.is_real:
++        if not (rv.exp.is_integer or rv.base.is_positive):
+             return rv
+ 
+         if (rv.exp < 0) == True:
+             return rv
+```
+
+Here is the unified diff resolving the issue:
+
+```diff
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ -503,7 +503,7 @@ def _TR56(rv, f, g, h, max, pow):
+         # change is not going to allow a simplification as far as I can tell.
+         if not (rv.is_Pow and rv.base.func == f):
+             return rv
+-        if not rv.exp.is_real:
++        if not (rv.exp.is_integer or rv.base.is_positive):
+             return rv
+ 
+         if (rv.exp < 0) == True:
+```
+
+This prevents `_TR56` (and therefore `TR5`, `TR6`, `_futrig`, `fu`, and `trigsimp`) from rewriting the base of a fractional power like `sqrt(sin(x)**2)`, so `cos(x) + sqrt(sin(x)**2)` is no longer incorrectly simplified to `cos(x) + sin(x)` for a general complex `x`. When `x` is real (base positive/reality determinable), the transformation still applies correctly.

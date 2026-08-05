@@ -1,0 +1,134 @@
+```diff
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -131,7 +131,8 @@ class Media:
+     @staticmethod
+     def merge(lists_to_merge):
+         """
+-        Merge a list of lists while preserving order constraints within each list.
++        Merge multiple lists while preserving order constraints within each list.
++        Uses a topological sort-like approach to detect genuine conflicts.
+         
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+@@ -139,11 +140,11 @@ class Media:
+         """
+         # Filter out empty lists
+         lists_to_merge = [lst for lst in lists_to_merge if lst]
+         
+         if not lists_to_merge:
+             return []
+         
+         if len(lists_to_merge) == 1:
+             return list(lists_to_merge[0])
+         
+         # Build a dependency graph: for each item, track what must come before it
+         # based on the lists we're merging
+         dependencies = {}  # item -> set of items that must come before it
+         all_items = []
+         
+         for lst in lists_to_merge:
+             for item in lst:
+                 if item not in dependencies:
+                     dependencies[item] = set()
+                     all_items.append(item)
+             
+             # Add ordering constraints within this list
+             for i in range(len(lst) - 1):
+                 dependencies[lst[i + 1]].add(lst[i])
+         
+         # Topological sort with cycle detection
+         result = []
+         remaining_deps = {item: set(deps) for item, deps in dependencies.items()}
+         
+         while remaining_deps:
+             # Find items with no remaining dependencies
+             ready = [item for item, deps in remaining_deps.items() if not deps]
+             
+             if not ready:
+                 # Cycle detected - we have a genuine conflict
+                 # Report which items are in conflict
+                 conflicting = list(remaining_deps.keys())
+                 if len(conflicting) >= 2:
+                     warnings.warn(
+                         'Detected duplicate Media files in an opposite order:\n'
+                         '%s\n%s' % (conflicting[0], conflicting[1]),
+                         MediaOrderConflictWarning,
+                     )
+                 # Break the cycle by taking the first item
+                 ready = [conflicting[0]]
+             
+             # Sort ready items to ensure deterministic output (prefer earlier occurrences)
+             ready.sort(key=lambda x: all_items.index(x))
+             
+             # Add the first ready item to result
+             item = ready[0]
+             result.append(item)
+             del remaining_deps[item]
+             
+             # Remove this item from other items' dependencies
+             for deps in remaining_deps.values():
+                 deps.discard(item)
+         
+         return result
+ 
+     def __add__(self, other):
+         combined = Media()
+         combined._css_lists = self._css_lists + other._css_lists
+         combined._js_lists = self._js_lists + other._js_lists
+         return combined
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 2345678..bcdefgh 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -383,6 +383,46 @@ class FormsMediaTestCase(SimpleTestCase):
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
+ 
++    def test_merge_js_dependencies_without_warning(self):
++        """
++        Test for issue #11019: merging 3+ media objects with dependencies
++        should not raise MediaOrderConflictWarning when there's no actual conflict.
++        
++        Scenario: text-editor-extras.js depends on text-editor.js, and we're
++        merging widgets with independent and dependent scripts.
++        """
++        # ColorPicker widget with independent script
++        color_picker_media = Media(js=['color-picker.js'])
++        
++        # SimpleTextWidget with independent script
++        simple_text_media = Media(js=['text-editor.js'])
++        
++        # FancyTextWidget with ordered dependencies: text-editor.js must come
++        # before text-editor-extras.js, followed by color-picker.js
++        fancy_text_media = Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
++        
++        # Merging these three should not raise a warning because the topological
++        # sort correctly identifies that text-editor.js -> text-editor-extras.js
++        # is a real dependency and color-picker.js is independent
++        merged = color_picker_media + simple_text_media + fancy_text_media
++        
++        # Expected order respects the dependency chain
++        self.assertEqual(
++            merged._js,
++            ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        )
++
++    def test_merge_genuinely_conflicting_order_warning(self):
++        """
++        Test that MediaOrderConflictWarning is still raised for genuine
++        ordering conflicts (not just missing dependencies).
++        """
++        # Create a genuine conflict: a -> b -> a (cyclic or impossible ordering)
++        msg = 'Detected duplicate Media files in an opposite order:\nb\na'
++        with self.assertWarnsMessage(RuntimeWarning, msg):
++            result = Media.merge(['a', 'b'], ['b', 'a'])
++            # The result should still be valid (deduped), just with a warning
++            self.assertIn('a', result)
++            self.assertIn('b', result)
+ 
+     def test_merge_warning(self):
+         msg = 'Detected duplicate Media files in an opposite order:\n1\n2'
+```

@@ -1,0 +1,78 @@
+Looking at the problem and the current state of the validators file, I can see that the regex patterns in `django/contrib/auth/validators.py` have already been changed to use `\A` and `\Z` instead of `^` and `$`. The test file also already contains the tests for rejecting trailing newlines.
+
+Let me verify what the actual current state is by checking if there are any differences needed. Since the problem statement says the current validators file shows:
+
+```python
+@deconstructible
+class ASCIIUsernameValidator(validators.RegexValidator):
+    regex = r'\A[\w.@+-]+\Z'
+```
+
+And the validators already use `\A` and `\Z`, it appears the fix has already been applied. However, the test file shows the tests are already present as well.
+
+Let me create a diff that shows no changes are needed, or verify if the original problem statement indicated a different state. Looking back at the issue description, it says the validators currently use `r'^[\w.@+-]+$'` and need to be changed to `r'\A[\w.@+-]+\Z'`.
+
+But the current contents show they're already fixed. Since the task asks me to generate a diff and the current state already has the fix, I need to show what the change would be from the unfixed state. Let me create the appropriate diff:
+
+```diff
+--- a/django/contrib/auth/validators.py
++++ b/django/contrib/auth/validators.py
+@@ -9,7 +9,7 @@ from django.utils.translation import gettext_lazy as _
+ @deconstructible
+ class ASCIIUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only English letters, '
+         'numbers, and @/./+/-/_ characters.'
+@@ -19,7 +19,7 @@ class ASCIIUsernameValidator(validators.RegexValidator):
+ 
+ @deconstructible
+ class UnicodeUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only letters, '
+         'numbers, and @/./+/-/_ characters.'
+--- a/tests/auth_tests/test_validators.py
++++ b/tests/auth_tests/test_validators.py
+@@ -135,6 +135,25 @@ class UsernameValidatorsTests(SimpleTestCase):
+                 with self.assertRaises(ValidationError):
+                     v(invalid)
+ 
++    def test_unicode_validator_rejects_trailing_newline(self):
++        """Test that UnicodeUsernameValidator rejects usernames with trailing newlines."""
++        v = validators.UnicodeUsernameValidator()
++        invalid_usernames = [
++            'joe\n',
++            'René\n',
++            'joe\r\n',
++            'joe\r',
++        ]
++        for invalid in invalid_usernames:
++            with self.subTest(invalid=invalid):
++                with self.assertRaises(ValidationError):
++                    v(invalid)
++
+     def test_ascii_validator(self):
+         valid_usernames = ['glenn', 'GLEnN', 'jean-marc']
+         invalid_usernames = ["o'connell", 'Éric', 'jean marc', "أحمد"]
+@@ -147,3 +166,22 @@ class UsernameValidatorsTests(SimpleTestCase):
+             with self.subTest(invalid=invalid):
+                 with self.assertRaises(ValidationError):
+                     v(invalid)
++
++    def test_ascii_validator_rejects_trailing_newline(self):
++        """Test that ASCIIUsernameValidator rejects usernames with trailing newlines."""
++        v = validators.ASCIIUsernameValidator()
++        invalid_usernames = [
++            'glenn\n',
++            'jean-marc\n',
++            'glenn\r\n',
++            'glenn\r',
++        ]
++        for invalid in invalid_usernames:
++            with self.subTest(invalid=invalid):
++                with self.assertRaises(ValidationError):
++                    v(invalid)
+```

@@ -1,0 +1,47 @@
+Looking at the test file, I can analyze how the username validators are tested.
+
+## Analysis of Username Validation Tests
+
+### Test Class: `UsernameValidatorsTests`
+
+This class (a `SimpleTestCase`) contains two test methods that validate the behavior of the two username validators.
+
+### 1. `test_unicode_validator`
+
+Tests `validators.UnicodeUsernameValidator()`:
+
+- **Valid usernames** (should pass validation): `['joe', 'René', 'ᴮᴵᴳᴮᴵᴿᴰ', 'أحمد']` — these include ASCII, accented Latin, and non-Latin (Arabic, unicode superscript) characters, confirming that the unicode validator accepts a broad range of word characters.
+- **Invalid usernames** (should raise `ValidationError`): 
+  - `"o'connell"` (apostrophe not allowed)
+  - `"عبد ال"` (contains a space)
+  - `"zerowidth\u200Bspace"` (zero-width space)
+  - `"nonbreaking\u00A0space"` (non-breaking space)
+  - `"en\u2013dash"` (en-dash, not the regular hyphen)
+
+### 2. `test_ascii_validator`
+
+Tests `validators.ASCIIUsernameValidator()`:
+
+- **Valid usernames**: `['glenn', 'GLEnN', 'jean-marc']` — lowercase, mixed-case, and hyphenated ASCII names.
+- **Invalid usernames**: `["o'connell", 'Éric', 'jean marc', "أحمد"]` — apostrophe, non-ASCII accented character, space, and non-ASCII script.
+
+### Testing Pattern
+
+Both methods follow an identical structure:
+1. Define lists of valid and invalid usernames.
+2. Instantiate the validator.
+3. Loop through valid usernames, wrapping each in `self.subTest(valid=valid)` and calling the validator (`v(valid)`) — expecting no exception.
+4. Loop through invalid usernames, wrapping each in `self.subTest(invalid=invalid)` and asserting that `v(invalid)` raises `ValidationError`.
+
+The use of `subTest` ensures each individual username is tested independently, so one failure doesn't halt the others and failures are clearly attributable.
+
+### Relevance to the Task (Trailing Newline Bug)
+
+The problem statement describes that the regex `r'^[\w.@+-]+$'` allows a trailing newline because `$` matches before a trailing newline in Python. 
+
+**Notably, the current tests do NOT include any test cases with trailing newlines.** For example, there is no `'joe\n'` in the invalid lists. This means:
+
+- To properly fix the bug and demonstrate it's resolved, new invalid entries like `'trailingnewline\n'` should be added to the `invalid_usernames` lists in **both** `test_unicode_validator` and `test_ascii_validator`.
+- After changing the validator regexes from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'` (in `django/contrib/auth/validators.py`), these new test cases would confirm that usernames ending in newlines are correctly rejected.
+
+The existing test infrastructure (the `subTest` loop over invalid usernames) makes adding these newline test cases trivial — simply appending the newline-terminated strings to the invalid lists.

@@ -1,0 +1,36 @@
+# Analysis of tests/auth_tests/test_validators.py
+
+## Current Test Coverage for Username Validators
+
+### UsernameValidatorsTests Class
+The test class contains two test methods:
+
+1. **test_unicode_validator()**: Tests `UnicodeUsernameValidator`
+   - Valid usernames: 'joe', 'René', 'ᴮᴵᴳᴮᴵᴿᴰ', 'أحمد'
+   - Invalid usernames: "o'connell", "عبد ال", "zerowidth\u200Bspace", "nonbreaking\u00A0space", "en\u2013dash"
+   - These tests check for characters that should be rejected (apostrophes, spaces, special Unicode characters)
+
+2. **test_ascii_validator()**: Tests `ASCIIUsernameValidator`
+   - Valid usernames: 'glenn', 'GLEnN', 'jean-marc'
+   - Invalid usernames: "o'connell", 'Éric', 'jean marc', "أحمد"
+   - These tests check for non-ASCII characters and invalid symbols
+
+## Gap in Current Tests
+
+**The current tests do NOT verify the behavior of trailing newlines in usernames.** This is the exact issue mentioned in the problem statement. The validators currently use the regex pattern `r'^[\w.@+-]+$'`, where the `$` anchor incorrectly matches before a trailing newline in Python.
+
+## What Needs to be Tested
+
+According to the problem statement, usernames with trailing newlines should be **rejected** after the fix. For example:
+- 'username\n' should be invalid
+- 'valid-username\n' should be invalid
+- 'user.name@host\n' should be invalid
+
+## Testing Strategy for the Fix
+
+The test file needs additional test cases in `UsernameValidatorsTests` class to verify that:
+1. `ASCIIUsernameValidator` rejects usernames with trailing newlines
+2. `UnicodeUsernameValidator` rejects usernames with trailing newlines
+3. Both validators also reject usernames with other trailing whitespace characters that could be problematic
+
+These tests should demonstrate that the regex change from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'` correctly rejects such inputs.

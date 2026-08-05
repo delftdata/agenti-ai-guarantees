@@ -1,0 +1,36 @@
+Looking at the problem and the current file contents, I can see that:
+
+1. The `ASCIIUsernameValidator` already uses `\A` and `\Z` (which is correct)
+2. The `UnicodeUsernameValidator` still uses `^` and `$` (which needs to be fixed)
+
+The issue is that `$` matches before a trailing newline, while `\Z` does not. This is the security issue described in the problem statement.
+
+I need to change only the `UnicodeUsernameValidator.regex` line from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'`.
+
+===FILE: django/contrib/auth/validators.py===
+import re
+
+from django.core import validators
+from django.utils.deconstruct import deconstructible
+from django.utils.translation import gettext_lazy as _
+
+
+@deconstructible
+class ASCIIUsernameValidator(validators.RegexValidator):
+    regex = r'\A[\w.@+-]+\Z'
+    message = _(
+        'Enter a valid username. This value may contain only English letters, '
+        'numbers, and @/./+/-/_ characters.'
+    )
+    flags = re.ASCII
+
+
+@deconstructible
+class UnicodeUsernameValidator(validators.RegexValidator):
+    regex = r'\A[\w.@+-]+\Z'
+    message = _(
+        'Enter a valid username. This value may contain only letters, '
+        'numbers, and @/./+/-/_ characters.'
+    )
+    flags = 0
+===END===

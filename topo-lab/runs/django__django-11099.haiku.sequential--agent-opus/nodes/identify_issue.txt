@@ -1,0 +1,56 @@
+## Analysis
+
+### Problem Identification
+
+The file `django/contrib/auth/validators.py` defines two username validator classes that share a common regex flaw:
+
+1. **`ASCIIUsernameValidator`** — uses `regex = r'^[\w.@+-]+$'` with `flags = re.ASCII`
+2. **`UnicodeUsernameValidator`** — uses `regex = r'^[\w.@+-]+$'` with `flags = 0`
+
+### Root Cause
+
+The regex pattern `r'^[\w.@+-]+$'` relies on the `$` anchor to mark the end of the input. In Python's regular expression engine, `$` does **not** strictly match only the end of the string — it also matches immediately **before a trailing newline** character. 
+
+As a consequence, an input such as `"user\n"` is incorrectly accepted as valid: the `[\w.@+-]+` portion matches `"user"`, and the `$` anchor happily matches the position right before the `\n`, so the whole pattern succeeds even though a newline character is present at the end of the username.
+
+Similarly, the `^` anchor can behave loosely in multiline contexts, so the safest correction addresses both boundaries.
+
+### The Fix
+
+Both validators must replace the `^ ... $` anchors with the absolute string boundary anchors:
+
+- `\A` — matches **only** at the absolute start of the string (never after a newline)
+- `\Z` — matches **only** at the absolute end of the string (does **not** allow a trailing newline)
+
+The corrected regex is `r'\A[\w.@+-]+\Z'`. With this pattern, `"user\n"` is correctly rejected because `\Z` requires the match to consume through the true end of the string, and the trailing `\n` is not part of the allowed character class `[\w.@+-]`.
+
+### Scope / Impact Notes
+
+- The change is confined to `django/contrib/auth/validators.py`; both classes need the identical substitution.
+- Existing migrations (e.g., `0008_alter_user_username_max_length.py`) reference the validators by import path rather than embedding the regex literal, so no migration change is required for the deconstruction path.
+- The `@deconstructible` decorator and the distinct error messages / flags on each class remain unchanged.
+
+### Resulting Diff
+
+```diff
+--- a/django/contrib/auth/validators.py
++++ b/django/contrib/auth/validators.py
+@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
+ 
+ @deconstructible
+ class ASCIIUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only English letters, '
+         'numbers, and @/./+/-/_ characters.'
+@@ -17,7 +17,7 @@ class ASCIIUsernameValidator(validators.RegexValidator):
+ 
+ @deconstructible
+ class UnicodeUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only letters, '
+         'numbers, and @/./+/-/_ characters.'
+```

@@ -1,0 +1,1 @@
+[mock analysis from analyze_media]

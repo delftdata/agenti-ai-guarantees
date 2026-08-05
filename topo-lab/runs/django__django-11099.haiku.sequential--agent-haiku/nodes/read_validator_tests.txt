@@ -1,0 +1,38 @@
+# Analysis of tests/auth_tests/test_validators.py
+
+## Current Username Validator Tests
+
+### UsernameValidatorsTests Class
+The test class `UsernameValidatorsTests` contains two test methods:
+
+1. **test_unicode_validator()**: Tests `UnicodeUsernameValidator`
+   - Valid usernames: 'joe', 'René', 'ᴮᴵᴳᴮᴵᴿᴰ', 'أحمد'
+   - Invalid usernames: "o'connell", "عبد ال", "zerowidth\u200Bspace", "nonbreaking\u00A0space", "en\u2013dash"
+
+2. **test_ascii_validator()**: Tests `ASCIIUsernameValidator`
+   - Valid usernames: 'glenn', 'GLEnN', 'jean-marc'
+   - Invalid usernames: "o'connell", 'Éric', 'jean marc', "أحمد"
+
+## Gap in Current Tests
+
+The current test suite **does not test for trailing newlines** in usernames. This is the vulnerability described in the problem statement:
+- Python regex `$` matches both end-of-string AND trailing newline
+- The validators use regex pattern `r'^[\w.@+-]+$'` which allows trailing newlines
+- The fix is to use `r'\A[\w.@+-]+\Z'` which explicitly anchors to absolute start/end
+
+## What Needs to Be Tested
+
+To validate the fix for issue #11099, tests should be added to verify that:
+1. Usernames with trailing newlines are **rejected** by `UnicodeUsernameValidator`
+2. Usernames with trailing newlines are **rejected** by `ASCIIUsernameValidator`
+3. Usernames with leading newlines are **rejected** by both validators
+4. Valid usernames without newlines continue to **pass** validation
+
+## Current Test Structure
+
+The tests use:
+- `SimpleTestCase` for the validators tests (appropriate since no database needed)
+- `self.subTest()` context manager for parametrized testing
+- Simple direct invocation of validator objects: `v(username)`
+- `ValidationError` exception catching to test invalid cases
+- Direct validator instantiation: `validators.UnicodeUsernameValidator()` and `validators.ASCIIUsernameValidator()`

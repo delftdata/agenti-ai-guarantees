@@ -1,0 +1,91 @@
+# Analysis of Username Validator Regex Pattern Issue
+
+## Current Implementation
+
+The file `django/contrib/auth/validators.py` contains two validator classes:
+
+1. **ASCIIUsernameValidator**
+   - Current regex pattern: `r'^[\w.@+-]+$'`
+   - Intended purpose: Validate ASCII-only usernames
+   - Uses `re.ASCII` flag for character class behavior
+
+2. **UnicodeUsernameValidator**
+   - Current regex pattern: `r'^[\w.@+-]+$'`
+   - Intended purpose: Validate Unicode usernames
+   - Uses default flags (0)
+
+Both validators use identical regex patterns with `^` and `$` anchors.
+
+## The Core Problem
+
+The `$` anchor in Python regular expressions has problematic behavior:
+- `$` matches at the end of the string
+- `$` also matches **immediately before a trailing newline character** at the end of a string
+- This is a documented quirk in Python's `re` module
+
+### Concrete Example of the Bug
+
+```
+Input: "john\n"  (username with trailing newline)
+Pattern: r'^[\w.@+-]+$'
+Result: MATCHES (incorrectly validates)
+
+Expected behavior: Should REJECT the trailing newline
+```
+
+This occurs because:
+1. `^` matches at position 0
+2. `[\w.@+-]+` matches "john" (positions 0-3)
+3. `$` matches at position 4, which is **before** the `\n` at position 5
+4. The regex engine never checks position 5, so the trailing newline is ignored
+
+## The Solution
+
+Replace the anchors with `\A` and `\Z`:
+- `\A` - Matches only at the absolute start of the string (never matches after any character)
+- `\Z` - Matches only at the absolute end of the string (never matches before a trailing newline)
+
+### Corrected Pattern
+
+**Old pattern**: `r'^[\w.@+-]+$'`
+**New pattern**: `r'\A[\w.@+-]+\Z'`
+
+### How This Fixes the Issue
+
+```
+Input: "john\n"
+Pattern: r'\A[\w.@+-]+\Z'
+Result: DOES NOT MATCH (correctly rejects)
+
+Explanation:
+1. \A matches at position 0
+2. [\w.@+-]+ matches "john" (positions 0-3)
+3. \Z requires matching at position 5 (absolute end)
+4. But the regex engine is at position 4 after matching "john"
+5. The \n at position 4 prevents \Z from matching
+6. The entire pattern fails to match - username is rejected
+```
+
+## Required Changes
+
+Both validator classes require modification:
+
+1. **ASCIIUsernameValidator**
+   - Change `regex = r'^[\w.@+-]+$'` to `regex = r'\A[\w.@+-]+\Z'`
+
+2. **UnicodeUsernameValidator**
+   - Change `regex = r'^[\w.@+-]+$'` to `regex = r'\A[\w.@+-]+\Z'`
+
+## Impact of the Fix
+
+- **Security/Data Quality**: Prevents acceptance of invalid usernames containing trailing (or leading) newlines
+- **Consistency**: Makes validator behavior match documented intent
+- **Backwards Compatibility**: Any code relying on this buggy behavior will break, but that code was accepting invalid input
+- **No Performance Impact**: The pattern complexity remains identical
+
+## Scope of Changes
+
+- **File to modify**: `django/contrib/auth/validators.py`
+- **Lines affected**: The regex pattern definitions in both validator classes
+- **Number of changes**: 2 (one per validator class)
+- **Complexity**: Minimal - single string literal replacement in each class

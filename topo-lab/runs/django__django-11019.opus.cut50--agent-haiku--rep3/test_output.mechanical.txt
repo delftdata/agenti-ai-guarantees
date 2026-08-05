@@ -1,0 +1,402 @@
+===== test_combine_media (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_combine_media (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 121, in test_combine_media
+    self.assertEqual(
+AssertionError: '<lin[424 chars]src="https://secure.other.com/path/to/js3"></s[63 chars]ipt>' != '<lin[424 chars]src="/path/to/js4"></script>\n<script type="te[63 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.007s
+
+FAILED (failures=1)
+
+
+===== test_construction (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_construction (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 26, in test_construction
+    self.assertEqual(
+AssertionError: "Media(css={'all': ('path/to/css1', '/path/to/css2')}, js=['[89 chars]3'])" != "Media(css={'all': ['path/to/css1', '/path/to/css2']}, js=['[89 chars]3'])"
+- Media(css={'all': ('path/to/css1', '/path/to/css2')}, js=['/path/to/js1', 'http://media.other.com/path/to/js2', 'https://secure.other.com/path/to/js3'])
+?                   ^                               ^
++ Media(css={'all': ['path/to/css1', '/path/to/css2']}, js=['/path/to/js1', 'http://media.other.com/path/to/js2', 'https://secure.other.com/path/to/js3'])
+?                   ^                               ^
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)
+
+
+===== test_form_media (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_form_media (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 469, in test_form_media
+    self.assertEqual(
+AssertionError: '<lin[424 chars]src="https://secure.other.com/path/to/js3"></s[63 chars]ipt>' != '<lin[424 chars]src="/path/to/js4"></script>\n<script type="te[63 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)
+
+
+===== test_media_deduplication (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+E
+======================================================================
+ERROR: test_media_deduplication (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 162, in test_media_deduplication
+    self.assertEqual(str(media), """<link href="/path/to/css1" type="text/css" media="all" rel="stylesheet">
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django\utils\html.py", line 388, in <lambda>
+    klass.__str__ = lambda self: mark_safe(klass_str(self))
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django\forms\widgets.py", line 59, in __str__
+    return self.render()
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django\forms\widgets.py", line 96, in render
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django\forms\widgets.py", line 96, in <genexpr>
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django\forms\widgets.py", line 103, in render_js
+    ) for path in self._js
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django\forms\widgets.py", line 93, in _js
+    return self.merge(non_empty_lists)
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django\forms\widgets.py", line 196, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order:
+/path/to/js1
+/path/to/js1
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (errors=1)
+
+
+===== test_media_inheritance (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_media_inheritance (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 254, in test_media_inheritance
+    self.assertEqual(
+AssertionError: '<lin[341 chars]src="/path/to/js4"></script>\n<script type="te[146 chars]ipt>' != '<lin[341 chars]src="http://media.other.com/path/to/js2"></scr[146 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)
+
+
+===== test_media_inheritance_extends (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_media_inheritance_extends (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 329, in test_media_inheritance_extends
+    self.assertEqual(
+AssertionError: '<lin[424 chars]src="https://secure.other.com/path/to/js3"></s[63 chars]ipt>' != '<lin[424 chars]src="/path/to/js4"></script>\n<script type="te[63 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)
+
+
+===== test_media_property_parent_references (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_media_property_parent_references (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 208, in test_media_property_parent_references
+    self.assertEqual(
+AssertionError: '<link href="/other/path" type="text/css" media="all" [479 chars]ipt>' != '<link href="http://media.example.com/static/path/to/c[479 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)
+
+
+===== test_merge (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=([1, 2], [3, 4]))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+TypeError: merge() takes 1 positional argument but 2 were given
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=([1, 2], [2, 3]))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+TypeError: merge() takes 1 positional argument but 2 were given
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=([2, 3], [1, 2]))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+TypeError: merge() takes 1 positional argument but 2 were given
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=([1, 3], [2, 3]))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+TypeError: merge() takes 1 positional argument but 2 were given
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=([1, 2], [1, 3]))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+TypeError: merge() takes 1 positional argument but 2 were given
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=([1, 2], [3, 2]))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+TypeError: merge() takes 1 positional argument but 2 were given
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=([1, 2], [1, 2]))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+TypeError: merge() takes 1 positional argument but 2 were given
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=[[1, 2], [1, 3], [2, 3], [5, 7], [5, 6], [6, 7, 9], [8, 9]])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+TypeError: merge() takes 1 positional argument but 7 were given
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=())
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+TypeError: merge() missing 1 required positional argument: 'lists'
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=([1, 2],))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django\forms\widgets.py", line 156, in merge
+    for item in item_list:
+TypeError: 'int' object is not iterable
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (errors=10)
+
+
+===== test_merge_css_three_way (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_merge_css_three_way (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 587, in test_merge_css_three_way
+    self.assertEqual(merged._css, {'screen': ['c.css', 'a.css'], 'all': ['d.css', 'e.css']})
+AssertionError: {'screen': ['a.css', 'c.css'], 'all': ['d.css', 'e.css']} != {'screen': ['c.css', 'a.css'], 'all': ['d.css', 'e.css']}
+- {'all': ['d.css', 'e.css'], 'screen': ['a.css', 'c.css']}
+?                                               ---------
+
++ {'all': ['d.css', 'e.css'], 'screen': ['c.css', 'a.css']}
+?                                        +++++++++
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)
+
+
+===== test_merge_js_three_way (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_merge_js_three_way2 (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_merge_js_three_way2 (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 578, in test_merge_js_three_way2
+    self.assertEqual(merged._js, ['a', 'b', 'c', 'f', 'g', 'h', 'k'])
+AssertionError: Lists differ: ['a', 'b', 'c', 'f', 'h', 'g', 'k'] != ['a', 'b', 'c', 'f', 'g', 'h', 'k']
+
+First differing element 4:
+'h'
+'g'
+
+- ['a', 'b', 'c', 'f', 'h', 'g', 'k']
+?                           -----
+
++ ['a', 'b', 'c', 'f', 'g', 'h', 'k']
+?                      +++++
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)
+
+
+===== test_merge_warning (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+E
+======================================================================
+ERROR: test_merge_warning (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\tests\forms_tests\tests\test_media.py", line 558, in test_merge_warning
+    self.assertEqual(Media.merge([1, 2], [2, 1]), [1, 2])
+TypeError: merge() takes 1 positional argument but 2 were given
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (errors=1)
+
+
+===== test_multi_widget (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_media (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.017s
+
+OK
+Destroying test database for alias 'default'...
+
+
+
+===== test_render_options (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.049s
+
+OK
+Destroying test database for alias 'default'...
+
+
+
+===== test_inline_media_only_inline (admin_inlines.tests.TestInlineMedia): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp_yl7vd87\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.219s
+
+OK
+Destroying test database for alias 'default'...
+

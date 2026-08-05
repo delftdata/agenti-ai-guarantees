@@ -1,0 +1,84 @@
+{
+  "nodes": [
+    {
+      "id": "analyze_media",
+      "instruction": "Analyze the Media class implementation in django/forms/widgets.py, focusing on the Media class: its __init__, _js / js property, merge static method, __add__ method, and the MediaOrderConflictWarning logic. Summarize precisely: the current signatures, how merge combines two lists pairwise, why merging 3+ media objects via repeated pairwise __add__ produces spurious MediaOrderConflictWarnings (as in the text-editor/color-picker example), and the exact line numbers / code blocks that must change. Describe the intended fix: change merge to merge a list of lists using a topological-sort-based approach that only warns on genuine ordering conflicts, and change __add__/_css/_js to accumulate lists and merge them all at once. Quote the relevant existing code verbatim so downstream workers have exact context.",
+      "reads": [
+        "django/forms/widgets.py"
+      ],
+      "writes": [],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "study_tests",
+      "instruction": "Read the existing media tests in tests/forms_tests/tests/test_media.py. Identify: the test cases that assert on merge ordering and MediaOrderConflictWarning behavior, the exact expected-output strings/assertions that would change if merge is reworked to use topological sorting, and any helper patterns used to assert warnings. Quote relevant test methods verbatim. Produce a concise list of: (a) tests that must still pass unchanged, (b) tests whose expected values may need updating, and (c) a new test scenario matching the bug report (ColorPicker/SimpleTextWidget/FancyTextWidget merging into text-editor.js, text-editor-extras.js, color-picker.js without warning).",
+      "reads": [
+        "tests/forms_tests/tests/test_media.py"
+      ],
+      "writes": [],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "implement_merge",
+      "instruction": "Rewrite the Media class in django/forms/widgets.py to fix the spurious MediaOrderConflictWarning when merging 3+ media objects. Change the internal storage so __init__ keeps css as a dict of lists and js as a list, and store lists so multiple media can be accumulated. Replace the merge static method so it merges a LIST of lists (not just two) using a topological-sort-like algorithm that builds ordering constraints across all inputs and only raises MediaOrderConflictWarning on a genuine cycle/conflict. Update the _css/_js properties (or equivalent) to call merge on all accumulated lists at once, and update __add__ to combine the underlying lists of both operands rather than doing an eager pairwise merge. Preserve the public API: Media(css=..., js=...), .render(), .render_js(), .render_css(), _css_lists/_js_lists style internals, absolute_path, __getitem__, __repr__, __str__, and the media_property function must all keep working. Keep the MediaOrderConflictWarning class. Use the exact context quoted by the analysis dependency to make a minimal, correct edit. Output the complete new contents of the modified regions or the whole file section unambiguously.",
+      "reads": [
+        "django/forms/widgets.py"
+      ],
+      "writes": [
+        "django/forms/widgets.py"
+      ],
+      "deps": [
+        "analyze_media",
+        "study_tests"
+      ],
+      "guard": null
+    },
+    {
+      "id": "update_tests",
+      "instruction": "Update tests/forms_tests/tests/test_media.py to reflect the corrected merge behavior. Adjust any expected-output assertions that legitimately change due to topological-sort merging (per the study_tests analysis), and add a new test method that reproduces the bug report scenario: three widgets with Media js lists ['color-picker.js'], ['text-editor.js'], and ['text-editor.js','text-editor-extras.js','color-picker.js'] merged together must produce js order ['text-editor.js','text-editor-extras.js','color-picker.js'] with NO MediaOrderConflictWarning raised. Also ensure at least one test still verifies that a genuine ordering conflict still raises MediaOrderConflictWarning. Use the actual new merge semantics from the implementation dependency to set correct expected values. Output the full modified test methods.",
+      "reads": [
+        "tests/forms_tests/tests/test_media.py"
+      ],
+      "writes": [
+        "tests/forms_tests/tests/test_media.py"
+      ],
+      "deps": [
+        "implement_merge",
+        "study_tests"
+      ],
+      "guard": null
+    },
+    {
+      "id": "assemble_diff",
+      "instruction": "Produce a single unified diff against the repository root that applies cleanly with git apply. Combine the changes to django/forms/widgets.py (from the implement_merge node) and tests/forms_tests/tests/test_media.py (from the update_tests node) into one patch. Use correct diff --git/---/+++ headers with a/ and b/ prefixes, accurate hunk headers, and matching context lines drawn from the original file contents you were given. Do not include any prose outside the diff. Ensure both files' hunks are internally consistent with the original sources shown in reads.",
+      "reads": [
+        "django/forms/widgets.py",
+        "tests/forms_tests/tests/test_media.py"
+      ],
+      "writes": [
+        "django/forms/widgets.py",
+        "tests/forms_tests/tests/test_media.py"
+      ],
+      "deps": [
+        "implement_merge",
+        "update_tests"
+      ],
+      "guard": null
+    }
+  ],
+  "final_node": "assemble_diff",
+  "topology": "overparallel",
+  "schedule": [
+    [
+      "analyze_media",
+      "implement_merge",
+      "study_tests",
+      "update_tests"
+    ],
+    [
+      "assemble_diff"
+    ]
+  ]
+}

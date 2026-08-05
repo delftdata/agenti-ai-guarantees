@@ -1,0 +1,35 @@
+Looking at the issue described in the problem statement, I need to determine whether `radsimp.py` is the source of the incorrect simplification of `cos(x) + sqrt(sin(x)**2)` into `cos(x) + sin(x)` for general complex `x`.
+
+## Analysis
+
+The core mathematical error in the bug is treating `sqrt(sin(x)**2)` as equal to `sin(x)`. This is only valid when `sin(x)` is real and non-negative (or more generally when we can establish sign/reality). For a general complex `x`, `sqrt(z**2) != z` in general (it equals `z` only up to sign/branch considerations). So somewhere in the simplification chain, a rule of the form `sqrt(a**2) -> a` is being applied without checking that `a` is nonnegative (or at least real).
+
+### Examining radsimp.py
+
+Going through `radsimp.py` carefully:
+
+1. **`radsimp` / `handle` / `ispow2` / `_num` / `rad_rationalize` / `split_surds`**: These functions are all concerned with *rationalizing denominators* — removing square roots from denominators of fractions. They operate on `sqrt`-containing terms but never perform a transformation like `sqrt(a**2) -> a`. The `ispow2` helper only detects half-integer powers; `split_surds` and `_split_gcd` work on terms "whose squares are positive rationals" (numeric surds), not on symbolic `sqrt(sin(x)**2)`.
+
+2. **`collect_sqrt` / `collect_const`**: These collect terms with common radical factors. They restrict attention to `m.is_number` radicals (in `collect_sqrt`) or numeric constants. They do not reduce `sqrt(f**2)` to `f`.
+
+3. **`collect_abs`**: This collects `Abs` arguments. Notably, `sqrt(sin(x)**2)` for real `x` is `Abs(sin(x))`, which is *correct*. This function deals with `Abs`, not with dropping the sqrt incorrectly.
+
+4. **`collect`, `rcollect`, `fraction`, `numer`, `denom`**: Purely structural manipulations; no `sqrt(a**2) -> a` rewriting.
+
+**Conclusion for radsimp.py:** There is no code in `radsimp.py` that performs the invalid `sqrt(sin(x)**2) -> sin(x)` transformation. The radical handling here is strictly about denominators (rationalization) and collection of numeric surds. So `radsimp` is **not** the source of the bug.
+
+### Where the bug actually lives
+
+The incorrect simplification is a `trigsimp` problem. `trigsimp` (in `sympy/simplify/trigsimp.py`) uses the `fu`-family of transformations (`sympy/simplify/fu.py`) and pattern-matching / futrig routines. The likely culprit is a trig identity rule that rewrites `sqrt(sin(x)**2)` (or a pattern matching `sin**2` under a sqrt / rational power of 1/2) to `sin(x)` without the required assumption that `sin(x)` is real/nonnegative.
+
+Key observations supporting this:
+- The bug appears only in `trigsimp`, not in generic `simplify` of non-trig expressions, and the reporter explicitly says `trigsimp` is doing it.
+- It "gets it right if x is real" — because for real `x`, `sqrt(sin(x)**2) = Abs(sin(x))`, which the code may then handle differently, whereas for symbol `x` (complex by default) the sqrt is not auto-evaluated to `Abs`, and a trig-matching rule then strips the sqrt/exponent, effectively assuming `sin(x)**Rational(1,2)*2 == sin(x)` type reduction.
+
+So the fix should be made in the trig-simplification machinery (`fu.py`'s `TR*` functions or `trigsimp.py`'s `_futrig`/pattern rules, and possibly the underlying handling of `Pow` with half-integer exponents on trig functions), ensuring that `sqrt(g**2)` is only reduced to `g` when `g` is known to be nonnegative — otherwise it should be kept as `sqrt(g**2)` (or `Abs(g)` when `g` is real).
+
+## Summary
+
+Reading `radsimp.py`: it does **not** contain the offending transformation. Its radical-related code only rationalizes denominators and collects numeric surds; nothing reduces `sqrt(sin(x)**2)` to `sin(x)`. The root cause lies in the trig simplification code (`sympy/simplify/trigsimp.py` and/or `sympy/simplify/fu.py`), where a pattern incorrectly cancels a square root against a squared trig function without verifying that the base is real/nonnegative. That is where a fix (guarding the `sqrt(a**2) -> a` reduction with a nonnegativity/reality check) should be applied — not in `radsimp.py`.
+
+I have not produced a code diff here because, per this analysis, no change to `radsimp.py` is warranted; the actual fix belongs in the trig-simplification modules.

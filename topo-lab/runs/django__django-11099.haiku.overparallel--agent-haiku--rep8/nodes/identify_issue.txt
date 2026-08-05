@@ -1,0 +1,59 @@
+# Analysis of Username Validator Regex Patterns
+
+## Current Issue
+
+The file `django/contrib/auth/validators.py` contains two username validators that use problematic regex patterns:
+
+1. **ASCIIUsernameValidator**
+2. **UnicodeUsernameValidator**
+
+Both currently use the regex pattern: `r'^[\w.@+-]+$'`
+
+## The Problem
+
+The `$` anchor in Python regular expressions has a subtle behavior: it matches both at the end of the string AND before a trailing newline character. This is documented Python regex behavior.
+
+### Example of the Issue:
+- Username `"testuser\n"` (with trailing newline) would **pass validation** when it should fail
+- The validators accept usernames ending with newlines, which is unintended behavior
+- This could lead to security issues or data integrity problems
+
+## The Solution
+
+Replace the regex pattern with: `r'\A[\w.@+-]+\Z'`
+
+### Why This Works:
+- `\A` matches only at the absolute start of the string (cannot match before newline)
+- `\Z` matches only at the absolute end of the string (cannot match before newline)
+- These anchors are unambiguous and do not have the trailing newline quirk that `^` and `$` have
+
+## Affected Code Locations
+
+File: `django/contrib/auth/validators.py`
+
+Expected locations of these validators:
+- `ASCIIUsernameValidator` class - regex pattern definition
+- `UnicodeUsernameValidator` class - regex pattern definition
+
+## Pattern Comparison
+
+| Pattern | Start Anchor | End Anchor | Matches Trailing Newline? |
+|---------|-------------|-----------|---------------------------|
+| `^...$` | Yes (ambiguous) | Yes (ambiguous) | YES ❌ |
+| `\A...\Z` | Yes (strict) | Yes (strict) | NO ✅ |
+
+## Required Changes
+
+1. Locate the regex pattern in `ASCIIUsernameValidator`
+2. Change from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'`
+3. Locate the regex pattern in `UnicodeUsernameValidator`
+4. Change from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'`
+
+## Test Cases to Verify
+
+After the fix, these should be validated:
+- ✅ Valid: `"testuser"` - should pass
+- ✅ Valid: `"test.user"` - should pass (contains allowed characters)
+- ✅ Valid: `"test+user"` - should pass (contains allowed characters)
+- ❌ Invalid: `"testuser\n"` - should fail (trailing newline)
+- ❌ Invalid: `"test\nuser"` - should fail (embedded newline)

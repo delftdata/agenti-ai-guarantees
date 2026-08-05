@@ -1,0 +1,77 @@
+```diff
+--- a/django/contrib/auth/validators.py
++++ b/django/contrib/auth/validators.py
+@@ -7,12 +7,12 @@ from django.utils.translation import gettext_lazy as _
+ 
+ @deconstructible
+ class ASCIIUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only English letters, '
+         'numbers, and @/./+/-/_ characters.'
+     )
+     flags = re.ASCII
+ 
+ 
+ @deconstructible
+ class UnicodeUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only letters, '
+         'numbers, and @/./+/-/_ characters.'
+--- a/tests/auth_tests/test_validators.py
++++ b/tests/auth_tests/test_validators.py
+@@ -160,3 +160,49 @@ class UsernameValidatorsTests(SimpleTestCase):
+                 with self.assertRaises(ValidationError):
+                     v(invalid)
+ 
++    def test_unicode_validator_rejects_whitespace_characters(self):
++        """Test that UnicodeUsernameValidator rejects usernames with whitespace."""
++        v = validators.UnicodeUsernameValidator()
++        invalid_usernames = [
++            'user\n',        # trailing newline
++            '\nuser',        # leading newline
++            'us\ner',        # embedded newline
++            'user\r',        # carriage return
++            'user\t',        # tab
++            'user\r\n',      # Windows newline
++        ]
++        for invalid in invalid_usernames:
++            with self.subTest(invalid=repr(invalid)):
++                with self.assertRaises(ValidationError):
++                    v(invalid)
++
++    def test_unicode_validator_accepts_valid_usernames(self):
++        """Test that valid usernames still pass validation."""
++        v = validators.UnicodeUsernameValidator()
++        valid_usernames = ['user', 'user123', 'user.name', 'user+tag', 'user-name']
++        for valid in valid_usernames:
++            with self.subTest(valid=valid):
++                v(valid)  # Should not raise
++
++    def test_ascii_validator_rejects_whitespace_characters(self):
++        """Test that ASCIIUsernameValidator rejects usernames with whitespace."""
++        v = validators.ASCIIUsernameValidator()
++        invalid_usernames = [
++            'user\n',        # trailing newline
++            '\nuser',        # leading newline
++            'us\ner',        # embedded newline
++            'user\r',        # carriage return
++            'user\t',        # tab
++            'user\r\n',      # Windows newline
++        ]
++        for invalid in invalid_usernames:
++            with self.subTest(invalid=repr(invalid)):
++                with self.assertRaises(ValidationError):
++                    v(invalid)
++
++    def test_ascii_validator_accepts_valid_usernames(self):
++        """Test that valid usernames still pass validation."""
++        v = validators.ASCIIUsernameValidator()
++        valid_usernames = ['user', 'user123', 'user.name', 'user+tag', 'user-name']
++        for valid in valid_usernames:
++            with self.subTest(valid=valid):
++                v(valid)  # Should not raise
+```

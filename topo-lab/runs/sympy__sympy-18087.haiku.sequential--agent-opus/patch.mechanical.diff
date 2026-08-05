@@ -1,0 +1,36 @@
+diff --git a/sympy/simplify/fu.py b/sympy/simplify/fu.py
+index 612bc0bb69..25b97d755a 100644
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ -500,7 +500,7 @@ def _f(rv):
+         # change is not going to allow a simplification as far as I can tell.
+         if not (rv.is_Pow and rv.base.func == f):
+             return rv
+-        if not rv.exp.is_real:
++        if not (rv.exp.is_integer or rv.base.is_positive):
+             return rv
+ 
+         if (rv.exp < 0) == True:
+diff --git a/sympy/simplify/tests/test_trigsimp.py b/sympy/simplify/tests/test_trigsimp.py
+index bf15ee07a9..731033646e 100644
+--- a/sympy/simplify/tests/test_trigsimp.py
++++ b/sympy/simplify/tests/test_trigsimp.py
+@@ -444,6 +444,18 @@ def test_Piecewise():
+     assert trigsimp(Piecewise((e1, e3 < e2), (e3, True))) == \
+         Piecewise((e1, e3 < s2), (e3, True))
+ 
++
++def test_issue_18087():
++    # trigsimp should not incorrectly simplify
++    # cos(x) + sqrt(sin(x)**2) to cos(x) + sin(x) for general complex x
++    x = Symbol('x')
++    expr = cos(x) + sqrt(sin(x)**2)
++    assert trigsimp(expr) != cos(x) + sin(x)
++    # verify it doesn't change the value numerically at a complex point
++    from sympy.utilities.randtest import verify_numerically
++    assert verify_numerically(expr, trigsimp(expr), x, a=2, b=3)
++
++
+ def test_trigsimp_old():
+     x, y = symbols('x,y')
+ 

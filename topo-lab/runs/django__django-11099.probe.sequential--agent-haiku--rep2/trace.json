@@ -1,0 +1,89 @@
+{
+  "graph": "django__django-11099.probe.sequential.json",
+  "topology": "sequential",
+  "agent": "haiku",
+  "mock": false,
+  "schedule": [
+    [
+      "fix_ascii"
+    ],
+    [
+      "fix_unicode"
+    ],
+    [
+      "make_diff"
+    ]
+  ],
+  "wall_s": 9.32,
+  "total_cost_usd": 0.0166,
+  "overwrite_events": [
+    {
+      "path": "django/contrib/auth/validators.py",
+      "prev_writer": "fix_ascii",
+      "new_writer": "fix_unicode"
+    }
+  ],
+  "nodes": [
+    {
+      "node": "fix_ascii",
+      "wall_s": 4.33,
+      "reads": [
+        {
+          "path": "django/contrib/auth/validators.py",
+          "bytes": 685,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 434,
+      "cache_read_tokens": 32175,
+      "output_tokens": 421,
+      "cost_usd": 0.00576,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "django/contrib/auth/validators.py"
+      ]
+    },
+    {
+      "node": "fix_unicode",
+      "wall_s": 3.25,
+      "reads": [
+        {
+          "path": "django/contrib/auth/validators.py",
+          "bytes": 687,
+          "writer": "fix_ascii"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 436,
+      "cache_read_tokens": 32175,
+      "output_tokens": 394,
+      "cost_usd": 0.00562,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "django/contrib/auth/validators.py"
+      ]
+    },
+    {
+      "node": "make_diff",
+      "wall_s": 1.74,
+      "reads": [
+        {
+          "path": "django/contrib/auth/validators.py",
+          "bytes": 689,
+          "writer": "fix_unicode"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 1213,
+      "cache_read_tokens": 32175,
+      "output_tokens": 160,
+      "cost_usd": 0.00523,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    }
+  ]
+}

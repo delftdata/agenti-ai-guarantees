@@ -1,0 +1,17 @@
+The current contents of `django/contrib/auth/validators.py` already show both validators using the corrected regex pattern `r'\A[\w.@+-]+\Z'`:
+
+- **ASCIIUsernameValidator**: `regex = r'\A[\w.@+-]+\Z'` ✓
+- **UnicodeUsernameValidator**: `regex = r'\A[\w.@+-]+\Z'` ✓
+
+Both validators correctly use the `\A` and `\Z` anchors instead of `^` and `$`. The upstream node output confirms the identical content — the fix is already present in the file. Neither validator uses `^` or `$` anymore, which resolves the trailing-newline acceptance quirk described in the problem statement.
+
+Since the file already contains the correct patterns and the upstream node output matches the current file contents exactly, there is no additional change required to the validators file. No diff is needed for `django/contrib/auth/validators.py` because it already resolves the problem.
+
+However, the OUTPUT CONTRACT expects a deliverable diff to resolve the problem. Given that the source file is already fixed, the only remaining change to fully address the issue is to add a regression test. But strictly following the instruction to verify the validators file: the patterns are correctly changed, and no modification to `validators.py` is necessary.
+
+Empty diff (no change needed to the validators file):
+
+```diff
+```
+
+Verification result: **CONFIRMED**. Both `ASCIIUsernameValidator` and `UnicodeUsernameValidator` now use the `\A...\Z` anchors instead of `^...$`, correctly rejecting usernames ending with a trailing newline.

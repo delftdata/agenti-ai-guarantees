@@ -1,0 +1,23 @@
+The bug is in the `matchers_identity` patterns in `_trigpats()`, specifically the first rule:
+
+```python
+matchers_identity = (
+    (a*sin(b)**2, a - a*cos(b)**2),
+    ...
+```
+
+The problem is `sqrt(sin(x)**2)` is internally represented as `sin(x)**2` raised to the power `1/2`, i.e., `(sin(x)**2)**(1/2)`. When processed, the pattern `a*sin(b)**2` uses a `Wild` `a` that is fully general (created via `symbols('a b c', cls=Wild)` with no exclusions and default `exclude=()`). 
+
+A `Wild` symbol matches *any* expression, including fractional powers. So when matching `sqrt(sin(x)**2)`, the expression `sin(x)**(1)` (as the base to some outer power) or, more precisely, the pattern `a*sin(b)**2` can match `sqrt(sin(x)**2) = (sin(x)**2)**(S.Half)` because `a` can absorb the fractional exponent structure. Concretely, `sin(x)**2` can match `sin(b)**2` with `b=x`, and then the outer `**(1/2)` gets folded so the whole thing gets rewritten as `a*(sin(x)**2)` → `a - a*cos(x)**2`, effectively treating `sqrt(sin(x)**2)` as if it equals `sin(x)`.
+
+The identity `a*sin(b)**2 = a - a*cos(b)**2` is mathematically valid because `sin(b)**2 + cos(b)**2 = 1` holds for all complex `b`. That part is fine. The real incorrectness enters when `sqrt(sin(x)**2)` is simplified to `sin(x)` — which is only valid when `sin(x) >= 0` (i.e., generally only when x is real and in an appropriate range). For general complex `x`, `sqrt(sin(x)**2) != sin(x)`.
+
+The transformation responsible is not the identity matcher itself but rather the `__trigsimp`/`futrig` machinery where `sin(x)**2` inside a square root gets pulled out. The key mechanism causing the wrong result:
+
+1. `trigsimp` with default `method='matching'` calls `futrig`.
+2. In `_futrig`, various Fu transformations (`fu.py`) manipulate powers. The transforms like `TR5` (sin-pow → cos-pow) and `TR6` operate on `sin(b)**n` and rewrite using `1 - cos(b)**2`, and factoring/`_eapply(factor, ...)` steps combine with power simplification.
+3. `sqrt(sin(x)**2)` = `Pow(sin(x)**2, 1/2)`. The `powsimp`/power handling (or `factor`) reduces `(sin(x)**2)**(1/2)` to `sin(x)` when it assumes the base to be treated like a positive/real quantity, dropping the absolute-value branch.
+
+So the root cause is that somewhere in the transformation chain (the pow-handling in the Fu transforms `TR5`/`TR6`/`TR15`/`TR16` and the `factor`/power-combining steps, or the `matchers_identity` rule with an unrestricted `Wild a`) the exponent `1/2` on `sin(x)**2` is being simplified as though `sin(x)` were nonnegative. The pattern-matching rules using unrestricted `Wild` symbols allow matching the base of a fractional power and rewriting it, which is only valid for real/positive arguments.
+
+To fix this properly, the code needs to avoid simplifying `sqrt(sin(x)**2)` → `sin(x)` for general complex arguments — i.e., the matchers or the pow-handling should require that the argument is real (or the exponent is an integer) before applying identities that effectively equate `sqrt(f**2)` with `f`. The check should verify `.is_extended_real` (or similar) on the trig argument before permitting the fractional-power collapse.

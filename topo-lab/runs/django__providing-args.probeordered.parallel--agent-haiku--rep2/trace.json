@@ -1,0 +1,189 @@
+{
+  "graph": "django__providing-args.probeordered.parallel.json",
+  "topology": "parallel",
+  "agent": "haiku",
+  "mock": false,
+  "schedule": [
+    [
+      "t0_core_fix"
+    ],
+    [
+      "t1_db_signals",
+      "t3_core_signals"
+    ],
+    [
+      "t2_auth_signals"
+    ],
+    [
+      "make_diff"
+    ]
+  ],
+  "wall_s": 70.03,
+  "total_cost_usd": 0.1126,
+  "overwrite_events": [
+    {
+      "path": "tests/dispatch/tests.py",
+      "prev_writer": "t1_db_signals",
+      "new_writer": "t2_auth_signals"
+    }
+  ],
+  "nodes": [
+    {
+      "node": "t0_core_fix",
+      "wall_s": 19.59,
+      "reads": [
+        {
+          "path": "django/dispatch/dispatcher.py",
+          "bytes": 10707,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 2907,
+      "cache_read_tokens": 31991,
+      "output_tokens": 2483,
+      "cost_usd": 0.01852,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "django/dispatch/dispatcher.py"
+      ]
+    },
+    {
+      "node": "t1_db_signals",
+      "wall_s": 20.17,
+      "reads": [
+        {
+          "path": "django/db/models/signals.py",
+          "bytes": 2160,
+          "writer": "__seed__"
+        },
+        {
+          "path": "tests/dispatch/tests.py",
+          "bytes": 8274,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 6520,
+      "cache_read_tokens": 31991,
+      "output_tokens": 3018,
+      "cost_usd": 0.02481,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "django/db/models/signals.py",
+        "tests/dispatch/tests.py"
+      ]
+    },
+    {
+      "node": "t3_core_signals",
+      "wall_s": 14.94,
+      "reads": [
+        {
+          "path": "django/core/signals.py",
+          "bytes": 247,
+          "writer": "__seed__"
+        },
+        {
+          "path": "django/db/backends/signals.py",
+          "bytes": 95,
+          "writer": "__seed__"
+        },
+        {
+          "path": "django/test/signals.py",
+          "bytes": 6729,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 4881,
+      "cache_read_tokens": 31991,
+      "output_tokens": 1991,
+      "cost_usd": 0.01804,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "django/core/signals.py",
+        "django/db/backends/signals.py",
+        "django/test/signals.py"
+      ]
+    },
+    {
+      "node": "t2_auth_signals",
+      "wall_s": 15.87,
+      "reads": [
+        {
+          "path": "django/contrib/auth/signals.py",
+          "bytes": 227,
+          "writer": "__seed__"
+        },
+        {
+          "path": "tests/dispatch/tests.py",
+          "bytes": 8230,
+          "writer": "t1_db_signals"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 8585,
+      "cache_read_tokens": 31991,
+      "output_tokens": 2529,
+      "cost_usd": 0.02443,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "django/contrib/auth/signals.py",
+        "tests/dispatch/tests.py"
+      ]
+    },
+    {
+      "node": "make_diff",
+      "wall_s": 14.41,
+      "reads": [
+        {
+          "path": "django/dispatch/dispatcher.py",
+          "bytes": 10350,
+          "writer": "t0_core_fix"
+        },
+        {
+          "path": "django/db/models/signals.py",
+          "bytes": 1573,
+          "writer": "t1_db_signals"
+        },
+        {
+          "path": "django/contrib/auth/signals.py",
+          "bytes": 118,
+          "writer": "t2_auth_signals"
+        },
+        {
+          "path": "django/core/signals.py",
+          "bytes": 151,
+          "writer": "t3_core_signals"
+        },
+        {
+          "path": "django/db/backends/signals.py",
+          "bytes": 66,
+          "writer": "t3_core_signals"
+        },
+        {
+          "path": "django/test/signals.py",
+          "bytes": 6691,
+          "writer": "t3_core_signals"
+        },
+        {
+          "path": "tests/dispatch/tests.py",
+          "bytes": 8184,
+          "writer": "t2_auth_signals"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 17628,
+      "cache_read_tokens": 31991,
+      "output_tokens": 1192,
+      "cost_usd": 0.02679,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    }
+  ]
+}

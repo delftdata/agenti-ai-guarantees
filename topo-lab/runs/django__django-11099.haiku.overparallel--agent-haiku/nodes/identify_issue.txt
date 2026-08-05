@@ -1,0 +1,57 @@
+# Analysis of UsernameValidator Regex Patterns
+
+## Current Problem
+
+The ASCIIUsernameValidator and UnicodeUsernameValidator in `django/contrib/auth/validators.py` use the regex pattern:
+```
+r'^[\w.@+-]+$'
+```
+
+## Root Cause
+
+In Python regular expressions, the `$` anchor has a quirk: it matches both at the end of a string AND before a trailing newline character. This means a username ending with a newline character (e.g., `"username\n"`) would pass validation when it should not.
+
+## Example of the Vulnerability
+
+- Input: `"testuser\n"`
+- Pattern: `r'^[\w.@+-]+$'`
+- Result: **MATCHES** (incorrectly accepts the username)
+
+The pattern successfully matches because:
+1. `^` matches the start of the string
+2. `[\w.@+-]+` matches "testuser"
+3. `$` matches before the trailing newline character
+4. Validation incorrectly passes
+
+## The Solution
+
+Replace the regex pattern with:
+```
+r'\A[\w.@+-]+\Z'
+```
+
+### Why This Works
+
+- `\A` matches only at the absolute start of the string (no exception for newlines)
+- `\Z` matches only at the absolute end of the string (rejects strings with trailing newlines)
+- Together, `\A...\Z` ensures the entire string contains only valid username characters
+
+### Example with Fixed Pattern
+
+- Input: `"testuser\n"`
+- Pattern: `r'\A[\w.@+-]+\Z'`
+- Result: **NO MATCH** (correctly rejects the username)
+
+## Files Affected
+
+`django/contrib/auth/validators.py` contains two validator classes that need updating:
+1. `ASCIIUsernameValidator` - regex pattern on its validator instance
+2. `UnicodeUsernameValidator` - regex pattern on its validator instance
+
+## Impact
+
+This change:
+- **Fixes security issue**: Prevents usernames with trailing newlines from being accepted
+- **Maintains backward compatibility**: Valid usernames (without trailing newlines) continue to work
+- **Aligns with intent**: The validator's original intent was to accept only alphanumeric characters plus `.`, `@`, `+`, and `-`
+- **Follows best practices**: Using `\A` and `\Z` is the recommended approach for strict string validation in Python regex

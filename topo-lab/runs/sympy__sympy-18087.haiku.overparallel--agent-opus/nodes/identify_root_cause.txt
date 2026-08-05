@@ -1,0 +1,72 @@
+The issue is in `_TR56` in `sympy/simplify/fu.py`.
+
+## Analysis
+
+The function `_TR56` is the helper used by `TR5` (replacing `sin**2` with `1 - cos**2`) and `TR6` (replacing `cos**2` with `1 - sin**2`). Inside it, the local function `_f` decides whether to transform a power `f(x)**e`:
+
+```python
+def _f(rv):
+    if not (rv.is_Pow and rv.base.func == f):
+        return rv
+    if not rv.exp.is_real:
+        return rv
+
+    if (rv.exp < 0) == True:
+        return rv
+    if (rv.exp > max) == True:
+        return rv
+    if rv.exp == 2:
+        return h(g(rv.base.args[0])**2)
+    else:
+        ...
+```
+
+The problem is the guard on the exponent. When simplifying `sqrt(sin(x)**2)`, note that `sqrt(sin(x)**2)` is `(sin(x)**2)**(1/2)`, but during the Fu traversal (`bottom_up`), the transformation targets the inner `sin(x)**2` factor whose exponent is exactly `2`. `_TR56` happily rewrites `sin(x)**2 -> 1 - cos(x)**2` (via TR5), which is a mathematically valid identity for `sin(x)**2` itself.
+
+The real, subtle bug is that `_TR56` accepts **any** power of `sin`/`cos` with `rv.exp == 2` (or any even exponent up to `max`) regardless of whether the base could be negative, and in particular it treats fractional / non-integer exponents inconsistently. The condition:
+
+```python
+if not rv.exp.is_real:
+    return rv
+if (rv.exp < 0) == True:
+    return rv
+if (rv.exp > max) == True:
+    return rv
+```
+
+does **not** require the exponent to be an integer. So `_TR56` will apply the power-reduction rule to fractional powers as well (e.g. `sin(x)**(1/2)` type situations or the half-power arising from `sqrt`), and the branch that computes `e = rv.exp//2` for non-integer exponents produces incorrect results. Crucially, for something like `sqrt(sin(x)**2) = sin(x)**1` in the presence of assumptions, the transformation rewrites the square-root/even-power pattern into a form equivalent to `sin(x)` (dropping the absolute value that `sqrt(sin(x)**2) = |sin(x)|` requires for complex/general `x`).
+
+The core defect: `_TR56` performs the even-power → (1 - other**2) rewriting (and the general even-exponent halving `h(g**2)**e`) **without checking that the exponent is an integer**. For an even integer exponent the identity `sin(x)**2 = 1 - cos(x)**2` is always valid, but the code allows non-integer exponents through, which is where `sqrt(sin(x)**2)` gets mishandled — effectively simplifying `sqrt(sin(x)**2)` as if it were `sin(x)` rather than `Abs(sin(x))`, which is only correct for real `x`.
+
+## The fix
+
+`_TR56._f` should reject non-integer exponents so that fractional powers (such as those coming from `sqrt`) are never rewritten by the power-reduction identity. The guard should be:
+
+```python
+def _f(rv):
+    if not (rv.is_Pow and rv.base.func == f):
+        return rv
+    if not rv.exp.is_real:
+        return rv
+    if (rv.exp < 0) == True:
+        return rv
+    if (rv.exp > max) == True:
+        return rv
+    if rv.exp == 2:
+        return h(g(rv.base.args[0])**2)
+    else:
+        if rv.exp == 4:
+            e = 2
+        elif not pow:
+            if rv.exp % 2:
+                return rv
+            e = rv.exp//2
+        else:
+            p = perfect_power(rv.exp)
+            if not p:
+                return rv
+            e = rv.exp//2
+        return h(g(rv.base.args[0])**2)**e
+```
+
+Adding a check that `rv.exp.is_integer` (returning `rv` unchanged otherwise) prevents fractional exponents — like the `1/2` in `sqrt(...)` — from being rewritten, which is what allows `cos(x) + sqrt(sin(x)**2)` to be incorrectly turned into `cos(x) + sin(x)`.

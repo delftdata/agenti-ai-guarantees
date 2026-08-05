@@ -1,0 +1,108 @@
+## Analysis
+
+The bug involves `cos(x) + sqrt(sin(x)**2)` being incorrectly simplified as though it were `cos(x) + sin(x)` for general complex `x`. The root of the issue is that `sqrt(sin(x)**2)` is `sin(x)**2` raised to the power `1/2`, i.e., `Pow(sin(x), 1)` after the outer power interacts — more precisely it's `(sin(x)**2)**(1/2)`, which equals `Abs(sin(x))` only for real `x` and is NOT equal to `sin(x)` for general complex `x`.
+
+Looking at `fu.py`, the relevant transformation is `_TR56`, which is the helper used by `TR5` and `TR6`. This function replaces `f(x)**2` with `h(g(x)**2)` (e.g., `sin(x)**2` -> `1 - cos(x)**2`).
+
+### The problematic code in `_TR56`
+
+```python
+def _f(rv):
+    if not (rv.is_Pow and rv.base.func == f):
+        return rv
+    if not rv.exp.is_real:
+        return rv
+
+    if (rv.exp < 0) == True:
+        return rv
+    if (rv.exp > max) == True:
+        return rv
+    if rv.exp == 2:
+        return h(g(rv.base.args[0])**2)
+    else:
+        if rv.exp == 4:
+            e = 2
+        elif not pow:
+            if rv.exp % 2:
+                return rv
+            e = rv.exp//2
+        ...
+```
+
+### The problem
+
+When the expression is `sqrt(sin(x)**2)`, this is internally `(sin(x)**2)**(1/2)`. However, when SymPy auto-evaluates, `(sin(x)**2)**(1/2)` may be kept as a `Pow` whose base is `sin(x)` and exponent is `1` in some contexts, or when `TR5`/`_TR56` operates, it sees `sin(x)**2` inside and applies the `rv.exp == 2` branch, converting it to `1 - cos(x)**2`. Then `sqrt(1 - cos(x)**2)` gets processed further.
+
+The critical flaw is the check:
+
+```python
+if not rv.exp.is_real:
+    return rv
+```
+
+This check is **insufficient**. It only guards against non-real exponents, but the real problem is that when the exponent is a fraction like `1/2` on top of an even inner power (as with `sqrt(sin(x)**2)` = `(sin(x)**2)**(1/2)`), the transformation `sin(x)**2 -> 1 - cos(x)**2` is being applied to the base of a fractional power. This is only valid when the base is guaranteed non-negative or the overall manipulation preserves the branch of the square root.
+
+The condition should require that the exponent be a **positive integer** (or that the base be positive), not merely real. For a fractional exponent like `1/2`, replacing `sin(x)**2` with `1 - cos(x)**2` changes the value for complex `x` because `sqrt(sin(x)**2) != sqrt(1 - cos(x)**2)` in general (the square root doesn't distribute over the identity across branch cuts).
+
+### The fix
+
+The guard in `_TR56._f` should be strengthened. Instead of:
+
+```python
+if not rv.exp.is_real:
+    return rv
+
+if (rv.exp < 0) == True:
+    return rv
+if (rv.exp > max) == True:
+    return rv
+```
+
+it should ensure the exponent is a **positive integer**:
+
+```python
+if not (rv.is_Pow and rv.base.func == f):
+    return rv
+
+if not rv.exp.is_integer or not rv.exp.is_positive:
+    return rv
+```
+
+This way, `sqrt(sin(x)**2)` — where the outer power is `1/2` — will not be processed as a valid `f**2` substitution, since the effective structure is not a positive-integer power of `sin`. The transformation `sin(x)**2 -> 1 - cos(x)**2` (which is a valid trig identity) will only be applied when the exponent is a genuine positive even integer, keeping the value-preserving property.
+
+### Summary
+
+The transformation that incorrectly simplifies `sqrt` of squared trig functions is `_TR56` (used by `TR5` and `TR6`). The `if not rv.exp.is_real: return rv` check is too weak — it allows fractional exponents like `1/2` (from `sqrt`) to pass through, causing `(sin(x)**2)**(1/2)` to be rewritten via the `sin(x)**2 -> 1 - cos(x)**2` identity, which is invalid for complex `x`. The fix is to require the exponent to be a positive integer.
+
+## Patch
+
+```diff
+diff --git a/sympy/simplify/fu.py b/sympy/simplify/fu.py
+--- a/sympy/simplify/fu.py
++++ b/sympy/simplify/fu.py
+@@ -500,17 +500,18 @@ def _TR56(rv, f, g, h, max, pow):
+     def _f(rv):
+         # I'm not sure if this transformation should target all even powers
+         # or only those expressible as powers of 2. Also, should it only
+         # make the changes in powers that appear in sums -- making an isolated
+         # change is not going to allow a simplification as far as I can tell.
+         if not (rv.is_Pow and rv.base.func == f):
+             return rv
+-        if not rv.exp.is_real:
++        if not rv.exp.is_integer or not rv.exp.is_positive:
+             return rv
+ 
+-        if (rv.exp < 0) == True:
+-            return rv
+         if (rv.exp > max) == True:
+             return rv
+         if rv.exp == 2:
+             return h(g(rv.base.args[0])**2)
+         else:
+             if rv.exp == 4:
+                 e = 2
+             elif not pow:
+                 if rv.exp % 2:
+                     return rv
+                 e = rv.exp//2
+```

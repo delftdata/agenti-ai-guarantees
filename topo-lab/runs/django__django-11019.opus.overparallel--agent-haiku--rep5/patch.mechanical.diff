@@ -1,0 +1,192 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..114603cb46 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -48,6 +48,7 @@ class Media:
+                 css = {}
+             if js is None:
+                 js = []
++        # Store as lists of lists to support accumulation during __add__
+         self._css_lists = [css]
+         self._js_lists = [js]
+ 
+@@ -59,22 +60,24 @@ class Media:
+ 
+     @property
+     def _css(self):
++        """Merge all accumulated CSS lists into a single dict."""
+         css = self._css_lists[0]
+         # filter(None, ...) avoids calling merge with empty dicts.
+         for obj in filter(None, self._css_lists[1:]):
+             css = {
+-                medium: self.merge(css.get(medium, []), obj.get(medium, []))
++                medium: self.merge([css.get(medium, []), obj.get(medium, [])])
+                 for medium in css.keys() | obj.keys()
+             }
+         return css
+ 
+     @property
+     def _js(self):
+-        js = self._js_lists[0]
++        """Merge all accumulated JS lists into a single list."""
+         # filter(None, ...) avoids calling merge() with empty lists.
+-        for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
+-        return js
++        js_lists = [self._js_lists[0]] + [obj for obj in self._js_lists[1:] if obj]
++        if len(js_lists) <= 1:
++            return js_lists[0] if js_lists else []
++        return self.merge(js_lists)
+ 
+     def render(self):
+         return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+@@ -115,39 +118,122 @@ class Media:
+         raise KeyError('Unknown media type "%s"' % name)
+ 
+     @staticmethod
+-    def merge(list_1, list_2):
++    def merge(list_of_lists):
+         """
+-        Merge two lists while trying to keep the relative order of the elements.
+-        Warn if the lists have the same two elements in a different relative
+-        order.
++        Merge a list of lists while trying to keep the relative order of the
++        elements. Warn if there are any ordering conflicts.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
++        
++        This method uses a topological-sort-like approach to merge all lists
++        at once, rather than merging them pairwise, which prevents spurious
++        conflicts when merging 3+ lists.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++        if not list_of_lists:
++            return []
++        
++        # Filter out empty lists
++        lists = [lst for lst in list_of_lists if lst]
++        if not lists:
++            return []
++        if len(lists) == 1:
++            return list(lists[0])
++        
++        # Collect all unique items in order of first appearance
++        seen = set()
++        items_in_order = []
++        for lst in lists:
++            for item in lst:
++                if item not in seen:
++                    seen.add(item)
++                    items_in_order.append(item)
++        
++        # Build a graph of ordering constraints: item -> set of items that must come after it
++        constraints = {item: set() for item in items_in_order}
++        
++        # For each list, establish that items appear in that order
++        for lst in lists:
++            for i, item in enumerate(lst):
++                for other_item in lst[i + 1:]:
++                    constraints[item].add(other_item)
++        
++        # Topologically sort with cycle detection
++        result = []
++        remaining = set(items_in_order)
++        
++        while remaining:
++            # Find items with no unmet constraints (no incoming edges from remaining items)
++            available = []
++            for item in remaining:
++                # Check if all items that must come before this one are already in result
++                has_unmet_constraint = False
++                for constraint_source in remaining:
++                    if constraint_source != item and item in constraints[constraint_source]:
++                        # constraint_source must come before item, but constraint_source is still remaining
++                        has_unmet_constraint = True
++                        break
++                if not has_unmet_constraint:
++                    available.append(item)
++            
++            if not available:
++                # We have a cycle: detect which items are involved
++                # For the warning, just report the first conflict we find
++                for item in remaining:
++                    for other_item in constraints[item]:
++                        if other_item in remaining:
++                            # Found a conflict: item should come before other_item,
++                            # but other_item must come before item (cycle exists)
++                            for check_item in remaining:
++                                if check_item != item and check_item != other_item:
++                                    # Check if there's a path from other_item back to item
++                                    if Media._has_path(check_item, item, constraints, remaining):
++                                        warnings.warn(
++                                            'Detected duplicate Media files in an opposite order:\n'
++                                            '%s\n%s' % (item, check_item),
++                                            MediaOrderConflictWarning,
++                                        )
++                                        # Remove one of the constraints to break the cycle
++                                        constraints[check_item].discard(item)
++                                        break
++                            break
++                    else:
++                        continue
++                    break
++                # After trying to resolve, get available items again
++                available = []
++                for item in remaining:
++                    has_unmet_constraint = False
++                    for constraint_source in remaining:
++                        if constraint_source != item and item in constraints[constraint_source]:
++                            has_unmet_constraint = True
++                            break
++                    if not has_unmet_constraint:
++                        available.append(item)
++            
++            if available:
++                # Take the first available item (maintains relative order)
++                item = available[0]
++                result.append(item)
++                remaining.remove(item)
++        
++        return result
++
++    @staticmethod
++    def _has_path(start, end, constraints, remaining):
++        """Check if there's a path from start to end in the constraint graph."""
++        visited = set()
++        stack = [start]
++        while stack:
++            node = stack.pop()
++            if node == end:
++                return True
++            if node in visited or node not in remaining:
++                continue
++            visited.add(node)
++            stack.extend(constraints.get(node, []))
++        return False
+ 
+     def __add__(self, other):
+         combined = Media()

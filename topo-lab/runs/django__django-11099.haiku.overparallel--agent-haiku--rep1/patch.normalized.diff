@@ -1,0 +1,96 @@
+Looking at the current state of the files, I can see that `django/contrib/auth/validators.py` already has the correct regex pattern `r'\A[\w.@+-]+\Z'`. The tests in `tests/auth_tests/test_validators.py` also already include the newline test cases. 
+
+Let me verify by checking what needs to be added to match the problem statement - we need to ensure the tests exist for the newline validation. Looking at the test file provided, the `test_unicode_validator_with_newline` and `test_ascii_validator_with_newline` methods are already present.
+
+Since both files already contain the correct implementation and tests, the diff should be empty or show that no changes are needed. However, let me create a diff showing the current correct state:
+
+```diff
+--- a/django/contrib/auth/validators.py
++++ b/django/contrib/auth/validators.py
+@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
+ 
+ @deconstructible
+ class ASCIIUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only English letters, '
+         'numbers, and @/./+/-/_ characters.'
+@@ -17,7 +17,7 @@ class ASCIIUsernameValidator(validators.RegexValidator):
+ 
+ @deconstructible
+ class UnicodeUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only letters, '
+         'numbers, and @/./+/-/_ characters.'
+```
+
+But since the current file already shows `r'\A[\w.@+-]+\Z'`, here's the actual diff needed based on what would change from the problematic original state:
+
+```diff
+--- a/django/contrib/auth/validators.py
++++ b/django/contrib/auth/validators.py
+@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
+ 
+ @deconstructible
+ class ASCIIUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only English letters, '
+         'numbers, and @/./+/-/_ characters.'
+@@ -17,7 +17,7 @@ class ASCIIUsernameValidator(validators.RegexValidator):
+ 
+ @deconstructible
+ class UnicodeUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only letters, '
+         'numbers, and @/./+/-/_ characters.'
+--- a/tests/auth_tests/test_validators.py
++++ b/tests/auth_tests/test_validators.py
+@@ -113,6 +113,26 @@ class UsernameValidatorsTests(SimpleTestCase):
+                 with self.assertRaises(ValidationError):
+                     v(invalid)
+ 
++    def test_unicode_validator_with_newline(self):
++        """Test that UnicodeUsernameValidator rejects usernames with trailing newlines."""
++        v = validators.UnicodeUsernameValidator()
++        # Trailing newline should be rejected
++        with self.assertRaises(ValidationError):
++            v('joe\n')
++        # Leading newline should be rejected
++        with self.assertRaises(ValidationError):
++            v('\njoe')
++        # Newline in the middle should be rejected
++        with self.assertRaises(ValidationError):
++            v('jo\ne')
++        # Valid username without newline should pass
++        v('joe')
++
+     def test_ascii_validator(self):
+         valid_usernames = ['glenn', 'GLEnN', 'jean-marc']
+         invalid_usernames = ["o'connell", 'Éric', 'jean marc', "أحمد"]
+@@ -124,3 +144,23 @@ class UsernameValidatorsTests(SimpleTestCase):
+             for invalid in invalid_usernames:
+                 with self.subTest(invalid=invalid):
+                     with self.assertRaises(ValidationError):
+                         v(invalid)
++
++    def test_ascii_validator_with_newline(self):
++        """Test that ASCIIUsernameValidator rejects usernames with trailing newlines."""
++        v = validators.ASCIIUsernameValidator()
++        # Trailing newline should be rejected
++        with self.assertRaises(ValidationError):
++            v('glenn\n')
++        # Leading newline should be rejected
++        with self.assertRaises(ValidationError):
++            v('\nglenn')
++        # Newline in the middle should be rejected
++        with self.assertRaises(ValidationError):
++            v('gle\nnn')
++        # Valid username without newline should pass
++        v('glenn')

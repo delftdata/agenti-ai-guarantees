@@ -1,0 +1,146 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..6b062c4d01 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -63,18 +63,20 @@ class Media:
+         # filter(None, ...) avoids calling merge with empty dicts.
+         for obj in filter(None, self._css_lists[1:]):
+             css = {
+-                medium: self.merge(css.get(medium, []), obj.get(medium, []))
++                medium: self.merge([css.get(medium, []), obj.get(medium, [])])
+                 for medium in css.keys() | obj.keys()
+             }
+         return css
+ 
+     @property
+     def _js(self):
+-        js = self._js_lists[0]
+-        # filter(None, ...) avoids calling merge() with empty lists.
+-        for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
+-        return js
++        # Collect all non-empty js lists and merge them together
++        js_lists = [js for js in self._js_lists if js]
++        if not js_lists:
++            return []
++        if len(js_lists) == 1:
++            return list(js_lists[0])
++        return self.merge(js_lists)
+ 
+     def render(self):
+         return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+@@ -115,39 +117,90 @@ class Media:
+         raise KeyError('Unknown media type "%s"' % name)
+ 
+     @staticmethod
+-    def merge(list_1, list_2):
++    def merge(lists):
+         """
+-        Merge two lists while trying to keep the relative order of the elements.
+-        Warn if the lists have the same two elements in a different relative
+-        order.
++        Merge multiple lists while trying to keep the relative order of the elements.
++        Warn if there is a genuine circular dependency (cycle in the ordering graph).
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
++        
++        Args:
++            lists: A list of lists to merge
++            
++        Returns:
++            A merged list with ordering constraints respected
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
++        if not lists:
++            return []
++        
++        if len(lists) == 1:
++            return list(lists[0])
++        
++        # Build a graph of ordering constraints from all input lists
++        # Key: item, Value: set of items that must come after this item
++        must_come_before = {}
++        # Track all items we've seen
++        all_items = []
++        
++        for item_list in lists:
++            for i, item in enumerate(item_list):
++                if item not in must_come_before:
++                    must_come_before[item] = set()
++                    all_items.append(item)
++                # Add constraint: item must come before all subsequent items in this list
++                for j in range(i + 1, len(item_list)):
++                    must_come_before[item].add(item_list[j])
++        
++        # Check for cycles using DFS and perform topological sort
++        visited = {}  # None = unvisited, True = visiting, False = visited
++        sorted_list = []
++        
++        def has_cycle(item, visiting):
++            """
++            DFS to detect cycle and build topological order.
++            Returns True if a cycle is detected.
++            """
++            if item in visiting:
++                # Found a cycle
++                return True
++            
++            if visited.get(item, None) is not None:
++                # Already processed
++                return False
++            
++            visiting[item] = True
++            
++            for dependent in must_come_before.get(item, set()):
++                if has_cycle(dependent, visiting):
++                    return True
++            
++            visiting.pop(item)
++            visited[item] = False
++            sorted_list.append(item)
++            return False
++        
++        # Process all items
++        for item in all_items:
++            if visited.get(item, None) is None:
++                if has_cycle(item, {}):
++                    # Cycle detected - genuine conflict
+                     warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
++                        'Detected circular dependency in Media files.',
+                         MediaOrderConflictWarning,
+                     )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++                    # Fall back to returning items in the order they first appear
++                    seen = set()
++                    result = []
++                    for item_list in lists:
++                        for item in item_list:
++                            if item not in seen:
++                                result.append(item)
++                                seen.add(item)
++                    return result
++        
++        return sorted_list
+ 
+     def __add__(self, other):
+         combined = Media()

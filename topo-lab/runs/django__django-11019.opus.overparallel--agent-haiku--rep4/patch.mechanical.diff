@@ -1,0 +1,152 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..ce2818443a 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -48,6 +48,7 @@ class Media:
+                 css = {}
+             if js is None:
+                 js = []
++        # Store lists of lists to defer merging until needed
+         self._css_lists = [css]
+         self._js_lists = [js]
+ 
+@@ -59,22 +60,28 @@ class Media:
+ 
+     @property
+     def _css(self):
+-        css = self._css_lists[0]
+-        # filter(None, ...) avoids calling merge with empty dicts.
+-        for obj in filter(None, self._css_lists[1:]):
+-            css = {
+-                medium: self.merge(css.get(medium, []), obj.get(medium, []))
+-                for medium in css.keys() | obj.keys()
+-            }
+-        return css
++        # Merge all accumulated CSS lists
++        if not self._css_lists:
++            return {}
++        
++        # Collect all medium keys
++        all_media = set()
++        for css_dict in self._css_lists:
++            all_media.update(css_dict.keys())
++        
++        # Merge lists for each medium
++        result = {}
++        for medium in all_media:
++            lists_for_medium = [css_dict.get(medium, []) for css_dict in self._css_lists]
++            result[medium] = self.merge(lists_for_medium)
++        return result
+ 
+     @property
+     def _js(self):
+-        js = self._js_lists[0]
+-        # filter(None, ...) avoids calling merge() with empty lists.
+-        for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
+-        return js
++        # Merge all accumulated JS lists
++        if not self._js_lists:
++            return []
++        return self.merge(self._js_lists)
+ 
+     def render(self):
+         return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+@@ -115,39 +122,73 @@ class Media:
+         raise KeyError('Unknown media type "%s"' % name)
+ 
+     @staticmethod
+-    def merge(list_1, list_2):
++    def merge(lists_to_merge):
+         """
+-        Merge two lists while trying to keep the relative order of the elements.
+-        Warn if the lists have the same two elements in a different relative
+-        order.
+-
++        Merge a list of lists while preserving order constraints within each list.
++        Uses a topological sort-like approach to detect genuine conflicts.
++        
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
++        # Filter out empty lists
++        lists_to_merge = [lst for lst in lists_to_merge if lst]
++        
++        if not lists_to_merge:
++            return []
++        
++        if len(lists_to_merge) == 1:
++            return list(lists_to_merge[0])
++        
++        # Build a dependency graph: for each item, track what must come before it
++        # based on the lists we're merging
++        dependencies = {}  # item -> set of items that must come before it
++        all_items = []
++        
++        for lst in lists_to_merge:
++            for item in lst:
++                if item not in dependencies:
++                    dependencies[item] = set()
++                    all_items.append(item)
++            
++            # Add ordering constraints within this list
++            for i in range(len(lst) - 1):
++                dependencies[lst[i + 1]].add(lst[i])
++        
++        # Topological sort with cycle detection
++        result = []
++        remaining_deps = {item: set(deps) for item, deps in dependencies.items()}
++        
++        while remaining_deps:
++            # Find items with no remaining dependencies
++            ready = [item for item, deps in remaining_deps.items() if not deps]
++            
++            if not ready:
++                # Cycle detected - we have a genuine conflict
++                # Report which items are in conflict
++                conflicting = list(remaining_deps.keys())
++                if len(conflicting) >= 2:
+                     warnings.warn(
+                         'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
++                        '%s\n%s' % (conflicting[0], conflicting[1]),
+                         MediaOrderConflictWarning,
+                     )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++                # Break the cycle by taking the first item
++                ready = [conflicting[0]]
++            
++            # Sort ready items to ensure deterministic output (prefer earlier occurrences)
++            ready.sort(key=lambda x: all_items.index(x))
++            
++            # Add the first ready item to result
++            item = ready[0]
++            result.append(item)
++            del remaining_deps[item]
++            
++            # Remove this item from other items' dependencies
++            for deps in remaining_deps.values():
++                deps.discard(item)
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()

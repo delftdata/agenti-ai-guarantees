@@ -1,0 +1,98 @@
+{
+  "nodes": [
+    {
+      "id": "investigate_root_cause",
+      "instruction": "Analyze the bug where trigsimp/simplify incorrectly simplifies cos(x)+sqrt(sin(x)**2) to cos(x)+sin(x) for general complex x. The root cause is in the fu.py simplification module (function fu.py's TR functions or _futrig), specifically where sqrt(sin(x)**2) is treated as sin(x). Investigate how Pow with base sin(x)**2 and exponent 1/2 gets rewritten. Look at the functions in fu.py that call as_f_sign_1 or handle powers (e.g. _TR56, TR6, TR5, _f, and the bottom_up/pattern replacement logic). Identify precisely which function converts sqrt(sin(x)**2) into sin(x), and describe the exact code lines that need changing so that sin(x)**2 is only rewritten under a power that is an even integer (not a general/half-integer exponent). Output a precise description of the offending code location (function name, the exact conditional expression) and the corrected conditional logic. Do NOT output a diff yet; output a detailed textual analysis.",
+      "reads": [
+        "sympy/simplify/fu.py"
+      ],
+      "writes": [],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "inspect_trigsimp_paths",
+      "instruction": "Read the trigsimp module and identify any additional code paths (besides fu.py) that could rewrite sqrt(sin(x)**2) to sin(x), such as _futrig, futrig, or fmodule pattern rules. Report whether the fix belongs solely in fu.py or also requires changes in trigsimp.py. Provide the relevant function names and line context. Output a textual analysis only, no diff.",
+      "reads": [
+        "sympy/simplify/trigsimp.py"
+      ],
+      "writes": [],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "design_fix",
+      "instruction": "Using the analyses from investigate_root_cause and inspect_trigsimp_paths, produce a concrete fix design. Specify the exact function(s) in sympy/simplify/fu.py to modify (e.g. the _TR56 helper used by TR5/TR6) and the exact corrected condition: the substitution of sin(x)**2 -> 1-cos(x)**2 (and cos(x)**2 -> 1-sin(x)**2) must only apply when the exponent is a positive even integer, so that sqrt(sin(x)**2) (exponent 1/2) is NOT rewritten. Provide the precise before/after code snippet(s) with correct indentation matching the current file. Output the exact textual replacement blocks, not a diff.",
+      "reads": [
+        "sympy/simplify/fu.py"
+      ],
+      "writes": [],
+      "deps": [
+        "investigate_root_cause",
+        "inspect_trigsimp_paths"
+      ],
+      "guard": null
+    },
+    {
+      "id": "apply_fix",
+      "instruction": "Apply the fix design from design_fix to sympy/simplify/fu.py. Modify the relevant helper (e.g. _TR56 / _f logic) so that the power-lowering rewrite of sin(x)**n / cos(x)**n only triggers for positive even integer exponents, preventing sqrt(sin(x)**2) from being simplified to sin(x). Preserve all other behavior. Output the complete updated contents of sympy/simplify/fu.py within the writes.",
+      "reads": [
+        "sympy/simplify/fu.py"
+      ],
+      "writes": [
+        "sympy/simplify/fu.py"
+      ],
+      "deps": [
+        "design_fix"
+      ],
+      "guard": null
+    },
+    {
+      "id": "add_tests",
+      "instruction": "Add regression tests to sympy/simplify/tests/test_fu.py and/or sympy/simplify/tests/test_trigsimp.py verifying that trigsimp(cos(x)+sqrt(sin(x)**2)) is NOT simplified to cos(x)+sin(x) for a general (complex) symbol x, while it still correctly simplifies for a real symbol. Also verify existing power-lowering (e.g. TR5/TR6 on sin(x)**2, sin(x)**4) still works. Base the test additions on the fix from design_fix. Output the additions as complete replacement contents of the test file you modify (read current contents first).",
+      "reads": [
+        "sympy/simplify/tests/test_fu.py"
+      ],
+      "writes": [
+        "sympy/simplify/tests/test_fu.py"
+      ],
+      "deps": [
+        "design_fix"
+      ],
+      "guard": null
+    },
+    {
+      "id": "assemble_diff",
+      "instruction": "Produce a single unified diff against the repository root that combines the change to sympy/simplify/fu.py (from apply_fix) and the test additions to sympy/simplify/tests/test_fu.py (from add_tests). The diff must apply cleanly with git apply from the repository root, using correct a/ and b/ path prefixes and accurate hunk headers/context lines. Output only the unified diff.",
+      "reads": [],
+      "writes": [],
+      "deps": [
+        "apply_fix",
+        "add_tests"
+      ],
+      "guard": null
+    }
+  ],
+  "final_node": "assemble_diff",
+  "topology": "sequential",
+  "schedule": [
+    [
+      "inspect_trigsimp_paths"
+    ],
+    [
+      "investigate_root_cause"
+    ],
+    [
+      "design_fix"
+    ],
+    [
+      "add_tests"
+    ],
+    [
+      "apply_fix"
+    ],
+    [
+      "assemble_diff"
+    ]
+  ]
+}

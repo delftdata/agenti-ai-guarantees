@@ -1,0 +1,131 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..e823a40f72 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -63,7 +63,7 @@ class Media:
+         # filter(None, ...) avoids calling merge with empty dicts.
+         for obj in filter(None, self._css_lists[1:]):
+             css = {
+-                medium: self.merge(css.get(medium, []), obj.get(medium, []))
++                medium: self.merge([css.get(medium, []), obj.get(medium, [])])
+                 for medium in css.keys() | obj.keys()
+             }
+         return css
+@@ -73,7 +73,7 @@ class Media:
+         js = self._js_lists[0]
+         # filter(None, ...) avoids calling merge() with empty lists.
+         for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
++            js = self.merge([js, obj])
+         return js
+ 
+     def render(self):
+@@ -115,39 +115,81 @@ class Media:
+         raise KeyError('Unknown media type "%s"' % name)
+ 
+     @staticmethod
+-    def merge(list_1, list_2):
++    def merge(lists):
+         """
+-        Merge two lists while trying to keep the relative order of the elements.
+-        Warn if the lists have the same two elements in a different relative
+-        order.
++        Merge a list of lists while trying to keep the relative order of elements.
++        Warn if there is a genuine ordering conflict (cycle in dependency graph).
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++        # Handle edge cases
++        if not lists:
++            return []
++        
++        # Filter out empty lists
++        lists = [lst for lst in lists if lst]
++        if not lists:
++            return []
++        
++        if len(lists) == 1:
++            return lists[0]
++        
++        # Collect all unique items while preserving dependencies
++        all_items = []
++        item_positions = {}  # item -> list of (list_index, position_in_list)
++        
++        for list_index, lst in enumerate(lists):
++            for position, item in enumerate(lst):
++                if item not in item_positions:
++                    item_positions[item] = []
++                    all_items.append(item)
++                item_positions[item].append((list_index, position))
++        
++        # Build a dependency graph: if item A appears before item B in any list,
++        # A must come before B in the result
++        must_precede = {item: set() for item in all_items}
++        
++        for list_index, lst in enumerate(lists):
++            for i, item in enumerate(lst):
++                for j in range(i + 1, len(lst)):
++                    must_precede[lst[i]].add(lst[j])
++        
++        # Topological sort with conflict detection
++        result = []
++        remaining = set(all_items)
++        
++        while remaining:
++            # Find items that have no unsatisfied dependencies
++            ready = []
++            for item in remaining:
++                # Check if all items that must precede this one are already in result
++                if must_precede[item].isdisjoint(remaining):
++                    ready.append(item)
++            
++            if not ready:
++                # Conflict detected - there's a cycle in dependencies
++                # This is a genuine ordering conflict
++                # Report the first item involved in the conflict
++                first_remaining = next(iter(remaining))
++                conflicting_item = next(iter(must_precede[first_remaining] & remaining))
++                warnings.warn(
++                    'Detected duplicate Media files in an opposite order:\n'
++                    '%s\n%s' % (first_remaining, conflicting_item),
++                    MediaOrderConflictWarning,
++                )
++                # Break the cycle by taking the first remaining item
++                ready = [first_remaining]
++            
++            # Add the first ready item (maintain some stability in ordering)
++            # Sort ready items by their first appearance across all lists
++            ready.sort(key=lambda item: min(pos for _, pos in item_positions[item]))
++            item = ready[0]
++            result.append(item)
++            remaining.discard(item)
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()

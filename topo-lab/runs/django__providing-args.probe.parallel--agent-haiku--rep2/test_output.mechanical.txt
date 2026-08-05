@@ -1,0 +1,110 @@
+===== test_send (dispatch.tests.DispatcherTests): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp0cdculah\wt\django'
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 499, in <module>
+    failures = django_tests(
+  File "tests/runtests.py", line 288, in django_tests
+    failures = test_runner.run_tests(
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp0cdculah\wt\django\test\runner.py", line 627, in run_tests
+    suite = self.build_suite(test_labels, extra_tests)
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp0cdculah\wt\django\test\runner.py", line 488, in build_suite
+    tests = self.test_loader.loadTestsFromName(label)
+  File "C:\Users\Asus TUF\AppData\Local\Programs\Python\Python38\lib\unittest\loader.py", line 154, in loadTestsFromName
+    module = __import__(module_name)
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp0cdculah\wt\tests\dispatch\tests.py", line 40, in <module>
+    a_signal = Signal(providing_args=["val"])
+TypeError: __init__() got an unexpected keyword argument 'providing_args'
+
+
+===== test_send_robust_success (dispatch.tests.DispatcherTests): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp0cdculah\wt\django'
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 499, in <module>
+    failures = django_tests(
+  File "tests/runtests.py", line 288, in django_tests
+    failures = test_runner.run_tests(
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp0cdculah\wt\django\test\runner.py", line 627, in run_tests
+    suite = self.build_suite(test_labels, extra_tests)
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp0cdculah\wt\django\test\runner.py", line 488, in build_suite
+    tests = self.test_loader.loadTestsFromName(label)
+  File "C:\Users\Asus TUF\AppData\Local\Programs\Python\Python38\lib\unittest\loader.py", line 154, in loadTestsFromName
+    module = __import__(module_name)
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp0cdculah\wt\tests\dispatch\tests.py", line 40, in <module>
+    a_signal = Signal(providing_args=["val"])
+TypeError: __init__() got an unexpected keyword argument 'providing_args'
+
+
+===== test_cached_garbaged_collected (dispatch.tests.DispatcherTests): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp0cdculah\wt\django'
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 499, in <module>
+    failures = django_tests(
+  File "tests/runtests.py", line 288, in django_tests
+    failures = test_runner.run_tests(
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp0cdculah\wt\django\test\runner.py", line 627, in run_tests
+    suite = self.build_suite(test_labels, extra_tests)
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp0cdculah\wt\django\test\runner.py", line 488, in build_suite
+    tests = self.test_loader.loadTestsFromName(label)
+  File "C:\Users\Asus TUF\AppData\Local\Programs\Python\Python38\lib\unittest\loader.py", line 154, in loadTestsFromName
+    module = __import__(module_name)
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp0cdculah\wt\tests\dispatch\tests.py", line 40, in <module>
+    a_signal = Signal(providing_args=["val"])
+TypeError: __init__() got an unexpected keyword argument 'providing_args'
+
+
+===== test_receiver_signal_list (dispatch.tests.ReceiverTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp0cdculah\wt\django'
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 499, in <module>
+    failures = django_tests(
+  File "tests/runtests.py", line 288, in django_tests
+    failures = test_runner.run_tests(
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp0cdculah\wt\django\test\runner.py", line 627, in run_tests
+    suite = self.build_suite(test_labels, extra_tests)
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp0cdculah\wt\django\test\runner.py", line 488, in build_suite
+    tests = self.test_loader.loadTestsFromName(label)
+  File "C:\Users\Asus TUF\AppData\Local\Programs\Python\Python38\lib\unittest\loader.py", line 154, in loadTestsFromName
+    module = __import__(module_name)
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmp0cdculah\wt\tests\dispatch\tests.py", line 40, in <module>
+    a_signal = Signal(providing_args=["val"])
+TypeError: __init__() got an unexpected keyword argument 'providing_args'
+
+
+===== test_save_signals (signals.tests.SignalTests): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp0cdculah\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+OK
+Destroying test database for alias 'default'...
+
+
+
+===== test_delete_signals (signals.tests.SignalTests): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmp0cdculah\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+OK
+Destroying test database for alias 'default'...
+

@@ -1,0 +1,109 @@
+{
+  "nodes": [
+    {
+      "id": "t0_core_fix",
+      "instruction": "You are given the current complete contents of django/dispatch/dispatcher.py. Apply exactly the following two changes and reproduce every other line of the file byte-for-byte as it appears in the version you were given, including any changes already present. Quoted blocks below reproduce the file's exact indentation; copy replacement lines exactly as written between the blank lines.\n\n(1) Replace this block:\n\n    def __init__(self, providing_args=None, use_caching=False):\n        \"\"\"\n        Create a new signal.\n\n        providing_args\n            A list of the arguments this signal can pass along in a send() call.\n        \"\"\"\n        self.receivers = []\n        if providing_args is None:\n            providing_args = []\n        self.providing_args = set(providing_args)\n        self.lock = threading.Lock()\n\nwith exactly this block:\n\n    def __init__(self, use_caching=False):\n        \"\"\"\n        Create a new signal.\n        \"\"\"\n        self.receivers = []\n        self.lock = threading.Lock()\n\n(2) In the docstring of send_robust, replace this block:\n\n            named\n                Named arguments which will be passed to receivers. These\n                arguments must be a subset of the argument names defined in\n                providing_args.\n\nwith exactly this block:\n\n            named\n                Named arguments which will be passed to receivers.\n\nDo not modify anything else: leave every other line exactly as it appears in the file you were given. Output the complete new file contents in a single FILE block for django/dispatch/dispatcher.py.",
+      "reads": [
+        "django/dispatch/dispatcher.py"
+      ],
+      "writes": [
+        "django/dispatch/dispatcher.py"
+      ],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "t1_db_signals",
+      "instruction": "You are given the current complete contents of two files: django/db/models/signals.py and tests/dispatch/tests.py. Apply exactly the changes listed below and reproduce every other line of both files byte-for-byte as they appear in the versions you were given, including any changes already present. Quoted blocks below reproduce the files' exact indentation (the assignment lines are at module level with no leading whitespace); copy replacement lines exactly as written between the blank lines.\n\nIn django/db/models/signals.py, make exactly these replacements:\n\n(1) Replace:\n\nclass_prepared = Signal(providing_args=[\"class\"])\n\nwith:\n\nclass_prepared = Signal()\n\n(2) Replace:\n\npre_init = ModelSignal(providing_args=[\"instance\", \"args\", \"kwargs\"], use_caching=True)\n\nwith:\n\npre_init = ModelSignal(use_caching=True)\n\n(3) Replace:\n\npost_init = ModelSignal(providing_args=[\"instance\"], use_caching=True)\n\nwith:\n\npost_init = ModelSignal(use_caching=True)\n\n(4) Replace these two lines:\n\npre_save = ModelSignal(providing_args=[\"instance\", \"raw\", \"using\", \"update_fields\"],\n                       use_caching=True)\n\nwith this single line:\n\npre_save = ModelSignal(use_caching=True)\n\n(5) Replace:\n\npost_save = ModelSignal(providing_args=[\"instance\", \"raw\", \"created\", \"using\", \"update_fields\"], use_caching=True)\n\nwith:\n\npost_save = ModelSignal(use_caching=True)\n\n(6) Replace:\n\npre_delete = ModelSignal(providing_args=[\"instance\", \"using\"], use_caching=True)\n\nwith:\n\npre_delete = ModelSignal(use_caching=True)\n\n(7) Replace:\n\npost_delete = ModelSignal(providing_args=[\"instance\", \"using\"], use_caching=True)\n\nwith:\n\npost_delete = ModelSignal(use_caching=True)\n\n(8) Replace these four lines:\n\nm2m_changed = ModelSignal(\n    providing_args=[\"action\", \"instance\", \"reverse\", \"model\", \"pk_set\", \"using\"],\n    use_caching=True,\n)\n\nwith this single line:\n\nm2m_changed = ModelSignal(use_caching=True)\n\n(9) Replace:\n\npre_migrate = Signal(providing_args=[\"app_config\", \"verbosity\", \"interactive\", \"using\", \"apps\", \"plan\"])\n\nwith:\n\npre_migrate = Signal()\n\n(10) Replace:\n\npost_migrate = Signal(providing_args=[\"app_config\", \"verbosity\", \"interactive\", \"using\", \"apps\", \"plan\"])\n\nwith:\n\npost_migrate = Signal()\n\nIn tests/dispatch/tests.py, make exactly these two replacements and nothing else:\n\n(11) Replace:\n\na_signal = Signal(providing_args=[\"val\"])\n\nwith:\n\na_signal = Signal()\n\n(12) Replace:\n\nb_signal = Signal(providing_args=[\"val\"])\n\nwith:\n\nb_signal = Signal()\n\nDo not modify the c_signal or d_signal lines or anything else in either file. Output the complete new contents of BOTH files, each in its own FILE block: one for django/db/models/signals.py and one for tests/dispatch/tests.py.",
+      "reads": [
+        "django/db/models/signals.py",
+        "tests/dispatch/tests.py"
+      ],
+      "writes": [
+        "django/db/models/signals.py",
+        "tests/dispatch/tests.py"
+      ],
+      "deps": [
+        "t0_core_fix"
+      ],
+      "guard": null
+    },
+    {
+      "id": "t2_auth_signals",
+      "instruction": "You are given the current complete contents of two files: django/contrib/auth/signals.py and tests/dispatch/tests.py. Apply exactly the changes listed below and reproduce every other line of both files byte-for-byte as they appear in the versions you were given, including any changes already present. Quoted blocks below reproduce the files' exact indentation (the assignment lines are at module level with no leading whitespace); copy replacement lines exactly as written between the blank lines.\n\nIn django/contrib/auth/signals.py, make exactly these replacements:\n\n(1) Replace:\n\nuser_logged_in = Signal(providing_args=['request', 'user'])\n\nwith:\n\nuser_logged_in = Signal()\n\n(2) Replace:\n\nuser_login_failed = Signal(providing_args=['credentials', 'request'])\n\nwith:\n\nuser_login_failed = Signal()\n\n(3) Replace:\n\nuser_logged_out = Signal(providing_args=['request', 'user'])\n\nwith:\n\nuser_logged_out = Signal()\n\nIn tests/dispatch/tests.py, make exactly these two replacements and nothing else:\n\n(4) Replace:\n\nc_signal = Signal(providing_args=[\"val\"])\n\nwith:\n\nc_signal = Signal()\n\n(5) Replace:\n\nd_signal = Signal(providing_args=[\"val\"], use_caching=True)\n\nwith:\n\nd_signal = Signal(use_caching=True)\n\nDo not modify the a_signal or b_signal lines or anything else in either file. Output the complete new contents of BOTH files, each in its own FILE block: one for django/contrib/auth/signals.py and one for tests/dispatch/tests.py.",
+      "reads": [
+        "django/contrib/auth/signals.py",
+        "tests/dispatch/tests.py"
+      ],
+      "writes": [
+        "django/contrib/auth/signals.py",
+        "tests/dispatch/tests.py"
+      ],
+      "deps": [
+        "t0_core_fix",
+        "t1_db_signals"
+      ],
+      "guard": null
+    },
+    {
+      "id": "t3_core_signals",
+      "instruction": "You are given the current complete contents of three files: django/core/signals.py, django/db/backends/signals.py, and django/test/signals.py. Apply exactly the changes listed below and reproduce every other line of all three files byte-for-byte as they appear in the versions you were given, including any changes already present. Quoted blocks below reproduce the files' exact indentation (the assignment lines are at module level with no leading whitespace); copy replacement lines exactly as written between the blank lines.\n\nIn django/core/signals.py, make exactly these replacements:\n\n(1) Replace:\n\nrequest_started = Signal(providing_args=[\"environ\"])\n\nwith:\n\nrequest_started = Signal()\n\n(2) Replace:\n\ngot_request_exception = Signal(providing_args=[\"request\"])\n\nwith:\n\ngot_request_exception = Signal()\n\n(3) Replace:\n\nsetting_changed = Signal(providing_args=[\"setting\", \"value\", \"enter\"])\n\nwith:\n\nsetting_changed = Signal()\n\nDo not modify the request_finished line.\n\nIn django/db/backends/signals.py:\n\n(4) Replace:\n\nconnection_created = Signal(providing_args=[\"connection\"])\n\nwith:\n\nconnection_created = Signal()\n\nIn django/test/signals.py:\n\n(5) Replace:\n\ntemplate_rendered = Signal(providing_args=[\"template\", \"context\"])\n\nwith:\n\ntemplate_rendered = Signal()\n\nDo not modify anything else in any of the three files. Output the complete new contents of ALL THREE files, each in its own FILE block: one for django/core/signals.py, one for django/db/backends/signals.py, and one for django/test/signals.py.",
+      "reads": [
+        "django/core/signals.py",
+        "django/db/backends/signals.py",
+        "django/test/signals.py"
+      ],
+      "writes": [
+        "django/core/signals.py",
+        "django/db/backends/signals.py",
+        "django/test/signals.py"
+      ],
+      "deps": [
+        "t0_core_fix"
+      ],
+      "guard": null
+    },
+    {
+      "id": "make_diff",
+      "instruction": "Produce a single unified diff against the repository root capturing the changes made to django/dispatch/dispatcher.py, django/db/models/signals.py, django/contrib/auth/signals.py, django/core/signals.py, django/db/backends/signals.py, django/test/signals.py, and tests/dispatch/tests.py, using the current file contents you were given. Correct diff --git/---/+++ headers with a/ and b/ prefixes, accurate hunk headers, context lines matching the files. No prose outside the diff.",
+      "reads": [
+        "django/dispatch/dispatcher.py",
+        "django/db/models/signals.py",
+        "django/contrib/auth/signals.py",
+        "django/core/signals.py",
+        "django/db/backends/signals.py",
+        "django/test/signals.py",
+        "tests/dispatch/tests.py"
+      ],
+      "writes": [
+        "django/dispatch/dispatcher.py"
+      ],
+      "deps": [
+        "t0_core_fix",
+        "t1_db_signals",
+        "t2_auth_signals",
+        "t3_core_signals"
+      ],
+      "guard": null
+    }
+  ],
+  "final_node": "make_diff",
+  "topology": "sequential",
+  "schedule": [
+    [
+      "t0_core_fix"
+    ],
+    [
+      "t1_db_signals"
+    ],
+    [
+      "t2_auth_signals"
+    ],
+    [
+      "t3_core_signals"
+    ],
+    [
+      "make_diff"
+    ]
+  ]
+}

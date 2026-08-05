@@ -1,0 +1,9 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..6082cc6948 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -1081,3 +1081,4 @@ class SelectDateWidget(Widget):
+             ('{}_{}'.format(name, interval) in data)
+             for interval in ('year', 'month', 'day')
+         )
++# MOCK EDIT by implement_merge

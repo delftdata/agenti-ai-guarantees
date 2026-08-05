@@ -1,0 +1,34 @@
+Looking at the current state of `django/contrib/auth/validators.py`, I can see that:
+
+1. `ASCIIUsernameValidator` already has `regex = r'\A[\w.@+-]+\Z'` (correct)
+2. `UnicodeUsernameValidator` still has `regex = r'^[\w.@+-]+$'` (needs to be fixed)
+
+According to the instruction, I need to update the `UnicodeUsernameValidator` class to use `\A` and `\Z` instead of `^` and `$` to prevent matching trailing newlines.
+
+===FILE: django/contrib/auth/validators.py===
+import re
+
+from django.core import validators
+from django.utils.deconstruct import deconstructible
+from django.utils.translation import gettext_lazy as _
+
+
+@deconstructible
+class ASCIIUsernameValidator(validators.RegexValidator):
+    regex = r'\A[\w.@+-]+\Z'
+    message = _(
+        'Enter a valid username. This value may contain only English letters, '
+        'numbers, and @/./+/-/_ characters.'
+    )
+    flags = re.ASCII
+
+
+@deconstructible
+class UnicodeUsernameValidator(validators.RegexValidator):
+    regex = r'\A[\w.@+-]+\Z'
+    message = _(
+        'Enter a valid username. This value may contain only letters, '
+        'numbers, and @/./+/-/_ characters.'
+    )
+    flags = 0
+===END===

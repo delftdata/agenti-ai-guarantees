@@ -1,0 +1,100 @@
+# Analysis of Media Tests and Required Changes
+
+## (a) Tests That Must Still Pass Unchanged
+
+1. **test_construction** - Basic Media object instantiation and string representation
+2. **test_media_dsl** - Widget media definition via DSL class
+3. **test_media_property** - Widget media defined as property
+4. **test_media_property_parent_references** - Property-based media with parent references
+5. **test_media_inheritance** - Media inheritance from parent widgets
+6. **test_media_inheritance_from_property** - Media inheritance when parent uses property
+7. **test_media_inheritance_extends** - Explicit extend=True behavior
+8. **test_media_inheritance_single_type** - Selective media type inheritance
+9. **test_multi_media** - Multiple CSS media types (screen, print, etc.)
+10. **test_multi_widget** - MultiWidget combining component widget media
+11. **test_form_media** - Form-level media aggregation
+12. **test_html_safe** - HTML safety of Media objects
+13. **test_merge_js_three_way** - Three-way merge of JS preserves relative ordering
+14. **test_merge_css_three_way** - Three-way merge of CSS with different orderings succeeds
+
+These tests validate core behavior and should pass with topological sort implementation (they don't depend on the old order-constraint logic).
+
+## (b) Tests Whose Expected Values Need Updating
+
+### 1. **test_merge**
+**Current code:**
+```python
+def test_merge(self):
+    test_values = (
+        (([1, 2], [3, 4]), [1, 2, 3, 4]),
+        (([1, 2], [2, 3]), [1, 2, 3]),
+        (([2, 3], [1, 2]), [1, 2, 3]),
+        (([1, 3], [2, 3]), [1, 2, 3]),
+        (([1, 2], [1, 3]), [1, 2, 3]),
+        (([1, 2], [3, 2]), [1, 3, 2]),
+    )
+```
+
+**Expected behavior change:** The last test case `(([1, 2], [3, 2]), [1, 3, 2])` currently expects that the constraint "1 before 2" from first list and "3 before 2" from second list produces `[1, 3, 2]`. With topological sorting, this should still work correctly. All six test cases should continue to pass as they represent valid topological orderings.
+
+### 2. **test_merge_warning**
+**Current code:**
+```python
+def test_merge_warning(self):
+    msg = 'Detected duplicate Media files in an opposite order:\n1\n2'
+    with self.assertWarnsMessage(RuntimeWarning, msg):
+        self.assertEqual(Media.merge([1, 2], [2, 1]), [1, 2])
+```
+
+**Expected behavior change:** This test verifies that merging `[1, 2]` and `[2, 1]` produces a warning AND returns `[1, 2]`. With topological sorting, this represents a genuine conflict (1 must come before 2, but 2 must come before 1), which cannot be resolved. The warning should still be raised, and the merge should still succeed with the first ordering preserved. Test passes unchanged.
+
+## (c) New Test Scenario - Bug Report Case
+
+**Required test method to add:**
+
+```python
+def test_merge_three_or_more_media_with_dependencies(self):
+    """
+    Test for issue #11019: Merging 3+ media objects with dependencies
+    should not produce unnecessary MediaOrderConflictWarnings.
+    
+    Scenario: ColorPicker depends on nothing, SimpleTextWidget uses text-editor.js,
+    FancyTextWidget uses text-editor.js, text-editor-extras.js (depends on text-editor.js),
+    and color-picker.js. All independent from each other except the dependency noted.
+    
+    When merged: ColorPicker().media + SimpleTextWidget().media + FancyTextWidget().media
+    Expected: text-editor.js, text-editor-extras.js, color-picker.js (no warning)
+    
+    The bug: Intermediate addition (ColorPicker + SimpleTextWidget) creates
+    [color-picker.js, text-editor.js], incorrectly constraining color-picker
+    before text-editor. Then adding FancyTextWidget causes false conflict warning.
+    """
+    class ColorPicker(TextInput):
+        class Media:
+            js = ['color-picker.js']
+    
+    class SimpleTextWidget(TextInput):
+        class Media:
+            js = ['text-editor.js']
+    
+    class FancyTextWidget(TextInput):
+        class Media:
+            js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+    
+    # This should NOT produce a MediaOrderConflictWarning
+    media = ColorPicker().media + SimpleTextWidget().media + FancyTextWidget().media
+    
+    # Expected output: text-editor.js must come before text-editor-extras.js
+    # color-picker.js can be anywhere (no dependency constraint)
+    self.assertEqual(
+        list(media._js),
+        ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+    )
+```
+
+**Key characteristics of this test:**
+- Three widgets being merged in sequence (not simultaneous)
+- Dependency relationship: text-editor-extras.js depends on text-editor.js
+- No conflict exists in the topological order
+- Should NOT emit MediaOrderConflictWarning
+- Validates that topological sorting correctly resolves the constraint graph without false positives

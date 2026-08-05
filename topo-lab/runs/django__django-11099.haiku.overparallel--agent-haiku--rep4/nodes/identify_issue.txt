@@ -1,0 +1,51 @@
+# Analysis of UsernameValidator Regex Patterns
+
+## Problem Identification
+
+The issue is located in `django/contrib/auth/validators.py`. The file contains two validator classes:
+1. `ASCIIUsernameValidator`
+2. `UnicodeUsernameValidator`
+
+Both validators currently use the regex pattern: `r'^[\w.@+-]+$'`
+
+## Root Cause
+
+In Python regular expressions, the `$` anchor has a subtle behavior:
+- `$` matches at the end of the string OR immediately before a trailing newline character
+- This means the regex `r'^[\w.@+-]+$'` will accept strings ending with `\n` (newline)
+
+For example:
+- Input: `"validusername\n"` would PASS validation (unintended)
+- Input: `"validusername"` would PASS validation (intended)
+
+The `^` anchor has the corresponding behavior - it matches at the start of the string OR immediately after a leading newline.
+
+## Security/Validation Impact
+
+This quirk allows usernames with trailing (or leading) newlines to pass validation, which is unintended. While this may not be a critical security vulnerability in most contexts, it represents a validation bypass and violates the principle of least surprise - the validator should only accept alphanumeric characters plus the specific special characters (`.`, `@`, `+`, `-`).
+
+## Required Fix
+
+The solution is to replace `^` and `$` with `\A` and `\Z` respectively:
+- `\A` - matches only at the absolute start of the string (no leading newline matching)
+- `\Z` - matches only at the absolute end of the string (no trailing newline matching)
+
+**Current pattern:** `r'^[\w.@+-]+$'`
+**Fixed pattern:** `r'\A[\w.@+-]+\Z'`
+
+## Files Requiring Changes
+
+`django/contrib/auth/validators.py` contains:
+1. `ASCIIUsernameValidator` class - has a `regex` attribute with the problematic pattern
+2. `UnicodeUsernameValidator` class - has a `regex` attribute with the problematic pattern
+
+Both regex patterns need to be updated from `r'^[\w.@+-]+$'` to `r'\A[\w.@+-]+\Z'`.
+
+## Test Coverage Consideration
+
+To verify the fix works correctly, test cases should include:
+- Username without newline (should pass)
+- Username with trailing newline (should fail after fix)
+- Username with leading newline (should fail after fix)
+- Username with embedded newline (should fail after fix)
+- Standard valid usernames with allowed special characters (should pass)

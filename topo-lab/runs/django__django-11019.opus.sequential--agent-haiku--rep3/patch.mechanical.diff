@@ -1,0 +1,139 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..dc13495fad 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -63,18 +63,14 @@ class Media:
+         # filter(None, ...) avoids calling merge with empty dicts.
+         for obj in filter(None, self._css_lists[1:]):
+             css = {
+-                medium: self.merge(css.get(medium, []), obj.get(medium, []))
++                medium: self.merge([css.get(medium, []), obj.get(medium, [])])
+                 for medium in css.keys() | obj.keys()
+             }
+         return css
+ 
+     @property
+     def _js(self):
+-        js = self._js_lists[0]
+-        # filter(None, ...) avoids calling merge() with empty lists.
+-        for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
+-        return js
++        return self.merge(self._js_lists)
+ 
+     def render(self):
+         return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+@@ -115,39 +111,82 @@ class Media:
+         raise KeyError('Unknown media type "%s"' % name)
+ 
+     @staticmethod
+-    def merge(list_1, list_2):
++    def merge(list_of_lists):
+         """
+-        Merge two lists while trying to keep the relative order of the elements.
+-        Warn if the lists have the same two elements in a different relative
+-        order.
+-
+-        For static assets it can be important to have them included in the DOM
+-        in a certain order. In JavaScript you may not be able to reference a
+-        global or in CSS you might want to override a style.
++        Merge multiple lists while respecting ordering constraints from each list.
++        
++        Build a directed graph where an edge from A to B means A must come before B.
++        Use topological sorting to produce an ordering that respects all constraints.
++        Only warn if a genuine cycle is detected (impossible to satisfy all constraints).
++        
++        Args:
++            list_of_lists: A list of lists to merge. Empty lists are ignored.
++        
++        Returns:
++            A merged list respecting the ordering constraints from all input lists.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++        # Filter out empty lists
++        non_empty_lists = [lst for lst in list_of_lists if lst]
++        
++        if not non_empty_lists:
++            return []
++        
++        if len(non_empty_lists) == 1:
++            return list(non_empty_lists[0])
++        
++        # Collect all unique items
++        all_items = []
++        seen = set()
++        for lst in non_empty_lists:
++            for item in lst:
++                if item not in seen:
++                    all_items.append(item)
++                    seen.add(item)
++        
++        # Build a directed graph: edges[A] contains all items that must come after A
++        edges = {item: set() for item in all_items}
++        in_degree = {item: 0 for item in all_items}
++        
++        # For each list, add edges representing the ordering constraints
++        for lst in non_empty_lists:
++            for i, item in enumerate(lst):
++                # item must come before all items that appear after it in this list
++                for j in range(i + 1, len(lst)):
++                    next_item = lst[j]
++                    if next_item not in edges[item]:
++                        edges[item].add(next_item)
++                        in_degree[next_item] += 1
++        
++        # Topological sort using Kahn's algorithm
++        queue = [item for item in all_items if in_degree[item] == 0]
++        result = []
++        
++        while queue:
++            # Sort the queue to ensure deterministic ordering when there are multiple
++            # items with no incoming edges (maintains stability)
++            queue.sort(key=lambda x: all_items.index(x))
++            current = queue.pop(0)
++            result.append(current)
++            
++            # Process all items that must come after current
++            for neighbor in sorted(edges[current], key=lambda x: all_items.index(x)):
++                in_degree[neighbor] -= 1
++                if in_degree[neighbor] == 0:
++                    queue.append(neighbor)
++        
++        # If we couldn't order all items, there's a cycle (genuine conflict)
++        if len(result) != len(all_items):
++            # Find items involved in the cycle
++            remaining = [item for item in all_items if item not in result]
++            warnings.warn(
++                'Detected duplicate Media files in an opposite order:\n'
++                '%s' % '\n'.join(remaining[:2]) if len(remaining) >= 2 else str(remaining),
++                MediaOrderConflictWarning,
++            )
++            # Return what we have; cycles are genuinely unresolvable
++            return result
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()

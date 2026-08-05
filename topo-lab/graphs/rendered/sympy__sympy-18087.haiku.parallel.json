@@ -1,0 +1,158 @@
+{
+  "nodes": [
+    {
+      "id": "create_test",
+      "instruction": "Create a test file to verify the bug. Test that trigsimp(cos(x) + sqrt(sin(x)**2)) should NOT simplify to cos(x) + sin(x) for general complex x, and that it correctly simplifies to cos(x) + |sin(x)| or leaves it unsimplified properly. Also test that it works correctly for real x.",
+      "reads": [],
+      "writes": [
+        "test_trig_bug.py"
+      ],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "examine_trigsimp",
+      "instruction": "Read the trigsimp.py file to understand the main trigsimp function and identify which sub-function or transformation is causing the incorrect simplification of sqrt(sin(x)**2) to sin(x).",
+      "reads": [
+        "sympy/simplify/trigsimp.py"
+      ],
+      "writes": [],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "examine_fu",
+      "instruction": "Read the fu.py file to identify transformations that might be incorrectly simplifying sqrt of squared trigonometric functions.",
+      "reads": [
+        "sympy/simplify/fu.py"
+      ],
+      "writes": [],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "examine_radsimp",
+      "instruction": "Read the radsimp.py file to check if radical simplification is the source of the issue with sqrt(sin(x)**2).",
+      "reads": [
+        "sympy/simplify/radsimp.py"
+      ],
+      "writes": [],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "identify_root_cause",
+      "instruction": "Based on examination of trigsimp.py, fu.py, and radsimp.py, identify the exact function or transformation that is incorrectly simplifying sqrt(sin(x)**2) to sin(x). Look for any code that simplifies Pow expressions with even exponents without checking for sign/absolute value.",
+      "reads": [
+        "sympy/simplify/trigsimp.py",
+        "sympy/simplify/fu.py",
+        "sympy/simplify/radsimp.py"
+      ],
+      "writes": [],
+      "deps": [
+        "examine_trigsimp",
+        "examine_fu",
+        "examine_radsimp"
+      ],
+      "guard": null
+    },
+    {
+      "id": "fix_simplification",
+      "instruction": "Apply the fix to prevent incorrect simplification. The issue is likely in fu.py where sqrt(sin(x)**2) is being simplified to sin(x) without considering absolute value. Modify the relevant transformation functions to properly handle sqrt of squared expressions for complex variables by either: (1) adding checks for the real assumption, (2) using Abs() wrapper, or (3) not applying the simplification when the variable is not known to be real.",
+      "reads": [
+        "sympy/simplify/fu.py",
+        "sympy/simplify/trigsimp.py"
+      ],
+      "writes": [
+        "sympy/simplify/fu.py"
+      ],
+      "deps": [
+        "identify_root_cause"
+      ],
+      "guard": null
+    },
+    {
+      "id": "verify_fix",
+      "instruction": "Run the test created in create_test node to verify that the fix resolves the issue. The test should show that trigsimp no longer incorrectly simplifies cos(x) + sqrt(sin(x)**2) to cos(x) + sin(x) for general x.",
+      "reads": [
+        "test_trig_bug.py",
+        "sympy/simplify/fu.py"
+      ],
+      "writes": [],
+      "deps": [
+        "create_test",
+        "fix_simplification"
+      ],
+      "guard": null
+    },
+    {
+      "id": "run_existing_tests",
+      "instruction": "Run the existing trigsimp tests in sympy/simplify/tests/test_trigsimp.py to ensure the fix doesn't break any existing functionality.",
+      "reads": [
+        "sympy/simplify/tests/test_trigsimp.py",
+        "sympy/simplify/fu.py"
+      ],
+      "writes": [],
+      "deps": [
+        "fix_simplification"
+      ],
+      "guard": null
+    },
+    {
+      "id": "add_regression_test",
+      "instruction": "Add a regression test to sympy/simplify/tests/test_trigsimp.py that specifically tests the fix for issue #18087. The test should verify that trigsimp(cos(x) + sqrt(sin(x)**2)) does not incorrectly simplify to cos(x) + sin(x) for general complex x.",
+      "reads": [
+        "sympy/simplify/tests/test_trigsimp.py"
+      ],
+      "writes": [
+        "sympy/simplify/tests/test_trigsimp.py"
+      ],
+      "deps": [
+        "verify_fix"
+      ],
+      "guard": null
+    },
+    {
+      "id": "generate_diff",
+      "instruction": "Generate a unified diff that shows all changes made to fix the issue. Include the changes to fu.py and test_trigsimp.py. Ensure the diff can be applied cleanly with git apply.",
+      "reads": [
+        "sympy/simplify/fu.py",
+        "sympy/simplify/tests/test_trigsimp.py"
+      ],
+      "writes": [
+        "sympy_fix.diff"
+      ],
+      "deps": [
+        "add_regression_test",
+        "run_existing_tests"
+      ],
+      "guard": null
+    }
+  ],
+  "final_node": "generate_diff",
+  "topology": "parallel",
+  "schedule": [
+    [
+      "create_test",
+      "examine_fu",
+      "examine_radsimp",
+      "examine_trigsimp"
+    ],
+    [
+      "identify_root_cause"
+    ],
+    [
+      "fix_simplification"
+    ],
+    [
+      "run_existing_tests",
+      "verify_fix"
+    ],
+    [
+      "add_regression_test"
+    ],
+    [
+      "generate_diff"
+    ]
+  ]
+}

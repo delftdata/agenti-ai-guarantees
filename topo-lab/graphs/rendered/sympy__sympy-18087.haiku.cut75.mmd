@@ -1,0 +1,27 @@
+flowchart TD
+    create_test[create_test]
+    examine_trigsimp[examine_trigsimp]
+    examine_fu[examine_fu]
+    examine_radsimp[examine_radsimp]
+    identify_root_cause[identify_root_cause]
+    fix_simplification[fix_simplification]
+    verify_fix[verify_fix]
+    run_existing_tests[run_existing_tests]
+    add_regression_test[add_regression_test]
+    generate_diff[generate_diff]
+    examine_trigsimp -.-> identify_root_cause
+    examine_fu -.-> identify_root_cause
+    examine_radsimp -.-> identify_root_cause
+    identify_root_cause -.-> fix_simplification
+    create_test --> verify_fix
+    fix_simplification --> verify_fix
+    fix_simplification -.-> run_existing_tests
+    verify_fix -.-> add_regression_test
+    add_regression_test --> generate_diff
+    run_existing_tests --> generate_diff
+    examine_trigsimp --> generate_diff
+    examine_fu --> generate_diff
+    examine_radsimp --> generate_diff
+    identify_root_cause --> generate_diff
+    verify_fix --> generate_diff
+    style generate_diff stroke-width:3px

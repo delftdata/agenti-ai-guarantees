@@ -1,0 +1,50 @@
+# Analysis of sqrt(sin(x)**2) Issue in radsimp.py
+
+## Problem Statement
+The issue is that `trigsimp(cos(x) + sqrt(sin(x)**2))` incorrectly simplifies to `cos(x) + sin(x)` for general complex `x`, when it should simplify to `cos(x) + |sin(x)|`. The function works correctly when `x` is assumed to be real.
+
+## Root Cause Analysis
+
+The problem is **NOT in radsimp.py itself**, but rather in how `sqrt(sin(x)**2)` is being simplified before it reaches trigsimp.
+
+### Key Issue: Automatic Simplification of sqrt(expr**2)
+
+When you write `sqrt(sin(x)**2)`, SymPy's core simplification automatically reduces this to `sin(x)` without considering whether the exponent simplification is valid for complex numbers. This happens in the symbolic simplification pipeline, likely in:
+
+1. **Power simplification** - The expression `sin(x)**2` under a square root
+2. **sqrt simplification** - Automatic cancellation of `sqrt(a**2)` to `a`
+
+### Why It Works for Real x
+
+When `x` is assumed to be real:
+- `sin(x)` is real
+- For real `a`, `sqrt(a**2) = |a|` is a valid simplification
+- When `a` is real and known to be non-negative, `|a| = a`
+- SymPy's assumption system can make this simplification safely
+
+### Why It Fails for Complex x
+
+For complex `z`:
+- `sqrt(z**2) ≠ z` in general
+- The correct simplification is `sqrt(z**2) = |z|` (absolute value/modulus)
+- For `sin(x)` where `x` is complex:
+  - `sin(x)` can be complex
+  - `sqrt(sin(x)**2)` should simplify to `|sin(x)|` (the absolute value/modulus)
+  - Not to `sin(x)` directly
+
+## Location of the Bug
+
+The bug is **not in radsimp.py** but likely in:
+
+1. **sympy/core/power.py** - The `Pow._eval_simplify()` or related power evaluation methods
+2. **sympy/functions/elementary/complexes.py** - The Abs function and how it relates to sqrt
+3. **sympy/simplify/simplify.py** - The main simplify dispatcher that decides which rules to apply
+
+The radsimp.py file handles rationalization of denominators with radicals, but it doesn't have special handling for `sqrt(expr**2)` simplification - that happens upstream in the power/sqrt evaluation system.
+
+## Recommended Fix Location
+
+The fix should be in one of these files:
+- **sympy/core/power.py**: Modify how `sqrt(base**2)` is simplified to check if `base` is known to be non-negative before canceling the exponent
+- **sympy/functions/elementary/complexes.py**: Enhance the Abs class to properly capture `sqrt(x**2)` patterns
+- Or add a special handler in the assumptions system to prevent unsafe simplifications for complex-valued expressions

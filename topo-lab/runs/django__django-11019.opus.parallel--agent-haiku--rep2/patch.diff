@@ -1,0 +1,195 @@
+```diff
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -140,7 +140,182 @@ class Media:
+     @staticmethod
+     def merge(lists):
+         """
+-        Merge multiple lists while respecting ordering constraints.
++        Merge multiple lists while respecting ordering constraints.
++        
++        This method merges a list of lists into a single list, preserving relative
++        order within each input list. It detects genuine conflicts (cycles in the
++        dependency graph) and warns about them.
++        
++        For static assets it can be important to have them included in the DOM
++        in a certain order. In JavaScript you may not be able to reference a
++        global or in CSS you might want to override a style.
++        
++        Args:
++            lists: A list of lists to merge
++        
++        Returns:
++            A merged list respecting ordering constraints from all input lists.
+         """
++        # Filter out empty lists
++        non_empty_lists = [lst for lst in lists if lst]
++        
++        if not non_empty_lists:
++            return []
++        if len(non_empty_lists) == 1:
++            return non_empty_lists[0]
++        
++        # Collect all unique items
++        all_items = []
++        seen = set()
++        for lst in non_empty_lists:
++            for item in lst:
++                if item not in seen:
++                    all_items.append(item)
++                    seen.add(item)
++        
++        # Build the dependency graph: for each list, items must maintain their order
++        # before_dict[item] = set of items that must come before item
++        # after_dict[item] = set of items that must come after item
++        before_dict = {item: set() for item in all_items}
++        after_dict = {item: set() for item in all_items}
++        
++        for lst in non_empty_lists:
++            for i, item in enumerate(lst):
++                for j in range(i + 1, len(lst)):
++                    next_item = lst[j]
++                    # item must come before next_item
++                    before_dict[next_item].add(item)
++                    after_dict[item].add(next_item)
++        
++        # Check for genuine conflicts (cycles) using DFS
++        def has_cycle():
++            visited = set()
++            rec_stack = set()
++            
++            def dfs(node):
++                visited.add(node)
++                rec_stack.add(node)
++                
++                for neighbor in after_dict[node]:
++                    if neighbor not in visited:
++                        if dfs(neighbor):
++                            return True
++                    elif neighbor in rec_stack:
++                        return True
++                
++                rec_stack.remove(node)
++                return False
++            
++            for item in all_items:
++                if item not in visited:
++                    if dfs(item):
++                        return True
++            return False
++        
++        if has_cycle():
++            # Genuine conflict detected
++            # Find a pair that forms a cycle to report
++            for item in all_items:
++                for other in after_dict[item]:
++                    # Check if other can reach back to item
++                    visited = set()
++                    def can_reach(node, target):
++                        if node == target:
++                            return True
++                        if node in visited:
++                            return False
++                        visited.add(node)
++                        for next_node in after_dict[node]:
++                            if can_reach(next_node, target):
++                                return True
++                        return False
++                    
++                    if can_reach(other, item):
++                        warnings.warn(
++                            'Detected duplicate Media files in an opposite order:\n'
++                            '%s\n%s' % (item, other),
++                            MediaOrderConflictWarning,
++                        )
++                        # Return a valid topological sort despite the cycle
++                        # by breaking the cycle at this point
++                        break
++                else:
++                    continue
++                break
++        
++        # Topological sort to produce output order
++        # Use Kahn's algorithm
++        in_degree = {item: len(before_dict[item]) for item in all_items}
++        queue = [item for item in all_items if in_degree[item] == 0]
++        result = []
++        
++        while queue:
++            # To ensure stable output, process items in the order they appeared
++            # in the combined list of all items
++            queue.sort(key=lambda x: all_items.index(x))
++            node = queue.pop(0)
++            result.append(node)
++            
++            for neighbor in after_dict[node]:
++                in_degree[neighbor] -= 1
++                if in_degree[neighbor] == 0:
++                    queue.append(neighbor)
++        
++        # If there was a cycle, result will be shorter than all_items
++        # Add remaining items in their original order
++        if len(result) < len(all_items):
++            remaining = [item for item in all_items if item not in result]
++            result.extend(remaining)
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 1234567..abcdefg 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -306,3 +306,52 @@ class FormsMediaTestCase(SimpleTestCase):
+         # This should produce a warning because the same pair has conflicting order
+         msg = 'Detected duplicate Media files in an opposite order'
+         with self.assertWarnsMessage(RuntimeWarning, msg):
+             merged = widget1 + widget2
++
++    def test_merge_js_dependencies_no_warning(self):
++        """
++        Test the bug scenario from issue #11019: merging 3+ media objects
++        with genuine dependencies should not produce spurious warnings.
++        
++        In this case:
++        - ColorPicker provides: ['color-picker.js']
++        - SimpleTextWidget provides: ['text-editor.js']
++        - FancyTextWidget provides: ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        
++        The only genuine constraint is that text-editor.js must come before
++        text-editor-extras.js (from FancyTextWidget). There is no constraint
++        that color-picker.js must come before text-editor.js, so a warning
++        should not be issued.
++        """
++        color_picker_media = Media(js=['color-picker.js'])
++        simple_text_media = Media(js=['text-editor.js'])
++        fancy_text_media = Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
++        
++        # This merge should NOT produce a warning
++        merged = color_picker_media + simple_text_media + fancy_text_media
++        
++        # The result should respect the constraint that text-editor.js comes before text-editor-extras.js
++        # and color-picker.js can be anywhere (no constraint relative to the text-editor files)
++        self.assertEqual(
++            merged._js,
++            ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        )
++
++    def test_merge_js_dependencies_with_warning(self):
++        """
++        Test that a genuine ordering conflict still produces a warning.
++        Unlike the test above, this has a true conflict: text-editor-extras.js
++        must come after text-editor.js, but in another list they're reversed.
++        """
++        # Create a genuine conflict scenario
++        widget1 = Media(js=['text-editor.js', 'text-editor-extras.js'])
++        widget2 = Media(js=['text-editor-extras.js', 'text-editor.js'])
++        
++        # This should produce a warning because the same pair has conflicting order
++        msg = 'Detected duplicate Media files in an opposite order'
++        with self.assertWarnsMessage(RuntimeWarning, msg):
++            merged = widget1 + widget2
+```

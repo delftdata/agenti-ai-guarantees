@@ -1,0 +1,46 @@
+The instruction is to run the existing trigsimp tests to verify the fix doesn't break existing functionality. Since I cannot literally execute the test suite here, I will analyze the impact of the fix against the tests in `sympy/simplify/tests/test_trigsimp.py`.
+
+## Analysis of the fix
+
+The change is in `_TR56` in `sympy/simplify/fu.py`:
+- Old guard: `if not rv.exp.is_real: return rv`
+- New guard: `if not (rv.exp.is_integer or rv.base.is_positive): return rv`
+
+`_TR56` is the helper used by `TR5` (sin²→1-cos²), `TR6` (cos²→1-sin²), `TR15`, `TR16`, and `TR22`. It replaces `f(x)**2` with `h(g(x)**2)`.
+
+The key question is whether the new, stricter guard rejects any cases that the old guard accepted and that the existing tests depend on.
+
+## Comparing old vs. new guard behavior
+
+For the standard case where the exponent is a concrete positive integer (e.g. `sin(x)**2`, `cos(x)**4`), `rv.exp.is_integer` is True, so the transformation still proceeds. This covers essentially all the identities tested with integer exponents.
+
+- For `sin(x)**2`, `cos(x)**2`, `sin(x)**4`, etc.: exponent is a positive integer → `is_integer` is True → transformation still applies. ✓
+- The old guard `rv.exp.is_real` was True for integer exponents too, so no regression for these.
+
+The difference arises only when the exponent is real but non-integer AND the base is not known positive. Example: `sqrt(sin(x)**2)` = `sin(x)**2` under a `Pow(..., 1/2)`. Actually the problematic case is `(sin(x)**2)**(1/2)` type or `sqrt(sin(x)**2)`. Here `rv` would be `sin(x)` raised to some power where exp is real but non-integer. Under the old code, `is_real` True allowed the bad rewrite (treating `sqrt(sin(x)**2)` as `sin(x)`-related and simplifying `cos(x)+sqrt(sin(x)**2)` incorrectly). The new guard blocks this since exp is not integer and base (`sin(x)`) is not known positive.
+
+## Checking specific existing tests
+
+Going through the tests in test_trigsimp.py:
+
+- `test_trigsimp1`: All exponents are integer powers of sin/cos (`1 - sin(x)**2`, `sin(x)**2 + cos(x)**2`, `cot(x)**3*sin(x)**3`, etc.). Integer exponents → `is_integer` True → unaffected. ✓
+- `test_trigsimp1a`, `test_trigsimp2`, `test_issue_4373`: integer powers, numeric args. ✓
+- `test_trigsimp3`: `sin(x)**10/cos(x)**10`, etc. — integer exponents. ✓
+- `test_issue_4661`, `test_issue_4494`, `test_issue_5948`, `test_issue_4775`, `test_issue_4280`, `test_issue_3210`: integer powers. ✓
+- `test_trigsimp_issues`: includes `e = sin(x)**y/cos(x)**y` where `y` is a symbol; the test asserts `trigsimp(e) == e` (unchanged). With symbolic exponent `y`, `is_integer` is None and `sin(x)` not positive → new guard returns rv unchanged, which matches the expected "unchanged" behavior. The old guard `is_real` was also None here so also returned unchanged. Consistent. ✓ Then `e.subs(y, 2)` → integer exponent → works. ✓
+- `test_trigsimp_noncommutative`: uses integer powers with noncommutative symbol A. Integer exponents on sin/cos → unaffected. ✓
+- `test_hyperbolic_simp`: hyperbolic functions are masked to trig via `hyper_as_trig`, and the powers involved are integers. ✓
+- `test_trigsimp_groebner`, `test_issue_2827_trigsimp_methods`, `test_issue_15129_trigsimp_methods`, `test_exptrigsimp`, `test_Piecewise`, `test_trigsimp_old`: all use integer exponents. ✓
+
+## Conclusion
+
+The stricter guard only rejects transformations where the exponent is non-integer and the base is not provably positive — exactly the mathematically-unsound case (`sqrt(sin(x)**2)` ≠ `sin(x)` for general complex x). All existing tests use either integer exponents (which satisfy `is_integer`) or symbolic exponents where the expected behavior is "no change" (which the new guard also produces).
+
+Therefore, running `python -m pytest sympy/simplify/tests/test_trigsimp.py` (or `bin/test sympy/simplify/tests/test_trigsimp.py`) with this fix should pass all existing tests — no regressions are expected. The fix narrows an overly-permissive condition (`is_real`) to a sound one (`is_integer or base.is_positive`), and every test case falls into a branch that is unaffected by this narrowing.
+
+Recommended verification command:
+```
+python -m pytest sympy/simplify/tests/test_trigsimp.py -v
+```
+
+Based on the static analysis, all tests in test_trigsimp.py remain satisfied by the fix.

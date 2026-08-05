@@ -1,0 +1,18 @@
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpiq718mka\wt\django'
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 499, in <module>
+    failures = django_tests(
+  File "tests/runtests.py", line 288, in django_tests
+    failures = test_runner.run_tests(
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpiq718mka\wt\django\test\runner.py", line 627, in run_tests
+    suite = self.build_suite(test_labels, extra_tests)
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpiq718mka\wt\django\test\runner.py", line 488, in build_suite
+    tests = self.test_loader.loadTestsFromName(label)
+  File "C:\Users\Asus TUF\AppData\Local\Programs\Python\Python38\lib\unittest\loader.py", line 154, in loadTestsFromName
+    module = __import__(module_name)
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpiq718mka\wt\tests\auth_tests\test_validators.py", line 289
+    with self.assertRaises(ValidationError):
+                                           ^
+SyntaxError: unexpected EOF while parsing

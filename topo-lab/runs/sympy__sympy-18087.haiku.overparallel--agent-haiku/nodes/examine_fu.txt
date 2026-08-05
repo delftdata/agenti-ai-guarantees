@@ -1,0 +1,50 @@
+# Analysis of sympy/simplify/fu.py
+
+## Problem Statement
+The issue is that `trigsimp` incorrectly simplifies `cos(x) + sqrt(sin(x)**2)` as though it were `cos(x) + sin(x)` for general complex `x`, when it should be `cos(x) + abs(sin(x))`.
+
+## Key Finding
+
+The problem is NOT in `fu.py` itself, but rather in how the Fu algorithm interacts with earlier simplification stages. However, `fu.py` contains transformation rules that can propagate incorrect simplifications.
+
+## Analysis of Relevant Transformations
+
+### 1. **TR5 and TR6 Functions** (lines 447-490)
+These functions replace:
+- `sin(x)**2` with `1 - cos(x)**2`
+- `cos(x)**2` with `1 - sin(x)**2`
+
+These are mathematically valid identities for all complex numbers.
+
+### 2. **TRpower Function** (lines 1382-1417)
+This function converts powers of sin and cos to sums using the power reduction formula. It operates on explicit integer powers, so it doesn't directly affect `sqrt(sin(x)**2)`.
+
+### 3. **_TR56 Helper Function** (lines 386-443)
+This is the core helper for TR5, TR6, and other power-based transformations. It only handles cases where:
+- The exponent is explicitly an integer or passes the `pow` test
+- The exponent is between specified bounds
+
+The issue is that `sqrt(sin(x)**2)` is represented as `sin(x)**0.5` or `sin(x)**Rational(1,2)`, which doesn't match these conditions.
+
+## Root Cause
+
+The real issue likely lies in **earlier preprocessing** before fu() is called, where:
+1. `sqrt(sin(x)**2)` might be automatically simplified to `sin(x)` without considering that for general complex `x`, the correct simplification is `abs(sin(x))`.
+2. This automatic simplification happens at the core sympy level (likely in `simplify.py` or `radsimp.py`), not in `fu.py`.
+
+## Evidence
+
+Looking at the problem statement:
+- `trigsimp` works correctly when `x` is assumed real
+- It fails for general complex `x`
+
+This indicates the issue is in **assumptions handling** rather than in the Fu algorithm rules themselves. The Fu rules (TR0-TR22, etc.) don't directly handle radical simplification—they focus on trigonometric identity transformations.
+
+## Conclusion
+
+The fu.py file doesn't contain the bug, but the bug likely affects fu() indirectly because:
+1. The expression is pre-simplified before entering fu()
+2. The incorrect simplification `sqrt(sin(x)**2) → sin(x)` happens upstream
+3. fu() then operates on an already-corrupted expression
+
+The fix should target the code that simplifies `sqrt(expr**2)` to ensure it respects the complex domain and produces `abs(expr)` instead of `expr` when the expression can have both positive and negative values.

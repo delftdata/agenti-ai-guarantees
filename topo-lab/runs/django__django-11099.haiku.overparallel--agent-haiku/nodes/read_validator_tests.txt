@@ -1,0 +1,40 @@
+# Analysis of tests/auth_tests/test_validators.py
+
+## Current Test Coverage for Username Validators
+
+The file contains two test classes for username validation:
+
+1. **UsernameValidatorsTests.test_unicode_validator()**
+   - Tests `UnicodeUsernameValidator`
+   - Valid usernames: 'joe', 'René', 'ᴮᴵᴳᴮᴵᴿᴰ', 'أحمد'
+   - Invalid usernames: "o'connell", "عبد ال", "zerowidth\u200Bspace", "nonbreaking\u00A0space", "en\u2013dash"
+
+2. **UsernameValidatorsTests.test_ascii_validator()**
+   - Tests `ASCIIUsernameValidator`
+   - Valid usernames: 'glenn', 'GLEnN', 'jean-marc'
+   - Invalid usernames: "o'connell", 'Éric', 'jean marc', "أحمد"
+
+## Missing Test Coverage - The Problem
+
+The current tests do **not** check for the trailing newline issue described in the problem statement. Neither test class validates that usernames with trailing newlines should be **rejected**.
+
+### The Issue
+
+The problem states that both `ASCIIUsernameValidator` and `UnicodeUsernameValidator` use the regex `r'^[\w.@+-]+$'`. Due to a Python regex quirk, the `$` anchor matches both:
+- End of string
+- Just before a trailing newline character
+
+This means usernames like:
+- 'valid_username\n'
+- 'joe\n'
+- 'glenn\n'
+
+Would currently **pass validation** when they should **fail**.
+
+## Solution Required
+
+To fix this, the tests need to be updated to include test cases that verify usernames ending with newlines are properly rejected. Additionally, the regex patterns in the validators themselves need to be changed from:
+- `r'^[\w.@+-]+$'` (current - buggy)
+- To: `r'\A[\w.@+-]+\Z'` (fixed - rejects trailing newlines)
+
+The `\A` and `\Z` anchors are absolute string boundaries that don't have the newline-matching behavior of `^` and `$`.

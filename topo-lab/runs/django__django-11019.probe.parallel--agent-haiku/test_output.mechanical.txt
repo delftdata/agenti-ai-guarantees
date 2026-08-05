@@ -1,0 +1,354 @@
+===== test_combine_media (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.007s
+
+OK
+
+
+===== test_construction (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_construction (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\tests\forms_tests\tests\test_media.py", line 26, in test_construction
+    self.assertEqual(
+AssertionError: "Media(css={'all': ('path/to/css1', '/path/to/css2')}, js=('[89 chars]3'))" != "Media(css={'all': ['path/to/css1', '/path/to/css2']}, js=['[89 chars]3'])"
+- Media(css={'all': ('path/to/css1', '/path/to/css2')}, js=('/path/to/js1', 'http://media.other.com/path/to/js2', 'https://secure.other.com/path/to/js3'))
+?                   ^                               ^      ^                                                                                            ^
++ Media(css={'all': ['path/to/css1', '/path/to/css2']}, js=['/path/to/js1', 'http://media.other.com/path/to/js2', 'https://secure.other.com/path/to/js3'])
+?                   ^                               ^      ^                                                                                            ^
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (failures=1)
+
+
+===== test_form_media (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+OK
+
+
+===== test_media_deduplication (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_media_deduplication (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\tests\forms_tests\tests\test_media.py", line 162, in test_media_deduplication
+    self.assertEqual(str(media), """<link href="/path/to/css1" type="text/css" media="all" rel="stylesheet">
+AssertionError: '<lin[66 chars]">\n<link href="/path/to/css1" type="text/css"[148 chars]ipt>' != '<lin[66 chars]">\n<script type="text/javascript" src="/path/[13 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)
+
+
+===== test_media_inheritance (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_media_inheritance_extends (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_media_property_parent_references (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_merge (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_merge_css_three_way (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+E
+======================================================================
+ERROR: test_merge_css_three_way (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django\forms\widgets.py", line 146, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('c.css', {'b.css'}), ('a.css', {'c.css'}), ('b.css', {'a.css'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\tests\forms_tests\tests\test_media.py", line 590, in test_merge_css_three_way
+    self.assertEqual(merged._css, {'screen': ['a.css', 'b.css', 'c.css'], 'all': ['d.css', 'e.css']})
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django\forms\widgets.py", line 70, in _css
+    css = {
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django\forms\widgets.py", line 71, in <dictcomp>
+    medium: self.merge(css.get(medium, []), obj.get(medium, []))
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django\forms\widgets.py", line 148, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ['c.css', 'a.css'], ['a.css', 'b.css', 'c.css']
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (errors=1)
+
+
+===== test_merge_js_three_way (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+E
+======================================================================
+ERROR: test_merge_js_three_way (forms_tests.tests.test_media.FormsMediaTestCase)
+The relative order of scripts is preserved in a three-way merge.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django\forms\widgets.py", line 146, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('color-picker.js', {'text-editor-extras.js'}), ('text-editor.js', {'color-picker.js'}), ('text-editor-extras.js', {'text-editor.js'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\tests\forms_tests\tests\test_media.py", line 568, in test_merge_js_three_way
+    self.assertEqual(merged._js, ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django\forms\widgets.py", line 81, in _js
+    js = self.merge(js, obj)
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django\forms\widgets.py", line 148, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ['color-picker.js', 'text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (errors=1)
+
+
+===== test_merge_js_three_way2 (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+E
+======================================================================
+ERROR: test_merge_js_three_way2 (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django\forms\widgets.py", line 146, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('c', {'b'}), ('b', {'c'}), ('f', {'c', 'b'}), ('g', {'f'}), ('h', {'g'}), ('k', {'f', 'h'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\tests\forms_tests\tests\test_media.py", line 578, in test_merge_js_three_way2
+    self.assertEqual(merged._js, ['a', 'b', 'c', 'f', 'g', 'h', 'k'])
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django\forms\widgets.py", line 81, in _js
+    js = self.merge(js, obj)
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django\forms\widgets.py", line 148, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ['a', 'c', 'b', 'f', 'g', 'h', 'k'], ['b', 'c', 'f', 'k']
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (errors=1)
+
+
+===== test_merge_warning (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+OK
+
+
+===== test_multi_widget (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_media (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+
+======================================================================
+FAIL: test_media (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests) (lang='de')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\tests\admin_widgets\test_autocomplete_widget.py", line 142, in test_media
+    self.assertEqual(AutocompleteSelect(rel, admin.site).media._js, list(expected_files))
+AssertionError: ('admin/js/vendor/jquery/jquery.min.js', [134 chars].js') != ['admin/js/vendor/jquery/jquery.min.js', [134 chars].js']
+
+======================================================================
+FAIL: test_media (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests) (lang='00')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\tests\admin_widgets\test_autocomplete_widget.py", line 142, in test_media
+    self.assertEqual(AutocompleteSelect(rel, admin.site).media._js, list(expected_files))
+AssertionError: ('admin/js/vendor/jquery/jquery.min.js', [96 chars].js') != ['admin/js/vendor/jquery/jquery.min.js', [96 chars].js']
+
+======================================================================
+FAIL: test_media (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests) (lang='sr-cyrl')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\tests\admin_widgets\test_autocomplete_widget.py", line 142, in test_media
+    self.assertEqual(AutocompleteSelect(rel, admin.site).media._js, list(expected_files))
+AssertionError: ('admin/js/vendor/jquery/jquery.min.js', [139 chars].js') != ['admin/js/vendor/jquery/jquery.min.js', [139 chars].js']
+
+======================================================================
+FAIL: test_media (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests) (lang='zh-hans')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\tests\admin_widgets\test_autocomplete_widget.py", line 142, in test_media
+    self.assertEqual(AutocompleteSelect(rel, admin.site).media._js, list(expected_files))
+AssertionError: ('admin/js/vendor/jquery/jquery.min.js', [137 chars].js') != ['admin/js/vendor/jquery/jquery.min.js', [137 chars].js']
+
+======================================================================
+FAIL: test_media (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests) (lang='zh-hant')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\tests\admin_widgets\test_autocomplete_widget.py", line 142, in test_media
+    self.assertEqual(AutocompleteSelect(rel, admin.site).media._js, list(expected_files))
+AssertionError: ('admin/js/vendor/jquery/jquery.min.js', [137 chars].js') != ['admin/js/vendor/jquery/jquery.min.js', [137 chars].js']
+
+----------------------------------------------------------------------
+Ran 1 test in 0.018s
+
+FAILED (failures=5)
+Destroying test database for alias 'default'...
+
+
+
+===== test_render_options (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests): PASS =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.077s
+
+OK
+Destroying test database for alias 'default'...
+
+
+
+===== test_inline_media_only_inline (admin_inlines.tests.TestInlineMedia): FAIL =====
+Testing against Django installed in 'C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+F
+======================================================================
+FAIL: test_inline_media_only_inline (admin_inlines.tests.TestInlineMedia)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\ASUSTU~1\AppData\Local\Temp\tmpf4pysnzq\wt\tests\admin_inlines\tests.py", line 496, in test_inline_media_only_inline
+    self.assertEqual(
+AssertionError: Lists differ: ['adm[32 chars]s', 'custom_number.js', 'my_awesome_inline_scr[58 chars].js'] != ['adm[32 chars]s', 'my_awesome_inline_scripts.js', 'custom_nu[58 chars].js']
+
+First differing element 1:
+'custom_number.js'
+'my_awesome_inline_scripts.js'
+
+  ['admin/js/vendor/jquery/jquery.min.js',
++  'my_awesome_inline_scripts.js',
+   'custom_number.js',
+-  'my_awesome_inline_scripts.js',
+   'admin/js/jquery.init.js',
+   'admin/js/inlines.min.js']
+
+----------------------------------------------------------------------
+Ran 1 test in 0.305s
+
+FAILED (failures=1)
+Destroying test database for alias 'default'...
+
