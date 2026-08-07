@@ -1040,9 +1040,9 @@ content: fraction of the task rubric present in the patch. f2p: FAIL_TO_PASS tes
 
 | Task | Harness | Agent | Topology | Wall Clock Time (s) | Cost ($) | Tokens Used | Node Errors | Premature Consumptions | Stale Reads | Write Conflicts | Tests Passed | Content | Resolved |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| django-11099 | probe | haiku | sequential | 86.348 | 0.11204 | 49472 | 0 | 0 | 0 | 0 | 6/6 | 1 | yes |
-| django-11099 | probe | haiku | parallel | 52.488 | 0.11254 | 49330.4 | 0 | 0 | 2 | 1 | 2/6 | 0.5 | no |
-| django-11099 | probeordered | haiku | parallel | 69.92 | 0.11596 | 52476.8 | 0 | 0 | 0 | 0 | 6/6 | 1 | yes |
+| providing-args | probe | haiku | sequential | 86.348 | 0.11204 | 49472 | 0 | 0 | 0 | 0 | 6/6 | 1 | yes |
+| providing-args | probe | haiku | parallel | 52.488 | 0.11254 | 49330.4 | 0 | 0 | 2 | 1 | 2/6 | 0.5 | no |
+| providing-args | probeordered | haiku | parallel | 69.92 | 0.11596 | 52476.8 | 0 | 0 | 0 | 0 | 6/6 | 1 | yes |
 
 <!-- RESULTS3:END -->
 
