@@ -426,7 +426,7 @@ Before grading, the emitted diff is normalized mechanically - markdown fences st
 
 content: fraction of the task rubric present in the patch. f2p: FAIL_TO_PASS tests passing / total. resolved: every FAIL_TO_PASS test passes. tokens: input + output tokens summed over nodes, prompt-cache reads excluded. All grades apply to the mechanical deliverable (the workspace diff).
 
-| task | harness | agent | topology | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p | resolved |
+| Task | Harness | Agent | Topology | Wall Clock Time (s) | Cost ($) | Tokens Used | Node Errors | Premature Consumptions | Stale Reads | Write Conflicts | Content | Tests Passed | Resolved |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | django-11099 | haiku | haiku | sequential | 70.89 | 0.1007 | 31998 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
 | django-11099 | haiku | haiku | parallel | 52.89 | 0.0872 | 27679 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
@@ -519,7 +519,7 @@ content: fraction of the task rubric present in the patch. f2p: FAIL_TO_PASS tes
 
 A single run per configuration cannot distinguish behavior inherent to that configuration from sampling noise: the agent is sampled at nonzero temperature. One configuration was rerun ten times - the weak-harness django decomposition, over-parallel rendering, weak agent, chosen as the cheapest cell with the richest coordination-event set. Schedule-derived quantities (which files were read stale, which dependencies were consumed prematurely) are expected to repeat exactly; model-dependent quantities may vary.
 
-| task | harness | agent | topology | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p | resolved |
+| Task | Harness | Agent | Topology | Wall Clock Time (s) | Cost ($) | Tokens Used | Node Errors | Premature Consumptions | Stale Reads | Write Conflicts | Content | Tests Passed | Resolved |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | django-11099 | haiku | haiku | overparallel | 34.22 | 0.0632 | 24455 | 0 | 5 | 3 | 0 | 1.0 | 3/3 | yes |
 | django-11099 | haiku | haiku | overparallel | 31.82 | 0.0865 | 24845 | 0 | 5 | 3 | 0 | 1.0 | 3/3 | yes |
@@ -847,7 +847,7 @@ flowchart TD
 
 content: fraction of the task rubric present in the patch. f2p: FAIL_TO_PASS tests passing / total. resolved: every FAIL_TO_PASS test passes. tokens: input + output tokens summed over nodes, prompt-cache reads excluded. All grades apply to the mechanical deliverable (the workspace diff).
 
-| task | harness | agent | topology | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p | resolved |
+| Task | Harness | Agent | Topology | Wall Clock Time (s) | Cost ($) | Tokens Used | Node Errors | Premature Consumptions | Stale Reads | Write Conflicts | Content | Tests Passed | Resolved |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | django-11019 | opus | haiku | sequential | 185.11 | 0.2496 | 124306 | 0 | 0 | 0 | 0 | 1.0 | 6/16 | no |
 | django-11019 | opus | haiku | sequential | 179.1 | 0.2455 | 123124 | 0 | 0 | 0 | 0 | 1.0 | 2/16 | no |
@@ -916,7 +916,7 @@ content: fraction of the task rubric present in the patch. f2p: FAIL_TO_PASS tes
 
 ### Means per topology
 
-| topology | runs | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p frac | resolved |
+| Ropology | Runs | Wall Clock Time (s) | Cost ($) | Tokens Used | Node Errors | Premature Consumptions | Stale Reads | Write Conflicts | Content | Tests Passed | Resolved |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | sequential | 5 | 213.8 | 0.2741 | 131811.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.8 | 0.281 | 0/5 |
 | parallel | 5 | 166.2 | 0.2363 | 116704.0 | 0.2 | 0.0 | 0.0 | 0.0 | 1.0 | 0.275 | 0/5 |
@@ -931,7 +931,7 @@ Identical-schedule controls (pairs whose effective schedules coincide; their dis
 
 The write-conflict probe isolates the coordination mechanism from worker capability. Its plan is authored rather than harness-generated, and disclosed as such: the reference fix touches two independent regions of one small file, each region assigned to one worker whose instruction contains the exact edit, so every individual worker action is correct by construction and capability is held at ceiling. The only variable left is the schedule. Sequentially, each worker receives the file with the previous edit already present and preserves it, so the edits compose. In parallel, both workers read the same snapshot and each commits a complete file containing only its own edit; the store keeps the last write and the other worker's committed correct work is destroyed - the lost update of concurrency-control theory, recorded as a write conflict in the failure vocabulary. The probe targets django-11099 because its file is small enough that whole-file reproduction is error-free, removing copy fidelity as a confound.
 
-| task | harness | agent | topology | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p | resolved |
+| Task | Harness | Agent | Topology | Wall Clock Time (s) | Cost ($) | Tokens Used | Node Errors | Premature Consumptions | Stale Reads | Write Conflicts | Content | Tests Passed | Resolved |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | django-11099 | probe | haiku | sequential | 9.61 | 0.0132 | 2996 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
 | django-11099 | probe | haiku | sequential | 9.32 | 0.0166 | 3058 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
@@ -948,7 +948,7 @@ The write-conflict probe isolates the coordination mechanism from worker capabil
 
 The ordered arm applies the coordination primitive to the failing schedule. Exactly one thing changes relative to the unordered probe: the plan declares a single dependency edge between the two writers (fix_unicode depends on fix_ascii). Instructions, agent model, renderer, and grading are identical. The renderer turns the declared edge into an ordering constraint, so the second writer starts only after the first has committed, receives the file with the first edit already present, and preserves it - the write sets no longer overlap within a superstep, so the lost update cannot occur. This is the standard concurrency-control remedy for a write-write conflict, applied statically: serialize exactly the conflicting pair and nothing else.
 
-| task | harness | agent | topology | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p | resolved |
+| Task | Harness | Agent | Topology | Wall Clock Time (s) | Cost ($) | Tokens Used | Node Errors | Premature Consumptions | Stale Reads | Write Conflicts | Content | Tests Passed | Resolved |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | django-11099 | probeordered | haiku | parallel | 11.19 | 0.0134 | 3304 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
 | django-11099 | probeordered | haiku | parallel | 8.95 | 0.0166 | 3313 | 0 | 0 | 0 | 0 | 1.0 | 3/3 | yes |
@@ -961,6 +961,14 @@ The ordered arm applies the coordination primitive to the failing schedule. Exac
 - parallel, one declared ordering edge (the primitive): 5/5 resolved; content values [1.0]; same-superstep stale reads per run [0]; write conflicts per run [0].
 
 The outcome flip is schedule-derived: every unordered parallel repetition lost the same edit to the same last-write-wins conflict while the sampled worker outputs varied. The ordered arm shows the repair: one declared dependency between the conflicting writers restores resolution. In this minimal probe the conflicting pair is the entire graph, so serializing it recovers the sequential schedule; the wall-time case for parallelism rests on the gradient runs, where non-conflicting work parallelizes with no accuracy loss under the same state discipline.
+
+### Write-conflict probe (AVG)
+
+| Task | Harness | Agent | Topology | Wall Clock Time (s) | Cost ($) | Tokens Used | Node Errors | Premature Consumptions | Stale Reads | Write Conflicts | Tests Passed | Content | Resolved |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| django-11099 | probe | haiku | sequential | 10.592 | 0.01578 | 2997.6 | 0 | 0 | 0 | 0 | 3/3 | 1 | yes |
+| django-11099 | probe | haiku | parallel | 7.726 | 0.017 | 3120 | 0 | 0 | 2 | 1 | 2/3 | 0.5 | no |
+| django-11099 | probeordered | haiku | parallel | 11.262 | 0.01632 | 3419.8 | 0 | 0 | 0 | 0 | 3/3 | 1 | yes |
 
 <!-- RESULTS2:END -->
 
@@ -1001,7 +1009,7 @@ Rendered topologies for the probe and probeordered plans appear in the rendered-
 
 content: fraction of the task rubric present in the patch. f2p: FAIL_TO_PASS tests passing / total. resolved: every FAIL_TO_PASS test passes. tokens: input + output tokens summed over nodes, prompt-cache reads excluded. All grades apply to the mechanical deliverable (the workspace diff).
 
-| task | harness | agent | topology | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p | resolved |
+| Task | Harness | Agent | Topology | Wall Clock Time (s) | Cost ($) | Tokens Used | Node Errors | Premature Consumptions | Stale Reads | Write Conflicts | Content | Tests Passed | Resolved |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | providing-args | probe | haiku | sequential | 79.79 | 0.107 | 48789 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
 | providing-args | probe | haiku | sequential | 106.93 | 0.1199 | 51476 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
@@ -1016,7 +1024,7 @@ content: fraction of the task rubric present in the patch. f2p: FAIL_TO_PASS tes
 
 #### Ordered arm
 
-| task | harness | agent | topology | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p | resolved |
+| Task | Harness | Agent | Topology | Wall Clock Time (s) | Cost ($) | Tokens Used | Node Errors | Premature Consumptions | Stale Reads | Write Conflicts | Content | Tests Passed | Resolved |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | providing-args | probeordered | haiku | parallel | 65.08 | 0.1133 | 51987 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
 | providing-args | probeordered | haiku | parallel | 70.03 | 0.1126 | 51734 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
@@ -1027,6 +1035,14 @@ content: fraction of the task rubric present in the patch. f2p: FAIL_TO_PASS tes
 - sequential (implicit total order): 5/5 resolved; f2p values ['6/6']; content values [1.0]; same-superstep stale reads per run [0]; write conflicts per run [0].
 - parallel, unordered writers: 0/5 resolved; f2p values ['2/6']; content values [0.5]; same-superstep stale reads per run [2]; write conflicts per run [1].
 - parallel, conflicting pair ordered (t2_auth_signals after t1_db_signals): 5/5 resolved; f2p values ['6/6']; content values [1.0]; same-superstep stale reads per run [0]; write conflicts per run [0].
+
+### Paper Figure Probes - providing_args removal (AVG)
+
+| Task | Harness | Agent | Topology | Wall Clock Time (s) | Cost ($) | Tokens Used | Node Errors | Premature Consumptions | Stale Reads | Write Conflicts | Tests Passed | Content | Resolved |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| django-11099 | probe | haiku | sequential | 86.348 | 0.11204 | 49472 | 0 | 0 | 0 | 0 | 6/6 | 1 | yes |
+| django-11099 | probe | haiku | parallel | 52.488 | 0.11254 | 49330.4 | 0 | 0 | 2 | 1 | 2/6 | 0.5 | no |
+| django-11099 | probeordered | haiku | parallel | 69.92 | 0.11596 | 52476.8 | 0 | 0 | 0 | 0 | 6/6 | 1 | yes |
 
 <!-- RESULTS3:END -->
 
