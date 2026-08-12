@@ -1,0 +1,20 @@
+The files given already match the desired state except `tests/dispatch/tests.py`, which currently has `providing_args` in the fixtures. The upstream nodes show the core file, signals files are unchanged. Only the test fixture lines need changing.
+
+diff --git a/tests/dispatch/tests.py b/tests/dispatch/tests.py
+--- a/tests/dispatch/tests.py
++++ b/tests/dispatch/tests.py
+@@ -35,10 +35,10 @@ class Callable:
+         return val
+ 
+ 
+-a_signal = Signal(providing_args=["val"])
+-b_signal = Signal(providing_args=["val"])
+-c_signal = Signal()
+-d_signal = Signal(use_caching=True)
++a_signal = Signal()
++b_signal = Signal()
++c_signal = Signal()
++d_signal = Signal(use_caching=True)
+ 
+ 
+ class DispatcherTests(SimpleTestCase):

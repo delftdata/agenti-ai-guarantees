@@ -1,0 +1,121 @@
+# Analysis of Media Merge Fix
+
+## Test Case Execution
+
+The test case `test_merge_three_independent_widgets_no_warning` was added to verify the fix for issue #11019. Let me trace through the execution:
+
+### Test Setup
+```python
+class ColorPicker(TextInput):
+    class Media:
+        js = ['color-picker.js']
+
+class SimpleTextWidget(TextInput):
+    class Media:
+        js = ['text-editor.js']
+
+class FancyTextWidget(TextInput):
+    class Media:
+        js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+```
+
+### Execution Flow with the Fixed Code
+
+**Step 1: Merge ColorPicker + SimpleTextWidget**
+- Input 1: `['color-picker.js']`
+- Input 2: `['text-editor.js']`
+- All items: `['color-picker.js', 'text-editor.js']`
+- Constraints: None (no pairs within either list)
+- Result: `['color-picker.js', 'text-editor.js']`
+
+**Step 2: Merge result + FancyTextWidget**
+- Input 1: `['color-picker.js', 'text-editor.js']`
+- Input 2: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+- All items: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` (deduped)
+
+### Constraint Collection
+From Input 1 `['color-picker.js', 'text-editor.js']`:
+- `(color-picker.js, text-editor.js)`
+
+From Input 2 `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`:
+- `(text-editor.js, text-editor-extras.js)`
+- `(text-editor.js, color-picker.js)`
+- `(text-editor-extras.js, color-picker.js)`
+
+### Conflict Detection
+The fixed code checks for genuine conflicts - when BOTH `(a, b)` and `(b, a)` exist in the constraint list:
+- Looking for `(color-picker.js, text-editor.js)` AND `(text-editor.js, color-picker.js)`
+- **Found!** These represent a genuine conflict
+
+**However**, the key insight is that these conflicting constraints come from different input lists, not from the same source. The original problem was that the intermediate merge created an artificial constraint that conflicted with the actual dependency structure.
+
+### Topological Sort Execution (Kahn's Algorithm)
+
+Initial in-degrees:
+- `text-editor.js`: 1 (from constraints and position)
+- `text-editor-extras.js`: 1 (only depends on text-editor.js)
+- `color-picker.js`: 2 (depends on both text-editor.js and text-editor-extras.js)
+
+Wait - let me reconsider the constraints more carefully:
+
+Actually, from Input 2, we have:
+- `text-editor.js` at position 0
+- `text-editor-extras.js` at position 1
+- `color-picker.js` at position 2
+
+So the constraints from Input 2 are:
+- `(text-editor.js, text-editor-extras.js)` ✓
+- `(text-editor.js, color-picker.js)` ✓
+- `(text-editor-extras.js, color-picker.js)` ✓
+
+And from Input 1:
+- `(color-picker.js, text-editor.js)`
+
+Graph edges after adding all constraints:
+- `text-editor.js` → `text-editor-extras.js`
+- `text-editor.js` → `color-picker.js`
+- `text-editor-extras.js` → `color-picker.js`
+- `color-picker.js` → `text-editor.js`
+
+This creates a cycle: `color-picker.js` → `text-editor.js` → ... → `color-picker.js`
+
+### Critical Issue with Current Fix
+
+The current implementation will:
+1. Detect the cycle during topological sort
+2. Fall back to returning the original items list
+3. Issue a warning about the conflict
+
+**The warning will still be raised** because the conflict detection code finds both `(color-picker.js, text-editor.js)` and `(text-editor.js, color-picker.js)` in the constraints.
+
+## Root Cause Analysis
+
+The problem is that the fix conflates two different types of ordering information:
+1. **Real dependencies**: Items that must appear in a specific order within a single widget/list
+2. **Artificial ordering**: Items that happen to appear in a certain order but have no real dependency
+
+The intermediate merge of `ColorPicker + SimpleTextWidget` creates an ordering that the topological sort treats as equally important as the real dependencies in `FancyTextWidget`.
+
+## Required Fix Refinement
+
+To properly solve issue #11019, the merge algorithm needs to:
+
+1. **Only warn about conflicts that exist within the original input lists**, not conflicts created by combining constraints
+2. **Prioritize later constraints over earlier ones** when merging, since they may represent more complete dependency information
+3. **Filter out artificial constraints** that don't represent true dependencies
+
+The correct approach is to:
+- Extract constraints only from the current pair being merged (list_1 and list_2)
+- Check if these specific lists have contradictory constraints
+- Use topological sort on all accumulated constraints
+- Warn only if list_1 and list_2 themselves have contradictory constraints
+
+## Expected Test Result
+
+**Without the fix**: Test FAILS with `MediaOrderConflictWarning`
+
+**With proper fix**: Test PASSES without warning and produces `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+**With current implementation**: Test may still FAIL because the conflict detection doesn't distinguish between genuine conflicts in input lists versus cycles created by combining constraints from multiple merges.
+
+The implementation needs to be refined to only detect conflicts between the two specific lists being merged, not between all accumulated constraints.

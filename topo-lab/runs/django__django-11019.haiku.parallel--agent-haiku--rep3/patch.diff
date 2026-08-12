@@ -1,0 +1,222 @@
+```diff
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -128,100 +128,176 @@ class Media:
+     @staticmethod
+     def merge(list_1, list_2):
+         """
+         Merge two lists while trying to keep the relative order of the elements.
+         Warn if the lists have the same two elements in a different relative
+         order.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Build a list of the two input lists
+-        dependency_graph = defaultdict(set)
+-        all_items = []
+-        item_index = {}
+-
+-        # Track all items and their order
+-        for item in list_1:
+-            if item not in item_index:
+-                all_items.append(item)
+-                item_index[item] = len(all_items) - 1
+-
+-        for item in list_2:
+-            if item not in item_index:
+-                all_items.append(item)
+-                item_index[item] = len(all_items) - 1
+-
+-        # Build dependency graph from list_1
+-        for i, item1 in enumerate(list_1):
+-            for j in range(i + 1, len(list_1)):
+-                item2 = list_1[j]
+-                dependency_graph[item1].add(item2)
+-
+-        # Build dependency graph from list_2, checking for conflicts
+-        for i, item1 in enumerate(list_2):
+-            for j in range(i + 1, len(list_2)):
+-                item2 = list_2[j]
+-                # If item2 is already a dependency of something that depends on item1,
+-                # we have a conflict
+-                if item1 in dependency_graph and item2 in dependency_graph[item1]:
+-                    # item1 must come before item2 (from list_1)
+-                    # but in list_2, item2 comes before item1 - conflict!
+-                    pass
+-                # Check if this creates a conflict with existing graph
+-                if item2 in dependency_graph and item1 in dependency_graph[item2]:
+-                    # We have a direct conflict: item2 must come before item1
+-                    # (from dependency_graph), but in list_2, item1 comes before item2
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n%s\n%s' % (item2, item1),
+-                        MediaOrderConflictWarning,
+-                    )
+-                else:
+-                    dependency_graph[item1].add(item2)
+-
+-        # Topological sort using Kahn's algorithm
+-        in_degree = defaultdict(int)
+-        for item in all_items:
+-            in_degree[item] = 0
+-
+-        for item in dependency_graph:
+-            for dep in dependency_graph[item]:
+-                in_degree[dep] += 1
+-
+-        queue = deque([item for item in all_items if in_degree[item] == 0])
+-        result = []
+-
+-        while queue:
+-            item = queue.popleft()
+-            result.append(item)
+-            for dep in dependency_graph[item]:
+-                in_degree[dep] -= 1
+-                if in_degree[dep] == 0:
+-                    queue.append(dep)
+-
+-        return result
++        from collections import defaultdict, deque
++        
++        # Extract all ordering constraints from both lists
++        # A constraint (a, b) means a must come before b
++        constraints = []
++        
++        # Collect constraints from list_1
++        for i, item in enumerate(list_1):
++            for j in range(i + 1, len(list_1)):
++                constraints.append((list_1[i], list_1[j]))
++        
++        # Collect constraints from list_2
++        for i, item in enumerate(list_2):
++            for j in range(i + 1, len(list_2)):
++                constraints.append((list_2[i], list_2[j]))
++        
++        # Combine all unique items
++        combined_set = set(list_1) | set(list_2)
++        
++        # Perform topological sort with constraint checking
++        try:
++            result = Media._topological_sort(combined_set, constraints)
++        except Media.CycleError as e:
++            # If there's a real conflict (cycle), warn about it
++            warnings.warn(
++                'Detected duplicate Media files in an opposite order:\n'
++                '%s\n%s' % (e.item1, e.item2),
++                MediaOrderConflictWarning,
++            )
++            # Fall back to a simple combination approach
++            result = list(list_1)
++            for item in list_2:
++                if item not in result:
++                    result.append(item)
++        
++        return result
++
++    class CycleError(Exception):
++        """Raised when a cycle is detected in the constraint graph."""
++        def __init__(self, item1, item2):
++            self.item1 = item1
++            self.item2 = item2
++            super().__init__(f"Cycle detected: {item1} and {item2}")
++
++    @staticmethod
++    def _topological_sort(items, constraints):
++        """
++        Perform a topological sort on items with given constraints.
++        
++        Args:
++            items: An iterable of items to sort
++            constraints: A list of (before, after) tuples representing ordering constraints
++        
++        Returns:
++            A list of items in topologically sorted order
++            
++        Raises:
++            CycleError: If a cycle is detected in the constraints
++        """
++        from collections import defaultdict, deque
++        
++        items_list = list(items)
++        
++        # Build adjacency list and in-degree count
++        graph = defaultdict(list)
++        in_degree = defaultdict(int)
++        
++        # Initialize in_degree for all items
++        for item in items_list:
++            if item not in in_degree:
++                in_degree[item] = 0
++        
++        # Build graph from constraints
++        for before, after in constraints:
++            # Only add constraint if both items are in our item set
++            if before in items and after in items:
++                # Check if reverse constraint already exists (would be a cycle)
++                if after in graph and before in graph[after]:
++                    raise Media.CycleError(before, after)
++                
++                # Add constraint
++                if after not in graph[before]:
++                    graph[before].append(after)
++                    in_degree[after] += 1
++        
++        # Kahn's algorithm for topological sort
++        queue = deque([item for item in items_list if in_degree[item] == 0])
++        result = []
++        
++        while queue:
++            current = queue.popleft()
++            result.append(current)
++            
++            for neighbor in graph[current]:
++                in_degree[neighbor] -= 1
++                if in_degree[neighbor] == 0:
++                    queue.append(neighbor)
++        
++        # If we haven't processed all items, there's a cycle
++        if len(result) != len(items_list):
++            # Find items involved in cycle
++            for item in items_list:
++                if item not in result:
++                    # Find a constraint involving this item
++                    for before, after in constraints:
++                        if before == item or after == item:
++                            raise Media.CycleError(before, after)
++            raise Media.CycleError("unknown", "unknown")
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()
+         combined._css_lists = self._css_lists + other._css_lists
+         combined._js_lists = self._js_lists + other._js_lists
+         return combined
+ 
+ 
+ def media_property(cls):
+     def _media(self):
+         # Get the media property of the superclass, if it exists
+         sup_cls = super(cls, self)
+         try:
+             base = sup_cls.media
+         except AttributeError:
+             base = Media()
+ 
+         # Get the media definition for this class
+         definition = getattr(cls, 'Media', None)
+         if definition:
+             extend = getattr(definition, 'extend', True)
+             if extend:
+                 if extend is True:
+                     m = base
+                 else:
+                     m = Media()
+                     for medium in extend:
+                         m = m + base[medium]
+                 return m + Media(definition)
+             return Media(definition)
+         return base
+     return property(_media)
+```

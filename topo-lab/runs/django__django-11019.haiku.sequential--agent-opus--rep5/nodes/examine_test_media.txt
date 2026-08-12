@@ -1,0 +1,44 @@
+# Analysis of the Media Merging Problem
+
+## The Root Cause
+
+The current implementation of `Media.__add__` merges media lists pairwise, two at a time. The `Media.merge` method takes two lists and combines them, inferring ordering constraints from the relative positions of shared elements. The problem is that when merging is done pairwise across 3+ media objects, the intermediate results introduce **spurious ordering constraints** between files that never actually had a defined relationship.
+
+In the reported example:
+- `ColorPicker`: `['color-picker.js']`
+- `SimpleTextWidget`: `['text-editor.js']`
+- `FancyTextWidget`: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+When `ColorPicker().media + SimpleTextWidget().media` is computed first, it produces `['color-picker.js', 'text-editor.js']`. This *wrongly* creates a constraint that `color-picker.js` must come before `text-editor.js`, even though neither widget ever expressed a relationship between those two files. Then merging with the third widget's list (which has the opposite order) triggers the `MediaOrderConflictWarning`.
+
+## What the Existing Tests Expect
+
+Looking at the test file, the expected behavior is:
+
+1. **`test_merge`** — The two-list `merge()` should still work and only detect genuine conflicts. For example `([1, 2], [2, 1])` produces a warning, but `([1, 2], [3, 4])` → `[1, 2, 3, 4]` and `([2, 3], [1, 2])` → `[1, 2, 3]` do not.
+
+2. **`test_merge_warning`** — Merging `[1, 2]` and `[2, 1]` should still emit a `RuntimeWarning` with the message about duplicates in opposite order, and return `[1, 2]`.
+
+3. **`test_merge_js_three_way`** (new expectation) — Three-way merges must preserve relative order without unnecessary conflicts. Key insight: `custom_widget.js` and `jquery.js` have no real dependency, so even though intermediate steps establish an accidental relative ordering, the final three-way merge must succeed without warnings. Expected: `['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js']`.
+
+4. **`test_merge_css_three_way`** (new expectation) — Similar for CSS: `a.css` and `b.css` have no specified relative order, so `widget3 + form1 + form2` should succeed, producing `{'screen': ['a.css', 'b.css'], 'all': ['c.css']}`.
+
+## The Required Fix
+
+The fix needs to change how media is combined so that ordering constraints are only inferred from *actual* pairwise dependencies within individual widget definitions, not from artifacts of intermediate merge results.
+
+The key architectural change: instead of eagerly merging lists into a single combined list at each `+` operation, `Media` should defer merging. The `__add__` operation should keep the constituent lists as a collection of separate lists, and the actual merge (topological-sort-like combining) should happen lazily when the final `_js`/`_css` properties are accessed.
+
+By collecting all the original lists (each representing a real widget's declared ordering) and merging them all at once at the end, only genuine constraints from real declarations are considered. This avoids the case where `[color-picker, text-editor]` (an accidental intermediate) imposes a false constraint.
+
+Specifically:
+- `Media.__init__` should store the raw lists (e.g., `_css_lists` and `_js_lists`).
+- `__add__` should concatenate these lists of lists rather than merging.
+- `_js` and `_css` should become properties that perform the merge over all collected lists when accessed.
+- The `merge` method should be generalized/kept so it can combine the accumulated lists, only warning on genuine opposite-order conflicts.
+
+## Test Compatibility Notes
+
+- Tests access `form_media._js` and `form1._css`, so `_js` and `_css` must remain accessible (as computed properties returning the merged result).
+- The two-argument `Media.merge(list1, list2)` static/class method signature must be preserved because `test_merge` and `test_merge_warning` call it directly with two lists.
+- The warning message format `'Detected duplicate Media files in an opposite order:\n{first}\n{second}'` must be preserved, but should only fire on real conflicts (files that appear in a truly reversed order across genuine declarations).

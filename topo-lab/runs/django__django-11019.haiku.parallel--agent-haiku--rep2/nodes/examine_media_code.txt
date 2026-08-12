@@ -1,0 +1,82 @@
+# Analysis of the Media Class Merging Logic
+
+## Current Implementation
+
+The `Media` class in `django/forms/widgets.py` implements a `merge()` static method that combines two lists while attempting to preserve relative order and detect conflicts.
+
+### How the Current Merge Works
+
+```python
+@staticmethod
+def merge(list_1, list_2):
+    combined_list = list(list_1)
+    last_insert_index = len(list_1)
+    
+    for path in reversed(list_2):
+        try:
+            index = combined_list.index(path)
+        except ValueError:
+            combined_list.insert(last_insert_index, path)
+        else:
+            if index > last_insert_index:
+                warnings.warn(...)  # CONFLICT WARNING
+            last_insert_index = index
+    return combined_list
+```
+
+**Key behaviors:**
+1. Starts with `list_1` as the base
+2. Iterates through `list_2` in reverse order
+3. For each path in `list_2`:
+   - If it's not in `combined_list`, insert it at `last_insert_index`
+   - If it's already there, check if `index > last_insert_index` (which indicates a conflict)
+   - Update `last_insert_index` to the current index
+
+## The Problem
+
+The issue occurs when merging 3+ media objects in sequence. The problem is that `__add__` doesn't directly merge lists but instead appends them to internal lists, then merges them all at once during property access.
+
+### Example from the Bug Report
+
+```python
+ColorPicker().media + SimpleTextWidget().media
+# Results in: Media(css={}, js=['color-picker.js', 'text-editor.js'])
+# This wrongly imposes: color-picker.js must come before text-editor.js
+
+# Then when we add FancyTextWidget:
+# + FancyTextWidget().media  
+# Which has: ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+# The merge sees text-editor.js at index 1 in combined_list
+# But needs to place color-picker.js after text-editor-extras.js
+# This creates a false conflict warning
+```
+
+### Root Cause Analysis
+
+The core issue is that **intermediate merge results create artificial constraints**. When merging:
+- `['color-picker.js', 'text-editor.js']` (from first two widgets)
+- With `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` (from third widget)
+
+The merge algorithm sees:
+1. `color-picker.js` already in combined list at index 0
+2. `text-editor-extras.js` is new, inserted at position 1
+3. `text-editor.js` is already in list at index 1
+4. But we need to process from right-to-left, so when we process `text-editor.js`, `last_insert_index` has already moved, causing false conflict detection
+
+## The Real Issue
+
+The algorithm fails because:
+1. It processes `list_2` in reverse
+2. It updates `last_insert_index` after encountering each item
+3. When the same items appear in different orders across multiple lists being merged sequentially, the `last_insert_index` tracking doesn't account for the fact that earlier merges may have created artificial ordering constraints
+
+The warning about "Detected duplicate Media files in an opposite order" reports items that aren't actually in conflict relative to their dependencies—they're just artifacts of the sequential merging process creating false constraints.
+
+## What Needs to Change
+
+A proper fix would need to:
+1. Either delay the merge until all media objects are combined, not merging intermediate results
+2. Or improve the merge algorithm to handle the case where items are already in the list but in positions that accommodate both orderings
+3. Or detect when a "conflict" is actually just an artifact of previous merges and not issue a warning in those cases
+
+The fix should ensure that when merging multiple media objects, the final result respects all actual dependencies without creating false conflict warnings from transitive merge operations.

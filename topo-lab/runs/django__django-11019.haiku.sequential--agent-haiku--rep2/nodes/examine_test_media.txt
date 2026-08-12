@@ -1,0 +1,86 @@
+# Analysis of Media Tests and Expected Behavior
+
+## Current Test Coverage
+
+The test file `tests/forms_tests/tests/test_media.py` contains comprehensive tests for Django's Media class, covering:
+
+1. **Construction** - Creating Media objects with CSS and JS files
+2. **DSL** - Class-based Media definitions on widgets
+3. **Combination** - Merging media objects with `+` operator
+4. **Properties** - Dynamic media definitions via properties
+5. **Inheritance** - Media inheritance in widget hierarchies
+6. **Multi-media** - CSS for different output media types
+7. **MultiWidget** - Media collection from multiple widgets
+8. **Forms** - Media handling in form classes
+9. **HTML Safety** - Media objects can be used in templates
+10. **Merge Logic** - Detailed testing of the merge algorithm
+
+## Key Expected Behaviors
+
+### Merge Algorithm (`test_merge`)
+The Media.merge() method should:
+- Preserve order of unique items: `[1, 2] + [3, 4] = [1, 2, 3, 4]`
+- Deduplicate while preserving first occurrence: `[1, 2] + [2, 3] = [1, 2, 3]`
+- Reorder items when necessary to satisfy dependencies: `[1, 3] + [2, 3] = [1, 2, 3]`
+- Handle conflicts: `[1, 2] + [3, 2] = [1, 3, 2]` (when 3 must come before 2)
+
+### Merge Warnings (`test_merge_warning`)
+- When lists have conflicting orders that create a true conflict, a `RuntimeWarning` should be raised
+- The warning should describe which items have conflicting orders
+- **Crucially**: Only warn when there's a REAL conflict that cannot be resolved
+
+### Three-Way Merge (`test_merge_js_three_way`)
+When merging multiple Media objects:
+- The relative order established in earlier merges should be preserved
+- Dependencies between files should be respected
+- Example: If `widget1.js + widget2.js` establishes an ordering constraint, that constraint should hold in subsequent merges
+
+## The Problem Statement Issue
+
+The problem is about **unnecessary warnings** when merging 3+ media objects:
+
+**Current Broken Behavior:**
+- `ColorPicker().media + SimpleTextWidget().media` creates: `Media(js=['color-picker.js', 'text-editor.js'])`
+- This imposes the wrong constraint that `color-picker.js` must come before `text-editor.js`
+- When later merged with `FancyTextWidget().media` (which has `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`), it generates a false warning
+- The warning incorrectly identifies `text-editor-extras.js` and `text-editor.js` as the conflicting pair
+- The final result is worse than naive ordering
+
+**Expected Behavior:**
+- Django should recognize that there are NO true dependencies between `color-picker.js` and `text-editor.js`
+- The merge should succeed without warnings
+- The final order should be: `text-editor.js, text-editor-extras.js, color-picker.js`
+- OR at minimum, not produce warnings for non-existent conflicts
+
+## Missing Test Case
+
+The test suite does **not** contain a test for the scenario described in the problem statement. A proper test would need:
+
+```python
+def test_merge_three_way_with_dependencies(self):
+    """Test case from issue #11019"""
+    # Widgets with the dependency structure:
+    # text-editor-extras.js depends on text-editor.js
+    # color-picker.js is independent
+    
+    color_picker = Media(js=['color-picker.js'])
+    simple_text = Media(js=['text-editor.js'])
+    fancy_text = Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
+    
+    # Should not raise warning - no real conflict exists
+    result = color_picker + simple_text + fancy_text
+    # Should produce valid ordering
+    assert 'text-editor.js' comes before 'text-editor-extras.js'
+```
+
+## Root Cause Analysis
+
+The current merge algorithm likely:
+1. Builds a constraint graph as files are merged
+2. Once an ordering is established (even if arbitrary), it's treated as a requirement
+3. When later merges contradict this ordering, it warns
+4. The algorithm doesn't distinguish between:
+   - **Explicit dependencies** (A must come before B)
+   - **Arbitrary ordering decisions** (A happened to come before B in an earlier merge)
+
+The fix should track which orderings are truly necessary versus which are arbitrary, or use a more sophisticated topological sort that allows reordering when no true dependencies conflict.

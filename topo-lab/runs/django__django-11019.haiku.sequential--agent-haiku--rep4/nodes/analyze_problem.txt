@@ -1,0 +1,117 @@
+# Analysis of Media Merging Issue with 3+ Objects
+
+## Problem Summary
+
+When merging 3 or more Media objects, Django's Media class produces incorrect orderings and raises false `MediaOrderConflictWarning` messages. The issue occurs in the `Media.__add__()` method and how it uses the `merge()` static method.
+
+## Root Cause Analysis
+
+### 1. How Media Addition Works
+
+The `__add__()` method (lines 173-177) concatenates internal lists:
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+This defers actual merging to the `_js` and `_css` properties, which call `merge()` on pairs of lists.
+
+### 2. Sequential Merging Problem
+
+When you chain additions like `A + B + C + D`:
+1. `A + B` creates a Media with `_js_lists = [A_js, B_js]`
+2. `(A+B) + C` creates a Media with `_js_lists = [A_js, B_js, C_js]`
+3. `((A+B)+C) + D` creates a Media with `_js_lists = [A_js, B_js, C_js, D_js]`
+
+When accessing the `_js` property, it merges sequentially:
+- First merge: `merge(A_js, B_js)` → `result1`
+- Second merge: `merge(result1, C_js)` → `result2`
+- Third merge: `merge(result2, D_js)` → `final`
+
+### 3. The Merge Algorithm Flaw
+
+The `merge()` method (lines 125-161) has a fundamental design flaw:
+
+```python
+@staticmethod
+def merge(list_1, list_2):
+    combined_list = list(list_1)
+    last_insert_index = len(list_1)
+    
+    # Process list_2 in REVERSE order
+    for path in reversed(list_2):
+        try:
+            index = combined_list.index(path)
+        except ValueError:
+            combined_list.insert(last_insert_index, path)
+        else:
+            # BUG: This condition is too simplistic
+            if index > last_insert_index:
+                warnings.warn(...)
+            last_insert_index = index
+    
+    return combined_list
+```
+
+**The core issue**: The algorithm assumes that processing `list_2` in reverse while tracking `last_insert_index` will correctly identify conflicts. This assumption breaks down with multiple sequential merges.
+
+### 4. Concrete Example Walkthrough
+
+Given the problem statement scenario:
+
+**Step 1**: `ColorPicker().media + SimpleTextWidget().media`
+- `list_1 = ['color-picker.js']`
+- `list_2 = ['text-editor.js']`
+- Result: `['color-picker.js', 'text-editor.js']`
+- **This creates a false constraint**: color-picker must come before text-editor
+
+**Step 2**: `(result_from_step1) + FancyTextWidget().media`
+- `list_1 = ['color-picker.js', 'text-editor.js']`
+- `list_2 = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+- Process `list_2` in reverse: `['color-picker.js', 'text-editor-extras.js', 'text-editor.js']`
+
+Processing reverse iteration:
+1. Process `'color-picker.js'`: Found at index 0, `last_insert_index = 2` (length), so `0 < 2` → warning triggered!
+2. Process `'text-editor-extras.js'`: Not found, insert at position 2
+3. Process `'text-editor.js'`: Found at index 1, `last_insert_index = 0` (from step 1), so `1 > 0` → warning triggered!
+
+**Result**: False warnings and incorrect final order due to the sequential merging of pre-merged results.
+
+### 5. Why False Positives Occur
+
+The algorithm warns when `index > last_insert_index`, but in sequential multi-way merges:
+
+1. **Previous merge results encode arbitrary orderings** that may not reflect true dependencies
+2. **Reverse iteration compounds the problem**: Processing `list_2` backwards means we process dependent items before their dependencies
+3. **last_insert_index tracking is local to one merge operation**: It doesn't understand the global constraint graph across all merges
+4. **The algorithm conflates "found at a different index" with "actual ordering conflict"**: Just because an element exists at an index doesn't mean it represents a real dependency
+
+### 6. Why the Final Result is Suboptimal
+
+Without understanding actual dependencies, the algorithm produces:
+- `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`
+
+Instead of the correct:
+- `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+This happens because the algorithm doesn't track which elements actually depend on which—it only looks at indices within each pairwise merge.
+
+## Missing Capability
+
+The current algorithm cannot:
+1. **Distinguish between hard constraints and soft ordering**: It treats all positional differences as potential conflicts
+2. **Resolve dependency graphs**: It doesn't understand that "A before B" is a constraint that must be satisfied globally
+3. **Accumulate constraints across multiple merges**: Each merge is independent; constraints from earlier merges are lost
+4. **Validate against a true conflict**: A true conflict only exists if constraints are mathematically unsatisfiable (e.g., "A before B" AND "B before A")
+
+## Solution Requirements
+
+A proper fix must:
+1. **Track actual ordering constraints**, not just indices
+2. **Detect only genuine conflicts** where constraints contradict
+3. **Perform topological sorting** to find a valid ordering if one exists
+4. **Avoid false positives** by understanding that sequential merges compound the problem
+5. **Warn only when no valid ordering exists** that satisfies all constraints from all inputs

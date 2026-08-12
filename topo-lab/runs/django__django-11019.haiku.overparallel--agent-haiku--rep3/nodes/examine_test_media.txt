@@ -1,0 +1,53 @@
+# Analysis of Media Tests
+
+## Current Behavior Understanding
+
+Based on the test file `tests/forms_tests/tests/test_media.py`, I can understand the expected behavior for Django's Media handling:
+
+### Key Points:
+
+1. **Media Merging Basics** (`test_merge`):
+   - Media objects can be combined using `+` operator
+   - Duplicate files should only appear once
+   - The merge algorithm respects dependency ordering
+   - Test cases show expected merges like `[1, 2] + [2, 3] = [1, 2, 3]` and `[2, 3] + [1, 2] = [1, 2, 3]`
+
+2. **Warning on Conflicts** (`test_merge_warning`):
+   - When two lists have files in opposite orders AND they're duplicates, a `RuntimeWarning` is issued
+   - Example: merging `[1, 2]` and `[2, 1]` should warn and return `[1, 2]`
+
+3. **Three-Way Merge Behavior** (`test_merge_js_three_way`):
+   - The relative order of scripts should be preserved across three-way merges
+   - When merging `(A + B) + (C + A)`, the algorithm should handle this gracefully without unnecessary warnings
+   - Expected result: files appear in order with dependencies respected
+
+4. **CSS Three-Way Merge** (`test_merge_css_three_way`):
+   - Similar three-way merge preservation for CSS
+   - Files in different orders can still be merged successfully if their relative order was never specified
+
+## Problem Statement Analysis
+
+The issue described is that merging 3+ media objects throws unnecessary `MediaOrderConflictWarnings`. Specifically:
+
+```python
+ColorPicker().media + SimpleTextWidget().media + FancyTextWidget().media
+```
+
+Where:
+- ColorPicker has: `['color-picker.js']`
+- SimpleTextWidget has: `['text-editor.js']`
+- FancyTextWidget has: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+The problem occurs because:
+1. First: `ColorPicker + SimpleTextWidget` = `['color-picker.js', 'text-editor.js']` (establishes incorrect constraint)
+2. Then: above result `+ FancyTextWidget` detects conflict because FancyTextWidget wants `text-editor.js` before `color-picker.js`
+
+## Expected Correct Behavior
+
+The algorithm should:
+1. Recognize that `text-editor.js` and `text-editor-extras.js` have a dependency relationship
+2. Recognize that `color-picker.js` is independent of the text-editor files
+3. Produce: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` without warnings
+4. NOT warn about file ordering conflicts when a valid topological order exists
+
+The root issue is that intermediate merges establish spurious ordering constraints that don't reflect actual dependencies.

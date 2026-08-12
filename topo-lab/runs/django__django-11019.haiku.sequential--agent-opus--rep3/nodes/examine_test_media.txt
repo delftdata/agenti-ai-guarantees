@@ -1,0 +1,49 @@
+Looking at the test file and the problem statement, I can analyze the expected behavior of Django's media merging system.
+
+## Analysis
+
+### The Core Problem
+
+The current implementation of `Media.__add__` (and `merge`) works by merging two lists at a time, pairwise. When merging 3+ media objects sequentially, this pairwise approach imposes false ordering constraints.
+
+The example from the problem statement:
+- `ColorPicker().media` = `['color-picker.js']`
+- `SimpleTextWidget().media` = `['text-editor.js']`
+- `FancyTextWidget().media` = `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+When combined left-to-right:
+1. `color-picker.js` + `text-editor.js` → `['color-picker.js', 'text-editor.js']` — this **wrongly** establishes that `color-picker.js` must come before `text-editor.js`.
+2. Adding the third widget's list, which has the opposite order, triggers a spurious `MediaOrderConflictWarning`.
+
+### The Expected Solution
+
+The tests reveal that the fix changes `merge` from a two-list merge that concatenates and deduplicates, to a proper **topological-style merge** that only records constraints that actually exist within each individual list.
+
+Key insight from the new tests:
+
+**`test_merge`** — new test cases show the merge semantics:
+- `([1, 2], [2, 3])` → `[1, 2, 3]`
+- `([2, 3], [1, 2])` → `[1, 2, 3]` — even though list order suggests 2,3 first, it correctly produces 1,2,3
+- `([1, 3], [2, 3])` → `[1, 2, 3]`
+- `([1, 2], [1, 3])` → `[1, 2, 3]`
+- `([1, 2], [3, 2])` → `[1, 3, 2]`
+
+This shows merge no longer blindly concatenates; it computes an ordering that satisfies constraints from both lists. The constraint "2 before 3" and "1 before 2" combine to give `[1, 2, 3]` regardless of which list came first.
+
+**`test_merge_warning`** — a real conflict (`[1, 2]` vs `[2, 1]`) still warns, since these genuinely contradict each other.
+
+**`test_merge_js_three_way`** — demonstrates that unnecessary ordering constraints between independent files (`custom_widget.js` and `jquery.js`) do NOT trigger warnings even when they appear in different relative positions across merges. The result `['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js']` is produced without warning.
+
+**`test_merge_css_three_way`** — similar for CSS. `form1` has `[a.css, b.css]`, `form2` has `[b.css, a.css]`, but since neither ordering was ever a real dependency (they came from independent widgets), merging all three succeeds without warning.
+
+### Implementation Direction
+
+The fix requires reworking `Media` in `django/forms/widgets.py`:
+
+1. **Defer merging**: Instead of eagerly combining lists in `__add__`, store lists separately (as `_css_lists` / `_js_lists`) and only compute the final merged order lazily via properties (`_css`, `_js`).
+
+2. **New merge algorithm**: `merge` should take the accumulated list and a new list, and insert new elements while only enforcing the pairwise ordering constraints that actually appear *within a single source list*. It should iterate through the new list, tracking the last known index, and only warn when an element that must come *after* another is found *before* it — a genuine contradiction.
+
+3. **Warning change**: The warning type appears to become `RuntimeWarning` (as seen in `test_merge_warning`), and it should only fire on genuine order conflicts, not artifacts of sequential pairwise combination.
+
+The essential behavioral shift: constraints are collected from all the individual media definitions and combined all at once (n-way merge), rather than being prematurely baked in through repeated two-way merges. This preserves genuine dependencies (like `text-editor.js` before `text-editor-extras.js`) while ignoring incidental orderings between unrelated files.

@@ -1,0 +1,61 @@
+# Analysis of the Media Class Merging Logic
+
+## Current Implementation Overview
+
+The `Media` class stores CSS and JS as lists of lists (`_css_lists` and `_js_lists`), deferring the actual merge until the `_css`/`_js` properties are accessed. When combining media objects via `__add__`, it simply concatenates the underlying lists:
+
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+## The Merge Algorithm
+
+The core logic is the `merge(list_1, list_2)` static method. It performs a pairwise merge:
+
+1. Starts with a copy of `list_1` as `combined_list`.
+2. Sets `last_insert_index = len(list_1)`.
+3. Walks `list_2` **in reverse**, and for each `path`:
+   - If not present in `combined_list`, inserts it at `last_insert_index`.
+   - If already present at some `index`, checks whether `index > last_insert_index`. If so, it emits a `MediaOrderConflictWarning` (this means the two lists disagree about the relative order). Then it updates `last_insert_index = index`.
+
+The `_js` property applies this merge sequentially, folding pairs one at a time:
+
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+## Root Cause of the Problem
+
+The key issue is that **merging is done pairwise between only two lists at a time**, and each pairwise merge **imposes ordering constraints that don't actually exist in the original data**.
+
+Consider the example:
+- `ColorPicker`: `['color-picker.js']`
+- `SimpleTextWidget`: `['text-editor.js']`
+- `FancyTextWidget`: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+The additions happen left to right. First, `ColorPicker().media + SimpleTextWidget().media` merges `['color-picker.js']` and `['text-editor.js']`. Since these files are independent, the merge arbitrarily produces `['color-picker.js', 'text-editor.js']` — **wrongly inventing a constraint that `color-picker.js` must come before `text-editor.js`**.
+
+Then when merging with `FancyTextWidget`'s list (which requires `text-editor.js` before `color-picker.js`), the two "constraints" conflict, triggering the spurious `MediaOrderConflictWarning`.
+
+## Why Pairwise Merging Is Fundamentally Flawed
+
+The pairwise merge treats the *entire input order* of each list as a hard constraint, even between elements that are unrelated (never co-occur in any single widget's media). The real constraints are only the *adjacency/ordering relationships within each individual Media definition*. When two independent files happen to land in a merged intermediate list, their arbitrary relative order becomes a fake constraint that can conflict with later merges.
+
+## Direction Toward a Fix
+
+The correct approach is to treat this as a **topological sort / dependency graph problem** rather than a sequence of pairwise 2-list merges:
+
+- Each individual media list only defines constraints between *its own consecutive/ordered elements* (e.g., in `FancyTextWidget`, `text-editor.js` before `text-editor-extras.js` before `color-picker.js`).
+- Build a graph of these real dependencies across all the lists (`_js_lists`), then produce an ordering via topological sort.
+- Only warn about a `MediaOrderConflictWarning` when there is a genuine cycle / contradictory constraint in the dependency graph — not merely because an arbitrary intermediate ordering was invented.
+
+Django already has a `django/utils/topological_sort.py` module (visible in the repository listing) providing `stable_topological_sort` and `CyclicDependencyError`, which is well-suited for rewriting the merge logic to combine all lists at once instead of pairwise. The fix would replace the pairwise `merge` calls in the `_js` (and analogously `_css`) properties with a graph-based merge over all the collected lists.

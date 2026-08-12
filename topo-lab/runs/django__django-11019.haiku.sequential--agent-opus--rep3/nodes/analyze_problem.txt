@@ -1,0 +1,59 @@
+## Analysis of Media Object Merging: Root Cause
+
+### The `__add__` Method
+
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+`__add__` itself is not where the bug manifests. It simply concatenates the underlying lists-of-lists, deferring the actual merge. This is a sound design decision — it preserves the *original* individual media definitions rather than eagerly collapsing them. The problem lies in how these accumulated lists are later collapsed.
+
+### The `_js` Property — The Actual Fault Point
+
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+This performs a **left-fold** (pairwise `reduce`) over the accumulated lists. Each intermediate result becomes the `list_1` argument for the next merge. This is the root cause: the pairwise fold **manufactures ordering constraints that never existed in any original media definition**.
+
+### Why Pairwise Folding Is Wrong
+
+The `merge` method treats the relative order of *every pair* of elements within `list_1` as a hard constraint. But after the first merge, `list_1` is no longer an original media definition — it's a synthetic list whose element ordering is partly *incidental*, arising only from the accident of concatenation order.
+
+Tracing the reported example with lists `['color-picker.js']`, `['text-editor.js']`, `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`:
+
+1. `merge(['color-picker.js'], ['text-editor.js'])` → `['color-picker.js', 'text-editor.js']`
+   - This fabricates the constraint "color-picker before text-editor." No widget ever declared this; it's purely an artifact of `ColorPicker` being listed before `SimpleTextWidget` on the form.
+
+2. `merge(['color-picker.js', 'text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])`
+   - The third list legitimately declares "text-editor before color-picker."
+   - This contradicts the *fabricated* constraint from step 1 → spurious `MediaOrderConflictWarning`, and a final ordering worse than the naïve concatenation.
+
+### The Core Distinction Being Conflated
+
+There are two categories of ordering information:
+
+- **Genuine constraints**: relative orderings stated *within a single* media list (e.g., `text-editor.js` before `text-editor-extras.js` in `FancyTextWidget`). These are meaningful — they express real dependencies.
+- **Incidental orderings**: relative orderings that only emerge because independent lists were concatenated in some arbitrary order determined by field/widget declaration order.
+
+The `merge` function cannot tell these apart. Once step 1 produces an intermediate list, all pairwise orderings in it — genuine *and* incidental — are promoted to hard constraints and carried forward. The incidental constraint (color-picker before text-editor) then collides with a genuine one, producing a false conflict.
+
+### Root Cause Summary
+
+The bug is not in `__add__` (which correctly defers merging) nor strictly in `merge` (which correctly enforces constraints between two *real* lists). The root cause is the **left-fold strategy in the `_js`/`_css` properties**: by merging accumulated intermediate results pairwise, it treats incidental concatenation orderings as if they were declared dependencies. This both:
+
+1. Emits spurious `MediaOrderConflictWarning`s for files that have no real ordering relationship.
+2. Produces suboptimal final orderings (in the example, worse than Django 1.11's naïve behavior).
+
+### Direction for the Fix
+
+The merge should operate over *all* the original lists simultaneously, extracting only the genuine within-list adjacency constraints, rather than folding intermediate results pairwise. Concretely: build a dependency graph where each original list contributes edges only between its own consecutive/ordered elements, then perform a **topological sort** over that graph. A warning should be emitted only when a genuine **cycle** exists among real constraints. This eliminates the fabricated constraints entirely, resolving the example cleanly to `text-editor.js`, `text-editor-extras.js`, `color-picker.js`.

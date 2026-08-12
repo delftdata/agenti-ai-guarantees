@@ -1,0 +1,15 @@
+The current files already match the target state except tests/dispatch/tests.py, which uses `providing_args`. All other files are already correct.
+
+diff --git a/tests/dispatch/tests.py b/tests/dispatch/tests.py
+--- a/tests/dispatch/tests.py
++++ b/tests/dispatch/tests.py
+@@ -36,8 +36,8 @@ class Callable:
+         return val
+ 
+ 
+-a_signal = Signal(providing_args=["val"])
+-b_signal = Signal(providing_args=["val"])
++a_signal = Signal()
++b_signal = Signal()
+ c_signal = Signal()
+ d_signal = Signal(use_caching=True)

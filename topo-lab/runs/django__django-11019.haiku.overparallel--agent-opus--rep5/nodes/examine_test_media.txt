@@ -1,0 +1,65 @@
+# Analysis of the Media Merging Problem
+
+## The Core Issue
+
+The current implementation of `Media.merge()` performs pairwise merging of two lists at a time. When three or more media objects are combined, each pairwise merge imposes ordering constraints that may not actually be required, and these spurious constraints can conflict with later merges, triggering false `MediaOrderConflictWarning` messages.
+
+## Understanding the Example
+
+From the problem statement:
+- `ColorPicker`: `js = ['color-picker.js']`
+- `SimpleTextWidget`: `js = ['text-editor.js']`
+- `FancyTextWidget`: `js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+The only *real* dependency is that `text-editor-extras.js` comes after `text-editor.js`. All other files are independent.
+
+The current pairwise approach:
+1. `ColorPicker + SimpleTextWidget` → `['color-picker.js', 'text-editor.js']` — this **wrongly** imposes that `color-picker.js` must precede `text-editor.js`.
+2. Merging with `FancyTextWidget`'s list (which has `text-editor.js` before `color-picker.js`) creates a conflict, producing the spurious warning.
+
+## Expected Behavior from the Tests
+
+The tests reveal the intended semantics for a corrected implementation:
+
+### `test_merge` (basic two-list merge)
+The `merge` method should combine two lists while preserving established relative orderings:
+- `([1, 2], [3, 4])` → `[1, 2, 3, 4]`
+- `([1, 2], [2, 3])` → `[1, 2, 3]`
+- `([2, 3], [1, 2])` → `[1, 2, 3]`
+- `([1, 3], [2, 3])` → `[1, 2, 3]`
+- `([1, 2], [1, 3])` → `[1, 2, 3]`
+- `([1, 2], [3, 2])` → `[1, 3, 2]`
+
+Note the last case: only the second list has both `3` and `2` adjacent, so `3` must come before `2`; `1` from the first list is placed first.
+
+### `test_merge_warning`
+A genuine conflict (`[1, 2]` vs `[2, 1]`) should still produce the `RuntimeWarning` with message `'Detected duplicate Media files in an opposite order:\n1\n2'`. So the warning mechanism must be preserved for true conflicts.
+
+### `test_merge_js_three_way` (the key new test)
+This directly targets the reported bug:
+- `widget1 = Media(js=['custom_widget.js'])`
+- `widget2 = Media(js=['jquery.js', 'uses_jquery.js'])`
+- `form_media = widget1 + widget2` → `['custom_widget.js', 'jquery.js', 'uses_jquery.js']`
+- `inline_media = Media(js=['jquery.js', 'also_jquery.js']) + Media(js=['custom_widget.js'])`
+- `merged = form_media + inline_media` → `['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js']`
+
+Here `custom_widget.js` appears at the start in one list and the end in another, but because there's no genuine ordering conflict (they were never *both* constrained against the same file in opposite directions), the merge must succeed **without a warning**.
+
+### `test_merge_css_three_way`
+- `form1._css` → `{'screen': ['a.css', 'b.css']}`
+- `form2._css` → `{'screen': ['b.css', 'a.css']}`
+- `merged = widget3 + form1 + form2` → `{'screen': ['a.css', 'b.css'], 'all': ['c.css']}`
+
+Even though `form1` and `form2` have `a.css` and `b.css` in opposite orders, merging succeeds because the relative ordering was never truly specified — no warning.
+
+## Implications for the Fix
+
+The solution requires changing the merge algorithm so it does not eagerly impose ordering constraints on independent files during intermediate pairwise merges. The new `merge` implementation should:
+
+1. Take two lists and merge them, only preserving orderings that are *actually* established within each individual list.
+2. Detect a genuine conflict only when two elements appear in a strictly opposing relative order in both lists (i.e., both lists contain both elements adjacent/constrained in opposite directions).
+3. Iterate from the end of the second list, inserting elements at the appropriate position rather than assuming a total ordering across all inputs.
+
+The `merge` signature stays as `merge(list_1, list_2)` (a static method), and the `RuntimeWarning`/`MediaOrderConflictWarning` behavior is retained only for true conflicts. The `__add__` method combines `_css_lists` and `_js_lists` and the merge happens lazily when the `_css`/`_js` properties are accessed, allowing deferred, order-aware combination of all lists rather than greedy pairwise merging.
+
+This design ensures that independent files (like `custom_widget.js` and `jquery.js`) don't get spurious constraints, resolving the false warnings while still catching real ordering conflicts.

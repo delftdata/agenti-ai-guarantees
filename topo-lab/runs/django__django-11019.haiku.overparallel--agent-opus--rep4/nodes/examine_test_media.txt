@@ -1,0 +1,67 @@
+# Analysis of Media Merge Tests and Expected Behavior
+
+## The Core Problem
+
+The current `Media.merge()` in `django/forms/widgets.py` merges lists **two at a time**. Because merging is pairwise, intermediate merges can impose ordering constraints between files that were never actually required to be in any particular order, and these spurious constraints then cause false `MediaOrderConflictWarning`s during later merges.
+
+The classic failing scenario from the issue:
+- `ColorPicker`: `['color-picker.js']`
+- `SimpleTextWidget`: `['text-editor.js']`
+- `FancyTextWidget`: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+Merging `ColorPicker + SimpleTextWidget` yields `['color-picker.js', 'text-editor.js']`, which falsely asserts "color-picker before text-editor." When later merged with FancyTextWidget's list (which has text-editor before color-picker), it triggers the warning, even though there's actually a valid overall ordering: `text-editor.js`, `text-editor-extras.js`, `color-picker.js`.
+
+## What the Tests Reveal About Expected Behavior
+
+### `test_merge` (pairwise, two-list contract)
+The two-argument `Media.merge(list1, list2)` must still exist and produce specific results:
+```
+([1, 2], [3, 4]) -> [1, 2, 3, 4]
+([1, 2], [2, 3]) -> [1, 2, 3]
+([2, 3], [1, 2]) -> [1, 2, 3]
+([1, 3], [2, 3]) -> [1, 2, 3]
+([1, 2], [1, 3]) -> [1, 2, 3]
+([1, 2], [3, 2]) -> [1, 3, 2]
+```
+So `merge` still takes two lists and combines them, preserving the relative order where constraints exist. This means the pairwise merge algorithm itself needs to be robust (e.g., inserting the second list's items relative to matched items in the first list).
+
+### `test_merge_warning`
+`Media.merge([1, 2], [2, 1])` must still return `[1, 2]` AND emit a `RuntimeWarning` with the message:
+```
+Detected duplicate Media files in an opposite order:
+1
+2
+```
+So genuine, unresolvable conflicts must still warn. The warning message reports the two conflicting files (here `1` and `2`), improving on the confusing message in the issue.
+
+### `test_merge_js_three_way`
+This is the key new test demonstrating the fix. It confirms:
+- `Media(js=['custom_widget.js']) + Media(js=['jquery.js', 'uses_jquery.js'])` → `['custom_widget.js', 'jquery.js', 'uses_jquery.js']`. Here a relative order between `custom_widget.js` and `jquery.js` is *established but arbitrary*.
+- When a later merge (`inline_media`) uses `custom_widget.js` at the *end* (`['jquery.js', 'also_jquery.js'] + ['custom_widget.js']`), the full three-way merge must **not** warn and must produce `['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js']`.
+
+The comment "but without a real need to" is critical: it signals the intended design change — arbitrary orderings introduced by pairwise merging should NOT be treated as hard constraints that produce warnings later.
+
+### `test_merge_css_three_way`
+Similar principle for CSS:
+- `form1._css = {'screen': ['a.css', 'b.css']}`
+- `form2._css = {'screen': ['b.css', 'a.css']}` (opposite order)
+- Yet `widget3 + form1 + form2` succeeds without warning and yields `{'screen': ['a.css', 'b.css'], 'all': ['c.css']}`.
+
+Because a.css and b.css's relative ordering was never genuinely required, merging the two opposite orderings must not warn.
+
+## Implications for the Implementation
+
+The intended design (as reflected in the tests) is to defer the actual merge/ordering resolution:
+- A `Media` object should **store lists lazily** (accumulate the component lists) rather than eagerly merging on each `+`. The final ordering (a topological sort of accumulated constraints) is computed only when the media is rendered / when `_js` or `_css` is accessed.
+- `Media` gains properties `_js` and `_css` (the tests access `form_media._js`, `merged._css`), computed on demand from stored raw lists.
+- The `merge` classmethod stays pairwise but is applied at final resolution time across all accumulated lists, so that only *genuine* opposite-order conflicts produce warnings — spurious intermediate constraints are avoided.
+
+The rendering output (all the `str(...media...)` expectations in the earlier tests like `test_combine_media`, `test_multi_widget`, `test_form_media`) must remain byte-for-byte identical, so the lazy approach must reproduce the same final ordering for those existing cases while eliminating the false warnings for the three-way cases.
+
+## Summary
+
+The tests define these requirements for the fix:
+1. Keep a two-argument `Media.merge` with the exact pairwise results in `test_merge`.
+2. Keep genuine-conflict warnings (`test_merge_warning`).
+3. Add `_js` / `_css` on-demand properties on `Media`.
+4. Make combining 3+ media objects avoid false `MediaOrderConflictWarning`s by not treating arbitrary pairwise orderings as real constraints (`test_merge_js_three_way`, `test_merge_css_three_way`), typically by lazily accumulating lists and resolving order once at the end.

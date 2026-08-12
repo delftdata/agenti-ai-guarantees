@@ -1,0 +1,48 @@
+# Analysis of Media Tests
+
+## Current Test Coverage
+
+The test file `tests/forms_tests/tests/test_media.py` contains comprehensive tests for Django's Media class, which handles CSS and JS file management for forms and widgets. Here are the key insights:
+
+### Key Test Cases
+
+1. **test_construction**: Tests basic Media object creation with CSS and JS files
+2. **test_media_dsl**: Tests class-based Media definitions on widgets
+3. **test_combine_media**: Tests combining media from multiple widgets
+4. **test_merge**: Tests the `Media.merge()` method with various list combinations
+5. **test_merge_warning**: Tests that a `RuntimeWarning` is raised when files are in opposite order
+6. **test_merge_js_three_way**: Tests three-way merge preservation of script order
+7. **test_merge_css_three_way**: Tests three-way merge for CSS with different media types
+
+### Expected Merge Behavior
+
+From `test_merge`, the `Media.merge()` method should:
+- Combine two lists while preserving order
+- Remove duplicates
+- Handle cases where files appear in different positions:
+  - `([1, 2], [3, 4])` → `[1, 2, 3, 4]` (no conflict)
+  - `([1, 2], [2, 3])` → `[1, 2, 3]` (2 appears in both, keep it once)
+  - `([2, 3], [1, 2])` → `[1, 2, 3]` (reorder to satisfy dependencies)
+  - `([1, 3], [2, 3])` → `[1, 2, 3]` (smart reordering)
+  - `([1, 2], [1, 3])` → `[1, 2, 3]` (1 is common, keep order)
+  - `([1, 2], [3, 2])` → `[1, 3, 2]` (2 moves to end to satisfy both orderings)
+
+### Warning Behavior
+
+`test_merge_warning` expects a `RuntimeWarning` when files are in opposite order:
+- `([1, 2], [2, 1])` should warn about "Detected duplicate Media files in an opposite order"
+- Should still return `[1, 2]`
+
+### Three-Way Merge Expectations
+
+- `test_merge_js_three_way`: When merging three+ media objects, the relative order of files that don't have dependencies should be preserved without unnecessary warnings
+- `test_merge_css_three_way`: Multiple media objects with different CSS media types should merge cleanly
+
+## Problem Statement Understanding
+
+The issue described is that merging 3+ media objects can throw unnecessary `MediaOrderConflictWarning`s when:
+1. `ColorPicker().media + SimpleTextWidget().media` creates an artificial constraint that `color-picker.js` must come before `text-editor.js`
+2. Adding `FancyTextWidget().media` which has `text-editor.js` before `color-picker.js` causes a conflict warning
+3. This is a false positive because these files have no real dependency relationship
+
+The algorithm should recognize when order conflicts are unnecessary and not warn in those cases, or should resolve the merge more intelligently to avoid creating false constraints in the first place.

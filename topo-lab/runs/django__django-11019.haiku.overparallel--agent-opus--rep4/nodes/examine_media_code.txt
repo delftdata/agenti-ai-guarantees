@@ -1,0 +1,68 @@
+# Analysis of the Media Class Merging Logic
+
+## Current Implementation Overview
+
+The `Media` class in `django/forms/widgets.py` handles CSS and JavaScript asset ordering for widgets and forms. Here's how the current merging logic works:
+
+## Data Storage (`__init__`)
+
+Media stores its assets as **lists of lists**:
+- `self._css_lists = [css]` 
+- `self._js_lists = [js]`
+
+When two Media objects are combined via `__add__`, their lists are simply concatenated:
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+So `A + B + C` produces `_js_lists = [A_js, B_js, C_js]` — deferring the actual merge until access.
+
+## Lazy Merging (`_js` / `_css` properties)
+
+The actual flattening happens when the `_js` property is accessed:
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+This performs **pairwise, left-to-right accumulation**: it merges the accumulator with each subsequent list one at a time (`merge(merge(A, B), C)`).
+
+## The Core Problem in `merge()`
+
+The `merge(list_1, list_2)` static method:
+1. Starts with a copy of `list_1`.
+2. Walks `list_2` in reverse, inserting each element into the combined list if not already present.
+3. Tracks `last_insert_index` to detect ordering conflicts, warning when a duplicate is found "in an opposite order."
+
+## Why the Bug Occurs
+
+The root issue is that **pairwise merging forces false ordering constraints too early**.
+
+Consider the example:
+- `ColorPicker`: `['color-picker.js']`
+- `SimpleTextWidget`: `['text-editor.js']`
+- `FancyTextWidget`: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+The accumulation `merge(merge(color-picker, text-editor), fancy)`:
+
+1. First `merge(['color-picker.js'], ['text-editor.js'])` produces `['color-picker.js', 'text-editor.js']`. This **wrongly imposes** the constraint that `color-picker.js` must precede `text-editor.js` — but these two files are actually independent; the only reason they appear in this order is the arbitrary order the widgets were added.
+
+2. When this intermediate result is then merged with FancyTextWidget's list (which requires `text-editor.js` before `color-picker.js`), the two derived constraints conflict, triggering the spurious `MediaOrderConflictWarning`.
+
+The final result (`text-editor-extras.js`, `color-picker.js`, `text-editor.js`) is even worse than the naive Django 1.11 behavior, and the warning message names the wrong pair of files.
+
+## Key Insight for a Fix
+
+The pairwise `merge` approach conflates two things:
+- **Real constraints**: within a single list, order matters (e.g., `text-editor.js` before `text-editor-extras.js`).
+- **Incidental ordering**: the relative order of *independent* files across different lists carries no real dependency information but gets "baked in" as a constraint after the first merge.
+
+A better approach would be to treat the merge as a **topological sort / graph problem**: collect all pairwise ordering constraints from *each original list independently* (where each list only constrains its own elements' relative order), then produce a total order that satisfies all constraints, only warning when there's a genuine cycle/conflict among constraints derived from actual same-list adjacency. This avoids introducing artificial constraints between independent files that merely happened to be merged in a particular sequence.

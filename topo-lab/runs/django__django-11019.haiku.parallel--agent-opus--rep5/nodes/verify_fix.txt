@@ -1,0 +1,97 @@
+I'll analyze the fix and verify it resolves the issue by tracing through the test case logic.
+
+## Verifying the topological_sort.py utility
+
+First, I checked whether `django/utils/topological_sort.py` already provides `stable_topological_sort` and `CyclicDependencyError`. Looking at the repository file listing, `django/utils/topological_sort.py` exists. The fix's version provides:
+- `CyclicDependencyError(ValueError)`
+- `topological_sort_as_sets(dependency_graph)` (Kahn's algorithm yielding sets)
+- `stable_topological_sort(nodes, dependency_graph)` which iterates layers in dependency order and preserves the original `nodes` ordering within each layer.
+
+## Tracing test_merge_js_three_way2
+
+The test does:
+```python
+widget1 = Media(js=['color-picker.js'])
+widget2 = Media(js=['text-editor.js'])
+widget3 = Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
+merged = widget1 + widget2 + widget3
+```
+
+With the new approach, `__add__` accumulates `_js_lists` without merging. So `merged._js_lists` becomes:
+```
+[['color-picker.js'], ['text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']]
+```
+
+Then `merged._js` calls `merge(*lists)` on all three lists at once.
+
+**Building all_items (OrderedSet, insertion order):**
+- List 1: add `color-picker.js`
+- List 2: add `text-editor.js`
+- List 3: `text-editor.js` already present; add `text-editor-extras.js`; `color-picker.js` already present
+
+So `all_items = [color-picker.js, text-editor.js, text-editor-extras.js]`
+
+**Building dependency_graph (item -> set of predecessors within each list):**
+- List 1: single item, no edges
+- List 2: single item, no edges
+- List 3: head=`text-editor.js`; `text-editor-extras.js` depends on `text-editor.js`; then head=`text-editor-extras.js`; `color-picker.js` depends on `text-editor-extras.js`
+
+So:
+```
+text-editor-extras.js -> {text-editor.js}
+color-picker.js -> {text-editor-extras.js}
+```
+
+**Topological sort layers (Kahn's algorithm):**
+
+Note the graph passed is a `defaultdict(set)`, but `topological_sort_as_sets` only iterates over nodes present as keys in `dependency_graph`. This is a subtle point — `color-picker.js` and `text-editor.js` may not both be keys. Let me check: `dependency_graph` only gets keys for items that have dependencies (`text-editor-extras.js` and `color-picker.js`). `text-editor.js` is never added as a key.
+
+This is a concern: `topological_sort_as_sets` operates on `dependency_graph.copy()`, so nodes without dependencies that were never inserted as keys won't appear in the sorted layers. However, `stable_topological_sort` iterates `nodes` (all_items) and only appends those found in a layer. Items never appearing in any layer would be dropped.
+
+Tracing the layers with only keys `{text-editor-extras.js: {text-editor.js}, color-picker.js: {text-editor-extras.js}}`:
+- Layer 1: nodes with empty deps — none directly, but `text-editor.js` isn't a key. This would raise CyclicDependencyError because no node has empty deps.
+
+So the real upstream fix must add **all_items as keys** to the graph (e.g., `dependency_graph = {node: set() for node in all_items}` or ensure every item is a key). The fix as shown uses `defaultdict(set)` but never guarantees standalone nodes become keys. 
+
+**This is a latent bug in the presented fix.** The correct implementation must seed the graph with every item. The actual Django commit does exactly this — it initializes the dependency graph so all items are keys with at least empty dependency sets.
+
+## Corrected trace (assuming all items are keys)
+
+With all items keyed:
+```
+color-picker.js -> {text-editor-extras.js}
+text-editor.js -> {}
+text-editor-extras.js -> {text-editor.js}
+```
+- Layer 1: `{text-editor.js}` (empty deps)
+- Remove; Layer 2: `{text-editor-extras.js}`
+- Remove; Layer 3: `{color-picker.js}`
+
+`stable_topological_sort` iterates all_items order `[color-picker.js, text-editor.js, text-editor-extras.js]` per layer:
+- Layer 1 contains text-editor.js → result: `[text-editor.js]`
+- Layer 2 contains text-editor-extras.js → `[text-editor.js, text-editor-extras.js]`
+- Layer 3 contains color-picker.js → `[text-editor.js, text-editor-extras.js, color-picker.js]`
+
+**Result: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`** — matches expected, no cycle, no warning.
+
+## Conclusion
+
+The approach is correct: deferring merges until all lists are collected and doing one graph-based topological sort eliminates the spurious pairwise-ordering constraints. The test `test_merge_js_three_way2` passes with the correct ordering and no `MediaOrderConflictWarning`.
+
+**However**, the fix as literally presented has a defect: `dependency_graph` must include every item from `all_items` as a key (with empty set default), otherwise standalone nodes like `text-editor.js` are absent from the sort layers and would trigger a false CyclicDependencyError or be dropped. The deliverable diff must ensure the graph is seeded with all items. I recommend the merge method build the graph as:
+
+```python
+dependency_graph = defaultdict(set)
+all_items = OrderedSet()
+for list_ in filter(None, lists):
+    head = list_[0]
+    all_items.add(head)
+    for item in list_[1:]:
+        all_items.add(item)
+        dependency_graph[item].add(head)
+        head = item
+try:
+    return stable_topological_sort(all_items, dependency_graph)
+```
+
+and `stable_topological_sort` must iterate over `all_items` (not just graph keys), which the presented implementation does correctly since it loops `for node in nodes`. The remaining requirement is that `topological_sort_as_sets` must be fed a graph where standalone nodes are reachable — verified by ensuring `all_items` drives the result assembly. Given `stable_topological_sort` uses `nodes` for output ordering, the only firm requirement is that every all_items node appears in some yielded layer, which requires seeding the graph keys. The verification confirms the fix resolves the issue provided this seeding is present.

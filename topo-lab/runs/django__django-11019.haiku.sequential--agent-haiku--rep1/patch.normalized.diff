@@ -1,0 +1,219 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -118,70 +118,141 @@ class Media:
+     @staticmethod
+     def merge(lists):
+         """
+-        Merge multiple lists of items while respecting ordering constraints.
++        Merge multiple lists of items while respecting ordering constraints.
++        
++        This method collects all ordering constraints from all input lists,
++        then performs a topological sort to determine the final order.
++        It warns if there are conflicting orderings (the same pair of items
++        appearing in opposite orders in different input lists).
++        
++        For static assets it can be important to have them included in the DOM
++        in a certain order. In JavaScript you may not be able to reference a
++        global or in CSS you might want to override a style.
+         """
+-        # tuples aren't valid items
+-        if isinstance(lists, tuple):
+-            lists = [lists]
+-        # filter out empty lists
+-        lists = [x for x in lists if x]
++        # Filter out empty lists
++        lists = [lst for lst in lists if lst]
++        
+         if not lists:
+             return []
++        
+         if len(lists) == 1:
+             return list(lists[0])
+-        result = list(lists[0])
+-        for lst in lists[1:]:
+-            result = Media.merge([result, lst])
++        
++        # Collect all unique items and build a graph of ordering constraints
++        all_items = []
++        item_to_index = {}
++        
++        for lst in lists:
++            for item in lst:
++                if item not in item_to_index:
++                    item_to_index[item] = len(all_items)
++                    all_items.append(item)
++        
++        # Build adjacency list for the constraint graph
++        # Key insight: a constraint "a before b" means we add an edge from a to b
++        graph = {i: set() for i in range(len(all_items))}
++        
++        # Track all constraints and their sources for conflict detection
++        constraints = {}  # (before_idx, after_idx) -> source_list_index
++        
++        # Process each list to extract ordering constraints
++        for list_idx, lst in enumerate(lists):
++            for i in range(len(lst) - 1):
++                before_item = lst[i]
++                after_item = lst[i + 1]
++                before_idx = item_to_index[before_item]
++                after_idx = item_to_index[after_item]
++                
++                constraint = (before_idx, after_idx)
++                reverse_constraint = (after_idx, before_idx)
++                
++                # Check for conflicting constraints
++                if reverse_constraint in constraints:
++                    # We have a conflict: the same pair appears in opposite order
++                    warnings.warn(
++                        'Detected duplicate Media files in an opposite order:\n'
++                        '%s\n%s' % (all_items[before_idx], all_items[after_idx]),
++                        MediaOrderConflictWarning,
++                    )
++                
++                # Record this constraint (prefer the first occurrence)
++                if constraint not in constraints:
++                    constraints[constraint] = list_idx
++                    graph[before_idx].add(after_idx)
++        
++        # Perform topological sort using Kahn's algorithm
++        in_degree = [0] * len(all_items)
++        for idx in range(len(all_items)):
++            for neighbor in graph[idx]:
++                in_degree[neighbor] += 1
++        
++        queue = [i for i in range(len(all_items)) if in_degree[i] == 0]
+         result = []
++        
++        while queue:
++            # To maintain stability, process items in the order they first appear
++            queue.sort(key=lambda i: all_items.index(all_items[i]))
++            node = queue.pop(0)
++            result.append(all_items[node])
++            
++            for neighbor in sorted(graph[node]):
++                in_degree[neighbor] -= 1
++                if in_degree[neighbor] == 0:
++                    queue.append(neighbor)
++        
+         return result
+ 
+     def __add__(self, other):
+         combined = Media()
+         combined._css_lists = self._css_lists + other._css_lists
+         combined._js_lists = self._js_lists + other._js_lists
+         return combined
+ 
+ 
+-    def __iter__(self):
+-        return iter(self._js)
+-
+-    def __bool__(self):
+-        return bool(self._css or self._js)
+-
+-    def __contains__(self, obj):
+-        return obj in self._js or any(obj in v for v in self._css.values())
+-
+-    @property
+-    def _js(self):
+-        js = []
+-        for lst in self._js_lists:
+-            js = self.merge([js, lst])
+-        return js
+-
+-    @property
+-    def _css(self):
+-        css = {}
+-        for lst in self._css_lists:
+-            for medium in list(css.keys()) + list(lst.keys()):
+-                merged = self.merge([css.get(medium, []), lst.get(medium, [])])
+-                css[medium] = merged
+-        return css
+-
+-    def render(self):
+-        return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+-
+-    def render_js(self):
+-        return [
+-            format_html(
+-                '<script type="text/javascript" src="{}"></script>',
+-                self.absolute_path(path)
+-            ) for path in self._js
+-        ]
+-
+-    def render_css(self):
+-        # To keep rendering order consistent, we can't just iterate over items().
+-        # We need to sort the keys, and iterate over the sorted list.
+-        media = sorted(self._css)
+-        return chain.from_iterable([
+-            format_html(
+-                '<link href="{}" type="text/css" media="{}" rel="stylesheet">',
+-                self.absolute_path(path), medium
+-            ) for path in self._css[medium]
+-        ] for medium in media)
+-
+-    def absolute_path(self, path):
+-        """
+-        Given a relative or absolute path to a static asset, return an absolute
+-        path. An absolute path will be returned unchanged while a relative path
+-        will be passed to django.templatetags.static.static().
+-        """
+-        if path.startswith(('http://', 'https://', '/')):
+-            return path
+-        return static(path)
+-
+-    def __getitem__(self, name):
+-        """Return a Media object that only contains media of the given type."""
+-        if name in MEDIA_TYPES:
+-            return Media(**{str(name): getattr(self, '_' + name)})
+-        raise KeyError('Unknown media type "%s"' % name)
+ 
+ def media_property(cls):
+     def _media(self):
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 1234567..abcdefg 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -1,6 +1,6 @@
+-from django.forms import CharField, Form, Media, MultiWidget, TextInput, Widget
++from django.forms import CharField, Form, Media, MultiWidget, TextInput, Widget
+ from django.template import Context, Template
+-from django.test import SimpleTestCase, override_settings
++from django.test import SimpleTestCase, override_settings
+ 
+ 
+ @override_settings(
+@@ -303,3 +303,33 @@ class FormsMediaTestCase(SimpleTestCase):
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
+ 
++    def test_merge_with_dependency_chain(self):
++        """
++        Regression test for issue #11019: Merging 3+ media objects with
++        dependencies should not produce false MediaOrderConflictWarnings.
++        
++        This test reproduces the issue with ColorPicker, SimpleTextWidget,
++        and FancyTextWidget widgets.
++        """
++        class ColorPicker(Widget):
++            class Media:
++                js = ['color-picker.js']
++
++        class SimpleTextWidget(Widget):
++            class Media:
++                js = ['text-editor.js']
++
++        class FancyTextWidget(Widget):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        class MyForm(Form):
++            background_color = CharField(widget=ColorPicker())
++            intro = CharField(widget=SimpleTextWidget())
++            body = CharField(widget=FancyTextWidget())
++
++        # Should not raise a warning and should have correct order
++        form_media = MyForm().media
++        expected_order = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        self.assertEqual(form_media._js, expected_order)

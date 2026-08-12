@@ -1,0 +1,52 @@
+# Analysis of the Media Class and the Merge Problem
+
+## Current Implementation
+
+The `Media` class in `django/forms/widgets.py` has a `merge()` static method (lines 119-153) that attempts to merge two lists of media files while preserving order and detecting conflicts.
+
+### How the Current Merge Works
+
+1. **Starting point**: Creates a copy of `list_1` as `combined_list`
+2. **Insertion pointer**: Tracks `last_insert_index` (initially `len(list_1)`)
+3. **Processing list_2**: Iterates through `list_2` in **reverse order**
+4. **For each element in list_2**:
+   - If the element doesn't exist in `combined_list`, insert it at `last_insert_index`
+   - If the element already exists:
+     - If its current index is greater than `last_insert_index`, warn about conflict
+     - Update `last_insert_index` to the element's current index
+
+### The Problem with the Current Approach
+
+The issue manifests when merging 3+ media objects sequentially. Let's trace through the example:
+
+**Step 1**: `ColorPicker().media + SimpleTextWidget().media`
+- list_1: `['color-picker.js']`
+- list_2: `['text-editor.js']`
+- Result: `['color-picker.js', 'text-editor.js']`
+- **This creates a false constraint**: color-picker must come before text-editor
+
+**Step 2**: `(result from step 1) + FancyTextWidget().media`
+- list_1: `['color-picker.js', 'text-editor.js']`
+- list_2: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+- Processing list_2 in reverse:
+  - `'color-picker.js'`: exists at index 0, `last_insert_index=2`, index (0) < last_insert_index (2) ✓ OK
+  - `'text-editor-extras.js'`: doesn't exist, insert at index 2
+  - `'text-editor.js'`: exists at index 1, `last_insert_index=2`, index (1) < last_insert_index (2) ✓ OK
+- But the warning message is wrong and the result includes unnecessary items
+
+## Root Cause
+
+The fundamental issue is that the **merge algorithm assumes pairwise merges are optimal**, but when merging 3+ objects sequentially, intermediate results can introduce artificial constraints that contradict actual dependencies defined in later media objects.
+
+The algorithm doesn't account for:
+1. **Transitive dependencies**: If A depends on B, and B is independent of C, the algorithm shouldn't force A before C just because of an intermediate ordering
+2. **Global optimization**: The merging should consider all dependencies holistically, not just pairwise
+
+## The Real Solution Needed
+
+Instead of fixing the warning detection, the merge algorithm should:
+1. Build a **complete dependency graph** from all media being merged
+2. Perform a **topological sort** to find a valid ordering that respects all stated dependencies
+3. Only warn when there's an actual, irreconcilable conflict (circular dependency or incompatible orderings)
+
+The current approach of processing lists sequentially and warning on any reordering is too simplistic for complex multi-widget scenarios.

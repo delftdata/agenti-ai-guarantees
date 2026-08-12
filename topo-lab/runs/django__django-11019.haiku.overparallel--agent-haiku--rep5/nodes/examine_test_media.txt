@@ -1,0 +1,46 @@
+# Analysis of Media Tests and Problem Statement
+
+## Problem Summary
+When merging 3 or more media objects with dependencies, Django incorrectly throws `MediaOrderConflictWarning` even when a valid ordering exists. The specific example shows:
+
+1. **ColorPicker** has JS: `['color-picker.js']`
+2. **SimpleTextWidget** has JS: `['text-editor.js']`
+3. **FancyTextWidget** has JS: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+   - Here, `text-editor-extras.js` depends on `text-editor.js`
+
+When combined, the form should resolve to: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+However, the current behavior produces:
+- Warning about wrong ordering of `text-editor-extras.js` and `text-editor.js`
+- Incorrect output: `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`
+
+## Root Cause Analysis
+
+The problem occurs due to **order of addition**:
+1. `ColorPicker().media + SimpleTextWidget().media` = `['color-picker.js', 'text-editor.js']`
+   - This establishes the constraint that `color-picker.js` must come before `text-editor.js`
+2. When this intermediate result is merged with `FancyTextWidget().media` which requires `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+3. A conflict arises because:
+   - The intermediate media says: `color-picker.js` before `text-editor.js`
+   - FancyTextWidget says: `text-editor.js` before `color-picker.js`
+
+## Current Test Coverage
+
+The test file shows existing tests for:
+- Basic media merging (`test_merge`)
+- Two-way merging with warnings (`test_merge_warning`)
+- Three-way merging scenarios (`test_merge_js_three_way`, `test_merge_css_three_way`)
+
+The existing `test_merge_js_three_way` test shows a three-way merge but doesn't cover the problematic pattern from the issue where:
+- Independent files (color-picker.js) get a false ordering constraint due to intermediate merge
+- Three files with one dependency should resolve correctly
+
+## Key Insight
+
+The `Media.merge()` algorithm needs to:
+1. Recognize when ordering constraints are **incidental** (artifacts of merge order) vs. **essential** (based on actual dependencies)
+2. For three or more items being merged, better distinguish between:
+   - Files that must maintain order (have explicit dependencies)
+   - Files that are independent and got ordered accidentally
+
+The warning in the issue shows `text-editor-extras.js` and `text-editor.js` as conflicting, but the real issue is that `color-picker.js` shouldn't have been ordered relative to these at all.

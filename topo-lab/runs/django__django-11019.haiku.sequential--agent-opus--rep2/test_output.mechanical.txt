@@ -1,0 +1,202 @@
+===== test_combine_media (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpoq_r7oo9\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.005s
+
+OK
+
+
+===== test_construction (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpoq_r7oo9\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_form_media (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpoq_r7oo9\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+OK
+
+
+===== test_media_deduplication (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpoq_r7oo9\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_media_inheritance (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpoq_r7oo9\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_media_inheritance_extends (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpoq_r7oo9\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_media_property_parent_references (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpoq_r7oo9\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_merge (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpoq_r7oo9\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_merge_css_three_way (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpoq_r7oo9\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_merge_js_three_way (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpoq_r7oo9\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_merge_js_three_way2 (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpoq_r7oo9\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_merge_warning (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpoq_r7oo9\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+OK
+
+
+===== test_multi_widget (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpoq_r7oo9\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_media (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpoq_r7oo9\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.015s
+
+OK
+Destroying test database for alias 'default'...
+
+
+
+===== test_render_options (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpoq_r7oo9\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.032s
+
+OK
+Destroying test database for alias 'default'...
+
+
+
+===== test_inline_media_only_inline (admin_inlines.tests.TestInlineMedia): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpoq_r7oo9\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.171s
+
+OK
+Destroying test database for alias 'default'...
+

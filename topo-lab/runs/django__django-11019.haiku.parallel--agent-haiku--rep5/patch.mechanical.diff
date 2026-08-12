@@ -1,0 +1,114 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..5508f0cf8d 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -70,11 +70,16 @@ class Media:
+ 
+     @property
+     def _js(self):
+-        js = self._js_lists[0]
+-        # filter(None, ...) avoids calling merge() with empty lists.
+-        for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
+-        return js
++        # Collect all non-empty js lists
++        js_lists = [js for js in self._js_lists if js]
++        
++        if not js_lists:
++            return []
++        if len(js_lists) == 1:
++            return js_lists[0]
++        
++        # For multiple lists, use merge_lists which handles all constraints at once
++        return self.merge_lists(js_lists)
+ 
+     def render(self):
+         return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+@@ -114,6 +119,87 @@ class Media:
+             return Media(**{str(name): getattr(self, '_' + name)})
+         raise KeyError('Unknown media type "%s"' % name)
+ 
++    @staticmethod
++    def merge_lists(lists):
++        """
++        Merge multiple lists while respecting ordering constraints within each list.
++        
++        Instead of merging pairwise (which can introduce spurious ordering constraints),
++        this method collects all ordering constraints from all input lists and performs
++        a topological sort to produce a result that respects all constraints.
++        
++        Args:
++            lists: A list of lists to merge
++            
++        Returns:
++            A single list with all unique items, ordered to satisfy all constraints
++        """
++        # Collect all unique items across all lists
++        all_items = []
++        seen = set()
++        for lst in lists:
++            for item in lst:
++                if item not in seen:
++                    all_items.append(item)
++                    seen.add(item)
++        
++        if not all_items:
++            return []
++        
++        if len(all_items) == 1:
++            return all_items
++        
++        # Build a graph of ordering constraints
++        # constraints[a].add(b) means "a must come before b"
++        constraints = {item: set() for item in all_items}
++        
++        # Extract ordering constraints from each input list
++        for lst in lists:
++            for i, item in enumerate(lst):
++                # This item must come before all subsequent items in this list
++                for subsequent_item in lst[i + 1:]:
++                    constraints[item].add(subsequent_item)
++        
++        # Perform topological sort using Kahn's algorithm
++        # Calculate in-degree for each item
++        in_degree = {item: 0 for item in all_items}
++        for item in all_items:
++            for successor in constraints[item]:
++                in_degree[successor] += 1
++        
++        # Find all items with no incoming edges
++        queue = [item for item in all_items if in_degree[item] == 0]
++        result = []
++        
++        while queue:
++            # Sort to ensure deterministic output when there are multiple valid orderings
++            queue.sort()
++            current = queue.pop(0)
++            result.append(current)
++            
++            # For each successor of current
++            for successor in sorted(constraints[current]):
++                in_degree[successor] -= 1
++                if in_degree[successor] == 0:
++                    queue.append(successor)
++        
++        # Check if topological sort was successful (no cycles)
++        if len(result) != len(all_items):
++            # This should not happen with valid input, but if there are cycles,
++            # fall back to the old merge behavior for backward compatibility
++            warnings.warn(
++                'Circular dependency detected in Media files. '
++                'Falling back to sequential merge.',
++                MediaOrderConflictWarning,
++            )
++            # Fallback: merge sequentially
++            combined = list(lists[0])
++            for lst in lists[1:]:
++                combined = Media.merge(combined, lst)
++            return combined
++        
++        return result
++
+     @staticmethod
+     def merge(list_1, list_2):
+         """

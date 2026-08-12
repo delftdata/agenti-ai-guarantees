@@ -1,0 +1,51 @@
+## Root Cause Analysis of `Media.__add__` and Related Methods
+
+### Summary
+
+The incorrect ordering (and spurious `MediaOrderConflictWarning`) when merging 3+ media objects stems from the **pairwise, cumulative left-fold** merge strategy used in the `_js` and `_css` properties. This strategy collapses intermediate results into flat lists, converting *incidental adjacency* between independent files into *false ordering constraints* that then conflict with genuine constraints from later lists.
+
+### Data Flow Trace
+
+1. **`__add__`** does no merging — it merely concatenates the underlying lists-of-lists:
+   ```python
+   combined._js_lists = self._js_lists + other._js_lists
+   ```
+   This is actually correct and *preserves* all original information: each widget's media list remains a distinct, separate entry.
+
+2. **`_js` property** is where information is destroyed:
+   ```python
+   js = self._js_lists[0]
+   for obj in filter(None, self._js_lists[1:]):
+       js = self.merge(js, obj)
+   ```
+   This folds all lists into one via repeated pairwise `merge()` calls: `merge(merge(merge(L0, L1), L2), L3)...`
+
+3. **`merge(list_1, list_2)`** treats the *entire* relative order of both input lists as hard constraints. It cannot distinguish between:
+   - A real dependency (e.g., `text-editor.js` must come before `text-editor-extras.js`, because they appeared together in one widget's list), and
+   - An incidental adjacency (e.g., `color-picker.js` happening to sit before `text-editor.js` in an intermediate accumulator, even though they came from *different, independent* widgets).
+
+### Why 3+ Objects Specifically Fail
+
+With only 2 objects, there is a single merge and all constraints are genuine. The problem requires at least 3 lists because an intermediate accumulator must first be formed, and that accumulator manufactures a phantom constraint:
+
+- `ColorPicker`: `['color-picker.js']`
+- `SimpleTextWidget`: `['text-editor.js']`
+- `FancyTextWidget`: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+Step 1: `merge(['color-picker.js'], ['text-editor.js'])` → `['color-picker.js', 'text-editor.js']`. **False constraint born:** color-picker before text-editor. These two files are entirely independent — this ordering is an artifact of the fold order, not of any widget declaration.
+
+Step 2: `merge(['color-picker.js', 'text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])`. The accumulator insists color-picker precedes text-editor; the third list insists the opposite. → **spurious `MediaOrderConflictWarning`** and a wrong final order.
+
+### Core Defect
+
+The pairwise fold is *lossy*. Once two lists are merged into one flat sequence, all pairwise adjacencies in that sequence become indistinguishable from real constraints, and subsequent merges cannot tell which orderings were meaningful.
+
+### Direction for the Fix
+
+Since `_js_lists`/`_css_lists` already preserve every original list separately (thanks to `__add__` just concatenating), the merge should be re-architected to compute ordering from **all lists at once** using a dependency-graph / topological-sort approach:
+
+- Each individual list contributes only its *genuine* pairwise "before" relationships (element i comes before element j within that same list).
+- The final order is a topological sort over the union of all elements honoring only those real edges.
+- A `MediaOrderConflictWarning` should be emitted only when a genuine cycle exists (two lists impose truly contradictory orderings), not when two independent files merely happened to be adjacent in an intermediate fold.
+
+This lets `text-editor.js, text-editor-extras.js, color-picker.js` resolve cleanly, because no list ever states a relationship between `color-picker.js` and `text-editor.js`.

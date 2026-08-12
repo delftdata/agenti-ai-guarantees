@@ -564,6 +564,8 @@ Three topologies give three points on the parallelism axis, and over-parallel is
 
 Each of the six points runs five times. The bracket repetition study showed that schedule-derived quantities repeat exactly while model-sampled quantities vary; five repetitions per point put means and spread on the sampled quantities (f2p, content, cost, wall time) at acceptable cost.
 
+One replacement rule, adopted at Oto's request and applied to the additional-runs tables as well: a repetition in which the agent reproduces every graded file byte-identical grades as an empty workspace diff (reported as "no workspace") and is rerun until the agent produces an actual edit. Two repetitions were replaced under this rule, opus-harness sequential rep5 and haiku-harness parallel rep1, both with the haiku agent. The discarded behavior is a real weak-agent failure mode - whole-file reproduction without applying the edit - not an infrastructure error; the rule trades that failure mode out of the tables so that every tabulated repetition reflects a run that actually edited the workspace.
+
 ### Generated decomposition
 
 Opus harness, identical frozen prompt, temperature 0, single Workbench turn. Five nodes, no guards:
@@ -590,9 +592,155 @@ Plan-time observations:
 - Discovered at the sequential pilot run, not at plan time: the gold FAIL_TO_PASS tests pin the reference implementation's internal API - they call Media.merge(*lists) positionally. An implementation with a different signature caps below 16/16 regardless of coordination, and the instruction's "list of lists" wording steers toward a single-argument signature. The task ceiling is therefore below 16 for this plan.
 - The implementing node depends on both analysis nodes; the test-updating node depends on the implementation and the test analysis. Four dependency edges are cuttable.
 
+### Haiku-harness decomposition (additional-runs grid)
+
+For the additional-runs grid a haiku-harness decomposition of the same task was generated on 2026-08-12: identical frozen prompt, temperature 0, single turn, issued as a direct API call rather than through the Workbench UI (same endpoint, same parameters; the raw output is preserved unmodified in `graphs/django__django-11019.haiku.decomp.txt`). Seven nodes, no guards, rendered by the standard pipeline; diagrams appear under Rendered gradient topologies.
+
+Two plan-time observations. First, the weak harness prefixed analysis prose to the JSON, a case the loader's repairs did not yet cover; `load_decomp` now strips prose surrounding the outermost JSON object, logged like the existing repairs. Second, the plan declares a single writer per file (one node writes the implementation, a different node writes the tests), so it exposes no write-conflict surface: its parallel renderings vary read staleness and consumption order only, which predicts weaker topology sensitivity than under the opus plan.
+
 ## Rendered gradient topologies
 
 <!-- TOPOLOGIES2:BEGIN -->
+
+### django__django-11019 - haiku harness
+
+**sequential** - 7 waves, max width 1
+
+```mermaid
+flowchart TD
+    examine_media_code[examine_media_code]
+    examine_test_media[examine_test_media]
+    analyze_problem[analyze_problem]
+    create_test_case[create_test_case]
+    fix_media_merge[fix_media_merge]
+    verify_fix[verify_fix]
+    generate_diff[generate_diff]
+    examine_media_code --> analyze_problem
+    analyze_problem --> examine_test_media
+    examine_test_media --> create_test_case
+    create_test_case --> fix_media_merge
+    fix_media_merge --> verify_fix
+    verify_fix --> generate_diff
+    style generate_diff stroke-width:3px
+```
+
+**parallel** - 5 waves, max width 2
+
+```mermaid
+flowchart TD
+    examine_media_code[examine_media_code]
+    examine_test_media[examine_test_media]
+    analyze_problem[analyze_problem]
+    create_test_case[create_test_case]
+    fix_media_merge[fix_media_merge]
+    verify_fix[verify_fix]
+    generate_diff[generate_diff]
+    examine_media_code --> analyze_problem
+    examine_test_media --> create_test_case
+    analyze_problem --> fix_media_merge
+    create_test_case --> verify_fix
+    fix_media_merge --> verify_fix
+    fix_media_merge --> generate_diff
+    verify_fix --> generate_diff
+    style generate_diff stroke-width:3px
+```
+
+**cut25** - 4 waves, max width 4
+
+```mermaid
+flowchart TD
+    examine_media_code[examine_media_code]
+    examine_test_media[examine_test_media]
+    analyze_problem[analyze_problem]
+    create_test_case[create_test_case]
+    fix_media_merge[fix_media_merge]
+    verify_fix[verify_fix]
+    generate_diff[generate_diff]
+    examine_media_code -.-> analyze_problem
+    examine_test_media -.-> create_test_case
+    analyze_problem --> fix_media_merge
+    create_test_case --> verify_fix
+    fix_media_merge --> verify_fix
+    fix_media_merge --> generate_diff
+    verify_fix --> generate_diff
+    examine_media_code --> generate_diff
+    examine_test_media --> generate_diff
+    style generate_diff stroke-width:3px
+```
+
+**cut50** - 3 waves, max width 5
+
+```mermaid
+flowchart TD
+    examine_media_code[examine_media_code]
+    examine_test_media[examine_test_media]
+    analyze_problem[analyze_problem]
+    create_test_case[create_test_case]
+    fix_media_merge[fix_media_merge]
+    verify_fix[verify_fix]
+    generate_diff[generate_diff]
+    examine_media_code -.-> analyze_problem
+    examine_test_media -.-> create_test_case
+    analyze_problem -.-> fix_media_merge
+    create_test_case --> verify_fix
+    fix_media_merge --> verify_fix
+    fix_media_merge --> generate_diff
+    verify_fix --> generate_diff
+    examine_media_code --> generate_diff
+    examine_test_media --> generate_diff
+    analyze_problem --> generate_diff
+    style generate_diff stroke-width:3px
+```
+
+**cut75** - 3 waves, max width 5
+
+```mermaid
+flowchart TD
+    examine_media_code[examine_media_code]
+    examine_test_media[examine_test_media]
+    analyze_problem[analyze_problem]
+    create_test_case[create_test_case]
+    fix_media_merge[fix_media_merge]
+    verify_fix[verify_fix]
+    generate_diff[generate_diff]
+    examine_media_code -.-> analyze_problem
+    examine_test_media -.-> create_test_case
+    analyze_problem -.-> fix_media_merge
+    create_test_case -.-> verify_fix
+    fix_media_merge --> verify_fix
+    fix_media_merge --> generate_diff
+    verify_fix --> generate_diff
+    examine_media_code --> generate_diff
+    examine_test_media --> generate_diff
+    analyze_problem --> generate_diff
+    create_test_case --> generate_diff
+    style generate_diff stroke-width:3px
+```
+
+**overparallel** - 2 waves, max width 6
+
+```mermaid
+flowchart TD
+    examine_media_code[examine_media_code]
+    examine_test_media[examine_test_media]
+    analyze_problem[analyze_problem]
+    create_test_case[create_test_case]
+    fix_media_merge[fix_media_merge]
+    verify_fix[verify_fix]
+    generate_diff[generate_diff]
+    examine_media_code --> generate_diff
+    examine_test_media --> generate_diff
+    analyze_problem --> generate_diff
+    examine_media_code -.-> analyze_problem
+    create_test_case --> generate_diff
+    examine_test_media -.-> create_test_case
+    fix_media_merge --> generate_diff
+    analyze_problem -.-> fix_media_merge
+    verify_fix --> generate_diff
+    create_test_case -.-> verify_fix
+    fix_media_merge -.-> verify_fix
+    style generate_diff stroke-width:3px
+```
 
 ### django__django-11019 - opus harness
 
@@ -853,7 +1001,7 @@ content: fraction of the task rubric present in the patch. f2p: FAIL_TO_PASS tes
 | django-11019 | opus | haiku | sequential | 179.1 | 0.2455 | 123124 | 0 | 0 | 0 | 0 | 1.0 | 2/16 | no |
 | django-11019 | opus | haiku | sequential | 185.8 | 0.2458 | 121050 | 0 | 0 | 0 | 0 | 1.0 | 4/16 | no |
 | django-11019 | opus | haiku | sequential | 266.49 | 0.3221 | 148344 | 0 | 0 | 0 | 0 | 1.0 | 6/16 | no |
-| django-11019 | opus | haiku | sequential | 252.35 | 0.3075 | 142229 | 0 | 0 | 0 | 0 | 0.0 | no workspace | no |
+| django-11019 | opus | haiku | sequential | 198.14 | 0.2659 | 130543 | 0 | 0 | 0 | 0 | 1.0 | 9/16 | no |
 | django-11019 | opus | haiku | parallel | 159.36 | 0.172 | 84333 | 1 | 0 | 0 | 0 | 1.0 | 6/16 | no |
 | django-11019 | opus | haiku | parallel | 168.55 | 0.2573 | 126763 | 0 | 0 | 0 | 0 | 1.0 | 4/16 | no |
 | django-11019 | opus | haiku | parallel | 169.78 | 0.2562 | 126173 | 0 | 0 | 0 | 0 | 1.0 | 4/16 | no |
@@ -918,7 +1066,7 @@ content: fraction of the task rubric present in the patch. f2p: FAIL_TO_PASS tes
 
 | topology | runs | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p frac | resolved |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| sequential | 5 | 213.8 | 0.2741 | 131811.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.8 | 0.281 | 0/5 |
+| sequential | 5 | 202.9 | 0.2658 | 129473.0 | 0.0 | 0.0 | 0.0 | 0.0 | 1.0 | 0.337 | 0/5 |
 | parallel | 5 | 166.2 | 0.2363 | 116704.0 | 0.2 | 0.0 | 0.0 | 0.0 | 1.0 | 0.275 | 0/5 |
 | cut25 | 5 | 177.7 | 0.2565 | 125660.0 | 0.2 | 0.0 | 0.0 | 0.0 | 1.0 | 0.338 | 0/5 |
 | cut50 | 5 | 149.3 | 0.2508 | 120358.0 | 0.2 | 1.0 | 1.0 | 0.0 | 1.0 | 0.212 | 0/5 |
@@ -1037,3 +1185,75 @@ All fifteen runs are deterministic on every graded axis. The sequential and orde
 The ordered arm is the result I recommend we lead with when this reaches the paper: it is not a retreat to sequential execution. One declared edge serializes exactly the conflicting pair while t3 runs concurrently with t1, and mean wall time stays below sequential (66-84s vs 80-107s; unordered parallel 48-67s). The remedy costs part of the parallelism, not all of it, which is the concurrency-control claim in miniature.
 
 Relative to the django-11099 probe this adds three things: the conflict sits inside a five-node multi-file workflow rather than a minimal pair, the oracle is the repository's own test suite rather than an instance's gold tests, and the primitive demonstrably preserves residual parallelism instead of collapsing the graph to a total order.
+
+## Additional runs
+
+<!-- ADDITIONAL:BEGIN -->
+
+### django-11019 - haiku harness, haiku agent
+
+| task | harness | agent | topology | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p | resolved |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| django-11019 | haiku | haiku | sequential | 224.28 | 0.3086 | 159793 | 0 | 0 | 0 | 0 | 1.0 | 4/16 | no |
+| django-11019 | haiku | haiku | sequential | 204.93 | 0.2987 | 153342 | 0 | 0 | 0 | 0 | 1.0 | 1/16 | no |
+| django-11019 | haiku | haiku | sequential | 183.44 | 0.2832 | 150283 | 0 | 0 | 0 | 0 | 0.5 | 1/16 | no |
+| django-11019 | haiku | haiku | sequential | 167.76 | 0.2719 | 147930 | 0 | 0 | 0 | 0 | 1.0 | 1/16 | no |
+| django-11019 | haiku | haiku | sequential | 186.15 | 0.2848 | 151262 | 0 | 0 | 0 | 0 | 1.0 | 6/16 | no |
+| django-11019 | haiku | haiku | parallel | 182.05 | 0.2961 | 154248 | 0 | 0 | 0 | 0 | 1.0 | 1/16 | no |
+| django-11019 | haiku | haiku | parallel | 169.84 | 0.2912 | 152375 | 0 | 0 | 0 | 0 | 0.5 | 2/16 | no |
+| django-11019 | haiku | haiku | parallel | 162.45 | 0.2864 | 152253 | 0 | 0 | 0 | 0 | 0.5 | 4/16 | no |
+| django-11019 | haiku | haiku | parallel | 188.75 | 0.3039 | 154592 | 0 | 0 | 0 | 0 | 0.5 | 2/16 | no |
+| django-11019 | haiku | haiku | parallel | 165.44 | 0.2834 | 151093 | 0 | 0 | 0 | 0 | 1.0 | 3/16 | no |
+| django-11019 | haiku | haiku | overparallel | 99.93 | 0.263 | 126556 | 0 | 4 | 5 | 0 | 0.5 | 1/16 | no |
+| django-11019 | haiku | haiku | overparallel | 170.04 | 0.3352 | 150699 | 0 | 4 | 5 | 0 | 0.5 | 1/16 | no |
+| django-11019 | haiku | haiku | overparallel | 88.88 | 0.2564 | 125549 | 0 | 4 | 5 | 0 | 1.0 | 0/16 | no |
+| django-11019 | haiku | haiku | overparallel | 94.84 | 0.2551 | 124663 | 0 | 4 | 5 | 0 | 0.5 | 1/16 | no |
+| django-11019 | haiku | haiku | overparallel | 104.72 | 0.2653 | 126805 | 0 | 4 | 5 | 0 | 0.5 | 1/16 | no |
+
+### django-11019 - haiku harness, opus agent
+
+| task | harness | agent | topology | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p | resolved |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| django-11019 | haiku | opus | sequential | 507.8 | 2.1256 | 217124 | 0 | 0 | 0 | 0 | 1.0 | 16/16 | yes |
+| django-11019 | haiku | opus | sequential | 446.56 | 2.1286 | 216187 | 0 | 0 | 0 | 0 | 1.0 | 16/16 | yes |
+| django-11019 | haiku | opus | sequential | 538.27 | 2.4882 | 244028 | 0 | 0 | 0 | 0 | 1.0 | 1/16 | no |
+| django-11019 | haiku | opus | sequential | 459.94 | 2.1226 | 215785 | 0 | 0 | 0 | 0 | 1.0 | 16/16 | yes |
+| django-11019 | haiku | opus | sequential | 596.79 | 2.6382 | 254896 | 0 | 0 | 0 | 0 | 1.0 | 1/16 | no |
+| django-11019 | haiku | opus | parallel | 454.57 | 2.3234 | 233527 | 0 | 0 | 0 | 0 | 1.0 | 1/16 | no |
+| django-11019 | haiku | opus | parallel | 399.27 | 2.1597 | 218247 | 0 | 0 | 0 | 0 | 1.0 | 16/16 | yes |
+| django-11019 | haiku | opus | parallel | 542.26 | 2.5222 | 242335 | 0 | 0 | 0 | 0 | 1.0 | 16/16 | yes |
+| django-11019 | haiku | opus | parallel | 409.15 | 2.163 | 218216 | 0 | 0 | 0 | 0 | 1.0 | 16/16 | yes |
+| django-11019 | haiku | opus | parallel | 396.61 | 2.1418 | 216962 | 0 | 0 | 0 | 0 | 1.0 | 2/16 | no |
+| django-11019 | haiku | opus | overparallel | 262.68 | 2.0133 | 181696 | 0 | 4 | 5 | 0 | 1.0 | 16/16 | yes |
+| django-11019 | haiku | opus | overparallel | 262.78 | 1.9128 | 175091 | 0 | 4 | 5 | 0 | 1.0 | 3/16 | no |
+| django-11019 | haiku | opus | overparallel | 255.95 | 1.9517 | 177740 | 0 | 4 | 5 | 0 | 1.0 | 3/16 | no |
+| django-11019 | haiku | opus | overparallel | 238.46 | 1.9019 | 175491 | 0 | 4 | 5 | 0 | 1.0 | 16/16 | yes |
+| django-11019 | haiku | opus | overparallel | 241.35 | 1.9222 | 176793 | 0 | 4 | 5 | 0 | 1.0 | 16/16 | yes |
+
+### providing-args - authored plans, opus agent
+
+| task | harness | agent | topology | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p | resolved |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| providing-args | probe | opus | sequential | 125.92 | 0.6757 | 63972 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+| providing-args | probe | opus | sequential | 123.04 | 0.6963 | 63941 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+| providing-args | probe | opus | sequential | 121.71 | 0.6924 | 63783 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+| providing-args | probe | opus | sequential | 119.67 | 0.6929 | 63807 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+| providing-args | probe | opus | sequential | 120.58 | 0.6922 | 63777 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+| providing-args | probe | opus | parallel | 73.69 | 0.6984 | 64113 | 0 | 0 | 2 | 1 | 0.5 | 2/6 | no |
+| providing-args | probe | opus | parallel | 68.8 | 0.6958 | 63965 | 0 | 0 | 2 | 1 | 0.5 | 2/6 | no |
+| providing-args | probe | opus | parallel | 68.12 | 0.6954 | 63950 | 0 | 0 | 2 | 1 | 0.5 | 2/6 | no |
+| providing-args | probe | opus | parallel | 68.62 | 0.6977 | 64039 | 0 | 0 | 2 | 1 | 0.5 | 2/6 | no |
+| providing-args | probe | opus | parallel | 68.6 | 0.6969 | 64010 | 0 | 0 | 2 | 1 | 0.5 | 2/6 | no |
+
+### providing-args - ordered arm, opus agent
+
+| task | harness | agent | topology | wall (s) | cost ($) | tokens | node errors | premature consumptions | stale reads | write conflicts | content | f2p | resolved |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| providing-args | probeordered | opus | parallel | 99.95 | 0.7223 | 68314 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+| providing-args | probeordered | opus | parallel | 101.16 | 0.7226 | 68427 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+| providing-args | probeordered | opus | parallel | 98.69 | 0.7211 | 68307 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+| providing-args | probeordered | opus | parallel | 98.04 | 0.716 | 67882 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+| providing-args | probeordered | opus | parallel | 96.96 | 0.7142 | 67807 | 0 | 0 | 0 | 0 | 1.0 | 6/6 | yes |
+
+
+<!-- ADDITIONAL:END -->

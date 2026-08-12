@@ -1,0 +1,122 @@
+# Analysis of Media Merging Issue - Root Cause
+
+## Problem Summary
+
+When merging 3 or more media objects, Django's `Media` class can produce incorrect ordering and unnecessary `MediaOrderConflictWarning`s because of how the `merge()` method handles pairwise comparisons without understanding the full dependency graph.
+
+## Current Architecture
+
+### Media Storage Structure
+```python
+class Media:
+    def __init__(self, media=None, css=None, js=None):
+        self._css_lists = [css]  # List of dicts
+        self._js_lists = [js]    # List of lists
+```
+
+When using `__add__`, media objects are combined by concatenating these lists:
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+### Property Resolution
+The `_js` and `_css` properties lazily merge all accumulated lists:
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)  # Pairwise merge
+    return js
+```
+
+## Root Cause Analysis
+
+### Core Issue: Pairwise Merging Without Context
+
+The `merge()` method is fundamentally limited because it only knows about:
+- The immediate two lists being merged (list_1 and list_2)
+- The relative order within those two lists
+- No knowledge of where items came from or what their actual dependencies are
+
+### The Three-Widget Problem Illustrated
+
+Given:
+- `ColorPicker.media` → js: `['color-picker.js']`
+- `SimpleTextWidget.media` → js: `['text-editor.js']`
+- `FancyTextWidget.media` → js: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+Form construction: `ColorPicker() + SimpleTextWidget() + FancyTextWidget()`
+
+**Step 1: Merge ColorPicker + SimpleTextWidget**
+```
+list_1 = ['color-picker.js']
+list_2 = ['text-editor.js']
+Result: ['color-picker.js', 'text-editor.js']
+```
+The algorithm creates an implicit constraint: `color-picker.js` must appear before `text-editor.js`
+
+**Step 2: Merge result with FancyTextWidget**
+```
+list_1 = ['color-picker.js', 'text-editor.js']  # from step 1
+list_2 = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']  # FancyTextWidget
+
+Processing list_2 in reverse:
+1. 'color-picker.js' - found at index 0, last_insert_index = 0
+2. 'text-editor-extras.js' - not found, insert at index 0 → ['text-editor-extras.js', 'color-picker.js', 'text-editor.js']
+3. 'text-editor.js' - found at index 2, but last_insert_index = 0
+   → Raises warning because 2 > 0 (conflict!)
+```
+
+### Why This Happens
+
+The `merge()` algorithm's logic at line 149-151:
+```python
+if index > last_insert_index:
+    warnings.warn(...)
+```
+
+This check assumes that if an item's current position is ahead of where we're inserting, there's a conflict. But the item reached its current position due to **prior merges**, not because of an actual dependency in the current pair.
+
+In the example:
+- `text-editor.js` is at index 2 in `list_1`, but only because Step 1 merged two unrelated items
+- `list_2` (FancyTextWidget) actually specifies that `text-editor.js` should come BEFORE `text-editor-extras.js`
+- These are two conflicting constraints, but the first one is **spurious** - it comes from merging unrelated files
+
+### The False Constraint Problem
+
+The algorithm cannot distinguish between:
+
+1. **True dependency**: "text-editor.js must come before text-editor-extras.js" (from FancyTextWidget)
+2. **False artifact**: "color-picker.js must come before text-editor.js" (created by merging unrelated widgets)
+
+Once constraint 2 is embedded in the merged media (via `list_1`), it becomes immutable and causes conflicts when constraint 1 tries to reorder things.
+
+## Why `last_insert_index` Fails
+
+The `last_insert_index` mechanism tries to track a "frontier" of insertion positions:
+- When an item already exists at position X, `last_insert_index` becomes X
+- Future items are inserted before this position
+
+However, this assumes:
+1. The relative order in `list_1` represents **hard constraints** (it doesn't - they're just accumulated artifacts)
+2. Items can never be reordered to satisfy new constraints (they should be if new explicit constraints override old implicit ones)
+
+## What Should Be Different
+
+The core issue is that **pairwise merging of lists is insufficient** to handle multiple widgets with overlapping dependencies because:
+
+1. Each merge sees only two lists and doesn't understand the full dependency graph
+2. Arbitrary orderings from early merges become immutable constraints in later merges
+3. No way to detect that a false ordering was created by unrelated items
+4. No way to reorder based on explicit dependencies in later media objects
+
+## Key Insight
+
+When `FancyTextWidget.media` explicitly specifies `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`, this represents **explicit dependency information** that should take precedence over **implicit constraints** created by merging unrelated widgets.
+
+The current algorithm treats all constraints as equal, regardless of their source or certainty.

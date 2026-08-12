@@ -1,0 +1,141 @@
+{
+  "nodes": [
+    {
+      "id": "examine_media_code",
+      "instruction": "Read the Media class implementation in django/forms/widgets.py to understand the current merging logic",
+      "reads": [
+        "django/forms/widgets.py"
+      ],
+      "writes": [],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "examine_test_media",
+      "instruction": "Read the media tests to understand expected behavior",
+      "reads": [
+        "tests/forms_tests/tests/test_media.py"
+      ],
+      "writes": [],
+      "deps": [],
+      "guard": null
+    },
+    {
+      "id": "analyze_problem",
+      "instruction": "Analyze the Media.__add__ and related methods to identify the root cause of incorrect ordering when merging 3+ media objects",
+      "reads": [
+        "django/forms/widgets.py"
+      ],
+      "writes": [],
+      "deps": [
+        "examine_media_code"
+      ],
+      "guard": null
+    },
+    {
+      "id": "create_test_case",
+      "instruction": "Create a test case that reproduces the issue described in the problem statement with ColorPicker, SimpleTextWidget, and FancyTextWidget",
+      "reads": [
+        "tests/forms_tests/tests/test_media.py"
+      ],
+      "writes": [
+        "tests/forms_tests/tests/test_media.py"
+      ],
+      "deps": [
+        "examine_test_media"
+      ],
+      "guard": null
+    },
+    {
+      "id": "fix_media_merge",
+      "instruction": "Fix the Media class merging logic in django/forms/widgets.py. The issue is in how _merge_lists handles ordering constraints. Instead of checking pairwise conflicts during merge, use a topological sort that respects all ordering constraints from all input media objects. The key insight is that when merging multiple media objects, we should collect all ordering constraints first, then perform a single topological sort, rather than merging pairwise which can introduce spurious constraints.",
+      "reads": [
+        "django/forms/widgets.py"
+      ],
+      "writes": [
+        "django/forms/widgets.py"
+      ],
+      "deps": [
+        "analyze_problem"
+      ],
+      "guard": null
+    },
+    {
+      "id": "verify_fix",
+      "instruction": "Run the test case created earlier to verify the fix resolves the issue without raising MediaOrderConflictWarning and produces the correct ordering: text-editor.js, text-editor-extras.js, color-picker.js",
+      "reads": [
+        "tests/forms_tests/tests/test_media.py",
+        "django/forms/widgets.py"
+      ],
+      "writes": [],
+      "deps": [
+        "create_test_case",
+        "fix_media_merge"
+      ],
+      "guard": null
+    },
+    {
+      "id": "generate_diff",
+      "instruction": "Generate a unified diff of all changes made to django/forms/widgets.py and tests/forms_tests/tests/test_media.py that fixes the MediaOrderConflictWarning issue when merging 3 or more media objects",
+      "reads": [
+        "django/forms/widgets.py",
+        "tests/forms_tests/tests/test_media.py"
+      ],
+      "writes": [],
+      "deps": [
+        "fix_media_merge",
+        "verify_fix"
+      ],
+      "guard": null
+    }
+  ],
+  "final_node": "generate_diff",
+  "topology": "cut75",
+  "schedule": [
+    [
+      "analyze_problem",
+      "create_test_case",
+      "examine_media_code",
+      "examine_test_media",
+      "fix_media_merge"
+    ],
+    [
+      "verify_fix"
+    ],
+    [
+      "generate_diff"
+    ]
+  ],
+  "cut_edges": [
+    [
+      "analyze_problem",
+      "examine_media_code"
+    ],
+    [
+      "create_test_case",
+      "examine_test_media"
+    ],
+    [
+      "fix_media_merge",
+      "analyze_problem"
+    ],
+    [
+      "verify_fix",
+      "create_test_case"
+    ]
+  ],
+  "order_deps": {
+    "examine_media_code": [],
+    "examine_test_media": [],
+    "analyze_problem": [],
+    "create_test_case": [],
+    "fix_media_merge": [],
+    "verify_fix": [
+      "fix_media_merge"
+    ],
+    "generate_diff": [
+      "fix_media_merge",
+      "verify_fix"
+    ]
+  }
+}

@@ -1,0 +1,137 @@
+# Analysis of Media Merging Issue with 3+ Objects
+
+## Problem Summary
+
+When merging 3 or more Media objects, the current implementation can produce:
+1. False `MediaOrderConflictWarning` warnings
+2. Incorrect final ordering of files
+3. Results worse than the naïve ordering from Django 1.11
+
+## Root Cause Analysis
+
+### The Fundamental Issue: Lost Dependency Information
+
+The core problem lies in how the `Media` class stores and merges multiple sources:
+
+```python
+def __init__(self, media=None, css=None, js=None):
+    self._css_lists = [css]
+    self._js_lists = [js]
+
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+When adding Media objects, the lists are simply concatenated. The merging happens **lazily** in the `_js` property:
+
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+**The problem**: Each `merge()` call operates on the **accumulated result from previous merges**, not the original sources. This means intermediate merge artifacts become hardcoded constraints for subsequent merges.
+
+### Step-by-Step Walkthrough of the Bug
+
+Given:
+- `ColorPicker().media.js = ['color-picker.js']`
+- `SimpleTextWidget().media.js = ['text-editor.js']`
+- `FancyTextWidget().media.js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+**Merge 1**: `ColorPicker() + SimpleTextWidget()`
+```
+list_1 = ['color-picker.js']
+list_2 = ['text-editor.js']
+```
+Processing list_2 in reverse:
+- 'text-editor.js' not in list_1, insert at last_insert_index (1)
+- Result: `['color-picker.js', 'text-editor.js']`
+
+**Problem Created**: This result falsely implies that color-picker.js must come before text-editor.js, which is not true in isolation. They're independent.
+
+**Merge 2**: `(ColorPicker + SimpleTextWidget) + FancyTextWidget`
+```
+list_1 = ['color-picker.js', 'text-editor.js']  # accumulated from Merge 1
+list_2 = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+last_insert_index = 2
+```
+
+Processing list_2 in reverse:
+1. 'color-picker.js' - already exists at index 0
+   - index (0) is NOT > last_insert_index (2)
+   - But we have a problem: the algorithm wants to insert after 'text-editor-extras.js' (which hasn't been added yet)
+   - last_insert_index = 0
+
+2. 'text-editor-extras.js' - doesn't exist, insert at last_insert_index (0)
+   - Result so far: `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`
+
+3. 'text-editor.js' - already exists at index 2
+   - index (2) > last_insert_index (0)? **YES**
+   - **FALSE WARNING TRIGGERED**: "Detected duplicate Media files in an opposite order"
+   - last_insert_index = 2
+
+Final result: `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`
+
+This is incorrect because:
+- text-editor.js should come BEFORE text-editor-extras.js (per FancyTextWidget)
+- The warning message incorrectly reports text-editor-extras.js and text-editor.js as the conflicting pair
+- The actual conflict is an artifact of how the first merge happened
+
+### Why the Algorithm Fails
+
+The `merge()` method tracks `last_insert_index` to remember where new items from list_2 should be inserted. However:
+
+1. **It doesn't distinguish between**:
+   - A file that appears in list_2 and was newly added from a previous merge
+   - A file that genuinely has a source ordering requirement
+
+2. **It assumes the position in list_1 is canonical**, but:
+   - That position may be an accident of previous merge order
+   - The current list_2 may have more authoritative ordering constraints
+
+3. **It processes list_2 in reverse**, which:
+   - Works for simple 2-list merges
+   - Fails when chaining multiple merges because intermediate orderings become constraints
+   - Makes it impossible to properly reorder files that already exist
+
+### The Chaining Effect
+
+The real issue is that `_js` property chains merges sequentially:
+
+```python
+js = self._js_lists[0]
+for obj in filter(None, self._js_lists[1:]):
+    js = self.merge(js, obj)  # Each merge uses the result of the previous merge
+```
+
+With 3+ sources:
+- `js_final = merge(merge(list_1, list_2), list_3)`
+- The intermediate `merge(list_1, list_2)` result is treated as immutable truth
+- Any reordering needed by list_3 conflicts with the intermediate result
+- This creates false warnings and incorrect orderings
+
+## Why This Is Hard to Fix
+
+The current approach has no way to:
+1. Distinguish between "this file must come before that file" (a real constraint)
+2. And "this file happens to come before that file" (an artifact)
+3. Resolve all constraints simultaneously across 3+ sources
+4. Detect when a file that already exists needs to be repositioned
+
+## The Solution Requires
+
+A topological sort approach that:
+1. **Collects all ordering constraints** from all sources simultaneously
+2. **Builds a directed graph** of dependencies (A before B)
+3. **Detects true cycles** (A before B AND B before A) as real conflicts
+4. **Produces one valid ordering** that respects all non-conflicting constraints
+5. **Only warns on genuine conflicts**, not artifacts of merge order
+
+This would allow files to be reordered as needed and prevent false warnings from intermediate merge results.

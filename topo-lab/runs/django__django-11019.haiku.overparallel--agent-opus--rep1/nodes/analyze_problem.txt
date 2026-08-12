@@ -1,0 +1,61 @@
+## Analysis of the Root Cause
+
+### How the current merge works
+
+The `Media` class defers merging until the `_css`/`_js` properties are accessed. When you do `A + B`, it just concatenates the underlying lists:
+
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+Then `_js` merges these pairwise, left-to-right:
+
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+The `merge(list_1, list_2)` function treats `list_1` as the *base* and inserts elements of `list_2` into it. Crucially, it interprets **every list it receives as imposing a total ordering constraint** on its elements. That is the flaw.
+
+### Why 3+ objects go wrong
+
+Consider the example:
+- ColorPicker: `['color-picker.js']`
+- SimpleText: `['text-editor.js']`
+- FancyText: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+The pairwise merge proceeds:
+
+1. `merge(['color-picker.js'], ['text-editor.js'])` → `['color-picker.js', 'text-editor.js']`
+
+This intermediate result now **falsely encodes** a constraint that `color-picker.js` must come before `text-editor.js`. But in reality, these two files came from *independent* widgets — there was never any ordering relationship between them. The merge algorithm cannot distinguish "these two files just happened to be concatenated" from "these two files must appear in this order."
+
+2. Merging that result with FancyText's list, which has `text-editor.js` before `color-picker.js`, produces a genuine-looking conflict: `color-picker.js < text-editor.js` (from step 1) vs `text-editor.js < color-picker.js` (from FancyText). Hence the spurious `MediaOrderConflictWarning`, and a worse final ordering than the naive 1.11 behavior.
+
+### The root cause
+
+The fundamental problem is that `merge` operates on only **two lists at a time**, and each 2-way merge **destroys the distinction between real constraints and accidental adjacency**. Once two independent files are placed in some order in an intermediate list, that order is treated as a hard constraint in all subsequent merges. Merging is not associative under this pairwise scheme: `(A + B) + C` bakes in false constraints from `A + B` that then conflict with `C`.
+
+Only *pairs of items that appear together in the same original list* actually carry an ordering constraint. The pairwise-reduction approach loses that provenance.
+
+### The correct approach
+
+Instead of reducing lists pairwise (which forces total orders on partial-order data), the algorithm should treat media dependency as a **partial ordering** and perform a **topological sort** across *all* the lists at once:
+
+- Each original list contributes only the constraints "item[i] before item[i+1] before ... " *within that list*.
+- Independent lists contribute no cross-constraints.
+- A stable topological sort over the combined dependency graph produces a valid order, and a real `MediaOrderConflictWarning` should be raised only when there is an actual cycle (two lists demanding opposite orders for the same pair).
+
+The fix therefore requires:
+1. Keeping `_js_lists`/`_css_lists` as the raw per-source lists (already done — good).
+2. Replacing the left-fold `merge` in `_js`/`_css` with a routine that builds a dependency graph from all lists and does a topological sort, warning only on genuine cycles.
+
+This eliminates the false constraint introduced by the intermediate `['color-picker.js', 'text-editor.js']` and yields the intuitive result `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`.

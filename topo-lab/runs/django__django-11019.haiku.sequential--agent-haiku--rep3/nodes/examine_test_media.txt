@@ -1,0 +1,73 @@
+# Analysis of Media Tests and Problem Statement
+
+## Problem Summary
+
+When merging 3 or more media objects, Django throws unnecessary `MediaOrderConflictWarnings` for files that don't have actual ordering constraints.
+
+### Concrete Example from Problem Statement
+
+```python
+class ColorPicker(forms.Widget):
+    class Media:
+        js = ['color-picker.js']
+
+class SimpleTextWidget(forms.Widget):
+    class Media:
+        js = ['text-editor.js']
+
+class FancyTextWidget(forms.Widget):
+    class Media:
+        js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+
+class MyForm(forms.Form):
+    background_color = forms.CharField(widget=ColorPicker())
+    intro = forms.CharField(widget=SimpleTextWidget())
+    body = forms.CharField(widget=FancyTextWidget())
+```
+
+**Expected Result**: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+**Actual Result**: Warning about `text-editor-extras.js` and `text-editor.js` being in opposite order, producing `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`
+
+## Root Cause Analysis
+
+The issue stems from how media merging works in sequence:
+
+1. `ColorPicker().media + SimpleTextWidget().media`
+   - Results in: `['color-picker.js', 'text-editor.js']`
+   - This incorrectly establishes a constraint that `color-picker.js` must come before `text-editor.js`
+
+2. When merged with `FancyTextWidget().media` which has `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+   - There's a conflict: `text-editor.js` should come before `color-picker.js` (from FancyTextWidget), but the previous merge established the opposite
+   - The algorithm detects this as a conflict and warns about `text-editor-extras.js` and `text-editor.js` (though these aren't the actual conflicting pair)
+
+## Expected Behavior from Tests
+
+Looking at `test_media.py`, the expected behaviors are:
+
+1. **`test_merge()`**: Tests basic two-way merging with specific patterns
+   - `([1, 2], [3, 4])` → `[1, 2, 3, 4]` - no overlap
+   - `([1, 2], [2, 3])` → `[1, 2, 3]` - shared element at boundary
+   - `([2, 3], [1, 2])` → `[1, 2, 3]` - reverse overlap
+   - `([1, 3], [2, 3])` → `[1, 2, 3]` - diamond pattern
+   - `([1, 2], [1, 3])` → `[1, 2, 3]` - branching pattern
+   - `([1, 2], [3, 2])` → `[1, 3, 2]` - element at end
+
+2. **`test_merge_warning()`**: Only warns when there's a genuine conflict
+   - `[1, 2]` + `[2, 1]` → genuine conflict, warns
+
+3. **`test_merge_js_three_way()`**: Tests three-way merges maintain relative ordering
+   - Should preserve relative order without false warnings
+
+4. **`test_merge_css_three_way()`**: Similar for CSS
+   - Tests that independent orderings can merge without conflict
+
+## Key Insight
+
+The problem is that the merge algorithm must distinguish between:
+- **Real constraints**: File A must come before File B (they appear in that order in some media definition)
+- **Incidental ordering**: Files appear in a certain order but have no dependency relationship
+
+When merging `A + B` produces a list where element X comes before element Y, this should NOT establish a hard constraint that Y can never precede X in future merges. It should only constrain them if they appear together in the same media definition AND no other merges establish the opposite.
+
+The algorithm needs to track which orderings are **explicit** (from widget definitions) vs **emergent** (from previous merges), and only enforce explicit constraints.

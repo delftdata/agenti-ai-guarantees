@@ -1,0 +1,142 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..b95bc6ccc8 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -125,29 +125,114 @@ class Media:
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++        # Extract all ordering constraints from both lists
++        # A constraint (a, b) means a must come before b
++        constraints = []
++        
++        # Collect constraints from list_1
++        for i, item in enumerate(list_1):
++            for j in range(i + 1, len(list_1)):
++                constraints.append((list_1[i], list_1[j]))
++        
++        # Collect constraints from list_2
++        for i, item in enumerate(list_2):
++            for j in range(i + 1, len(list_2)):
++                constraints.append((list_2[i], list_2[j]))
++        
++        # Combine all unique items
++        combined_set = set(list_1) | set(list_2)
++        
++        # Perform topological sort with constraint checking
++        try:
++            result = Media._topological_sort(combined_set, constraints)
++        except Media.CycleError as e:
++            # If there's a real conflict (cycle), warn about it
++            warnings.warn(
++                'Detected duplicate Media files in an opposite order:\n'
++                '%s\n%s' % (e.item1, e.item2),
++                MediaOrderConflictWarning,
++            )
++            # Fall back to a simple combination approach
++            result = list(list_1)
++            for item in list_2:
++                if item not in result:
++                    result.append(item)
++        
++        return result
++
++    class CycleError(Exception):
++        """Raised when a cycle is detected in the constraint graph."""
++        def __init__(self, item1, item2):
++            self.item1 = item1
++            self.item2 = item2
++            super().__init__(f"Cycle detected: {item1} and {item2}")
++
++    @staticmethod
++    def _topological_sort(items, constraints):
++        """
++        Perform a topological sort on items with given constraints.
++        
++        Args:
++            items: An iterable of items to sort
++            constraints: A list of (before, after) tuples representing ordering constraints
++        
++        Returns:
++            A list of items in topologically sorted order
++            
++        Raises:
++            CycleError: If a cycle is detected in the constraints
++        """
++        from collections import defaultdict, deque
++        
++        items_list = list(items)
++        
++        # Build adjacency list and in-degree count
++        graph = defaultdict(list)
++        in_degree = defaultdict(int)
++        
++        # Initialize in_degree for all items
++        for item in items_list:
++            if item not in in_degree:
++                in_degree[item] = 0
++        
++        # Build graph from constraints
++        for before, after in constraints:
++            # Only add constraint if both items are in our item set
++            if before in items and after in items:
++                # Check if reverse constraint already exists (would be a cycle)
++                if after in graph and before in graph[after]:
++                    raise Media.CycleError(before, after)
++                
++                # Add constraint
++                if after not in graph[before]:
++                    graph[before].append(after)
++                    in_degree[after] += 1
++        
++        # Kahn's algorithm for topological sort
++        queue = deque([item for item in items_list if in_degree[item] == 0])
++        result = []
++        
++        while queue:
++            current = queue.popleft()
++            result.append(current)
++            
++            for neighbor in graph[current]:
++                in_degree[neighbor] -= 1
++                if in_degree[neighbor] == 0:
++                    queue.append(neighbor)
++        
++        # If we haven't processed all items, there's a cycle
++        if len(result) != len(items_list):
++            # Find items involved in cycle
++            for item in items_list:
++                if item not in result:
++                    # Find a constraint involving this item
++                    for before, after in constraints:
++                        if before == item or after == item:
++                            raise Media.CycleError(before, after)
++            raise Media.CycleError("unknown", "unknown")
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()

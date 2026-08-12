@@ -1,0 +1,56 @@
+# Analysis of Media Tests
+
+## Current Test Structure
+
+The test file `tests/forms_tests/tests/test_media.py` contains comprehensive tests for Django's media handling system. Key observations:
+
+### Existing Test Coverage
+
+1. **test_construction** - Basic Media object creation and string representation
+2. **test_media_dsl** - Class-based media definitions on widgets
+3. **test_combine_media** - Merging two or three media objects, deduplication
+4. **test_media_property** - Property-based media definitions
+5. **test_media_inheritance** - Widget inheritance of media
+6. **test_form_media** - Media in forms combining multiple widgets
+7. **test_merge** - Direct testing of `Media.merge()` method with various list combinations
+8. **test_merge_warning** - Tests that warnings are raised for opposite order conflicts
+9. **test_merge_js_three_way** - Three-way JS merge preserving relative order
+10. **test_merge_css_three_way** - Three-way CSS merge with multiple widgets
+
+### Key Test Patterns
+
+The `test_merge()` method shows expected behavior:
+```python
+(([1, 2], [3, 4]), [1, 2, 3, 4]),      # No dependencies
+(([1, 2], [2, 3]), [1, 2, 3]),         # 2 appears in both, order preserved
+(([2, 3], [1, 2]), [1, 2, 3]),         # Resolve reordering when possible
+(([1, 3], [2, 3]), [1, 2, 3]),         # 3 depends on both 1 and 2
+(([1, 2], [1, 3]), [1, 2, 3]),         # 1 first, then 2 and 3
+(([1, 2], [3, 2]), [1, 3, 2]),         # 2 must come after both 1 and 3
+```
+
+### Important Observations
+
+1. **test_merge_warning** - Currently expects a warning when `[1, 2]` and `[2, 1]` are merged (opposite order)
+2. **test_merge_js_three_way** - Documents expected behavior for three-way merges with dependencies
+3. **test_merge_css_three_way** - Shows that when relative order is unspecified, no warning should be raised
+
+### Problem from Issue Description
+
+The issue states:
+- Form with ColorPicker (color-picker.js) + SimpleTextWidget (text-editor.js) + FancyTextWidget (text-editor.js, text-editor-extras.js, color-picker.js) should produce: `[text-editor.js, text-editor-extras.js, color-picker.js]`
+- Instead it produces: `[text-editor-extras.js, color-picker.js, text-editor.js]` with a false warning
+- The warning mentions the wrong pair of files
+
+### Missing Test Case
+
+The test suite does NOT have a test for the specific scenario described in the issue: **merging 3 or more media objects where intermediate combinations create false ordering constraints**.
+
+The issue scenario would be:
+```python
+ColorPicker().media + SimpleTextWidget().media + FancyTextWidget().media
+# Or in terms of lists:
+# [color-picker.js] + [text-editor.js] + [text-editor.js, text-editor-extras.js, color-picker.js]
+```
+
+This requires a test that demonstrates the current buggy behavior and validates the fix.

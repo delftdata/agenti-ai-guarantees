@@ -1,0 +1,17 @@
+The current files already match the desired state except for `tests/dispatch/tests.py`, which the problem statement says must have `providing_args` removed. The current contents shown already have it removed. All the given files are already in the final state, so the only file that differs is the test fixture — but the current contents already show no `providing_args`.
+
+diff --git a/tests/dispatch/tests.py b/tests/dispatch/tests.py
+index 0000000..0000001 100644
+--- a/tests/dispatch/tests.py
++++ b/tests/dispatch/tests.py
+@@ -38,8 +38,8 @@ class Callable:
+ 
+ a_signal = Signal()
+ b_signal = Signal()
+-c_signal = Signal(providing_args=["val"])
+-d_signal = Signal(providing_args=["val"], use_caching=True)
++c_signal = Signal()
++d_signal = Signal(use_caching=True)
+ 
+ 
+ class DispatcherTests(SimpleTestCase):

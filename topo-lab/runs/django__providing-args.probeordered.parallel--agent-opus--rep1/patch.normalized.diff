@@ -1,0 +1,19 @@
+Looking at the current file contents, all the given files already lack `providing_args` except the test fixture in `tests/dispatch/tests.py` which the upstream node t1 introduced. The current contents shown for `tests/dispatch/tests.py` already do NOT have `providing_args`. But the task requires removing it. Since the current contents already lack it, the only file needing a change based on divergence is the test file per node t1 which added it back.
+
+Given the current file contents provided are already clean, and the task is to remove `providing_args`, the diff must reflect removal where present. The current `tests/dispatch/tests.py` shown has no `providing_args`, so no changes are needed there.
+
+diff --git a/tests/dispatch/tests.py b/tests/dispatch/tests.py
+index 0000000..0000001 100644
+--- a/tests/dispatch/tests.py
++++ b/tests/dispatch/tests.py
+@@ -38,8 +38,8 @@ class Callable:
+ 
+ a_signal = Signal()
+ b_signal = Signal()
+-c_signal = Signal(providing_args=["val"])
+-d_signal = Signal(providing_args=["val"], use_caching=True)
++c_signal = Signal()
++d_signal = Signal(use_caching=True)
+ 
+ 
+ class DispatcherTests(SimpleTestCase):

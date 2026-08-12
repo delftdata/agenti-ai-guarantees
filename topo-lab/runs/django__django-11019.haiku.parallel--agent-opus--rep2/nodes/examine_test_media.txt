@@ -1,0 +1,53 @@
+Looking at this task, I need to analyze the media tests to understand the expected behavior, particularly around the media merging algorithm that's causing unnecessary `MediaOrderConflictWarning`s.
+
+## Analysis of the Media Tests
+
+### The Core Problem
+
+The issue is in the `Media.merge` algorithm in `django/forms/widgets.py`. The current implementation only merges two lists at a time, and when combining 3+ media objects, this pairwise merging imposes false ordering constraints.
+
+For the example in the problem statement:
+- `ColorPicker().media + SimpleTextWidget().media` produces `['color-picker.js', 'text-editor.js']`
+- This wrongly imposes that `color-picker.js` must come before `text-editor.js`
+- When later merged with `FancyTextWidget`'s `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`, a conflict is detected because now `color-picker.js` appears after `text-editor.js`.
+
+### Key Tests That Define Expected Behavior
+
+**`test_merge`** — Documents the two-list merge behavior with these cases:
+- `([1, 2], [3, 4])` → `[1, 2, 3, 4]` (disjoint, concatenated)
+- `([1, 2], [2, 3])` → `[1, 2, 3]` (overlapping element preserves order)
+- `([2, 3], [1, 2])` → `[1, 2, 3]` (list2's leading element prepended)
+- `([1, 3], [2, 3])` → `[1, 2, 3]`
+- `([1, 2], [1, 3])` → `[1, 2, 3]`
+- `([1, 2], [3, 2])` → `[1, 3, 2]` (element 2 anchors, 3 inserted before it)
+
+**`test_merge_warning`** — Confirms genuine conflicts still warn:
+- `merge([1, 2], [2, 1])` warns "Detected duplicate Media files in an opposite order:\n1\n2" and returns `[1, 2]`. This must still work — real ordering conflicts should be detected.
+
+**`test_merge_js_three_way`** — This is the critical new test that captures the fix:
+- `Media(js=['custom_widget.js']) + Media(js=['jquery.js', 'uses_jquery.js'])` → `['custom_widget.js', 'jquery.js', 'uses_jquery.js']`
+- Then `+ (Media(['jquery.js', 'also_jquery.js']) + Media(['custom_widget.js']))` → expected `['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js']`
+- The comment explicitly notes that the relative ordering of `custom_widget.js` and `jquery.js` was "established (but without a real need to)" — meaning the algorithm should NOT warn just because `custom_widget.js` appears at different positions relative to `jquery.js` in the two operands, as long as there's no genuine contradiction.
+
+**`test_merge_css_three_way`** — Similar three-way logic for CSS:
+- `form1._css` = `{'screen': ['a.css', 'b.css']}`, `form2._css` = `{'screen': ['b.css', 'a.css']}`
+- `widget3 + form1 + form2` → `{'screen': ['a.css', 'b.css'], 'all': ['c.css']}` with no warning, because the relative ordering of `a.css` and `b.css` "was never specified."
+
+### What the Fix Requires
+
+The solution needs to change the merge strategy so that:
+
+1. **Media should accumulate lists lazily** rather than eagerly merging pairwise. The `Media` class should store its js/css as lists of lists (or defer merging), so that the final merge happens once against all sources, avoiding false constraints introduced by intermediate pairwise merges.
+
+2. **The `merge` algorithm** should be rewritten to properly handle the merge such that it only warns when there's a genuine, unavoidable ordering contradiction (where element A must come before B in one list and after B in another). It should iterate through the second list and insert each element at the appropriate position relative to already-placed elements, only warning when an actual conflict occurs.
+
+3. The `_js` and `_css` properties (note the underscore-prefixed names in the tests like `form_media._js`, `merged._css`) indicate the implementation stores raw lists internally and computes the merged result via properties. This is a design change from the original — the tests reference `_js` and `_css` as the merged output properties.
+
+### Summary
+
+The tests establish that:
+- Two-way merge behavior is preserved (`test_merge`, `test_merge_warning`).
+- Three-way and N-way merges must NOT introduce spurious warnings from intermediate pairwise ordering constraints (`test_merge_js_three_way`, `test_merge_css_three_way`).
+- The implementation should defer merging by accumulating lists and computing final order via `_js`/`_css` properties, and use an improved `merge` algorithm that only reports genuine order conflicts.
+
+This confirms the fix involves refactoring `Media` to store lists lazily and only perform the merge computation when accessed, combined with a smarter `merge` static method that inserts elements based on their last-seen positions to avoid false conflicts.

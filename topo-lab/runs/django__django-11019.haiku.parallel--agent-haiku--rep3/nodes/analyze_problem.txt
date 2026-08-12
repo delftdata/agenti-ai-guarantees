@@ -1,0 +1,145 @@
+# Analysis of Media Merging Issue in Django Forms
+
+## Problem Summary
+
+When merging 3 or more Media objects, Django's `Media` class incorrectly raises `MediaOrderConflictWarning` and produces suboptimal ordering. The issue stems from how multiple Media objects are combined sequentially rather than treating all constraints holistically.
+
+## Root Cause Analysis
+
+### 1. The Sequential Merge Strategy
+
+The `Media` class uses a **sequential pairwise merging approach**:
+
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+When you compute `media1 + media2 + media3`, this creates:
+- `(media1 + media2)` first, which merges all constraints from both
+- Then `(result) + media3`, which re-merges the already-merged result with media3
+
+The problem is that intermediate results introduce **artificial ordering constraints** that don't exist in the original source lists.
+
+### 2. The merge() Method's Limitation
+
+The `merge()` static method works correctly for combining **two** lists with their individual constraints, but fails when:
+
+1. It receives a list that is itself the product of a previous merge
+2. That previous merge created ordering relationships that conflict with new constraints from a third source
+
+Example walkthrough with the problem case:
+
+**Initial inputs:**
+- `ColorPicker.media._js = ['color-picker.js']`
+- `SimpleTextWidget.media._js = ['text-editor.js']`
+- `FancyTextWidget.media._js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+**After Step 1: merge(['color-picker.js'], ['text-editor.js'])**
+- Result: `['color-picker.js', 'text-editor.js']`
+- This creates an artificial constraint: `color-picker.js` before `text-editor.js`
+- **But this constraint doesn't appear in any original source!**
+
+**After Step 2: merge(['color-picker.js', 'text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])**
+
+The merge processes reversed list_2: `['color-picker.js', 'text-editor-extras.js', 'text-editor.js']`
+
+- `'color-picker.js'` at index 0: `last_insert_index = 0`
+- `'text-editor-extras.js'` not found: insert at 0 → `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`
+- `'text-editor.js'` at index 2: Since `2 > last_insert_index (0)`, warning triggered
+
+The algorithm falsely interprets `text-editor.js` coming after `color-picker.js` as a conflict with the artificial constraint from Step 1.
+
+### 3. Why The Problem Occurs
+
+The `merge()` method uses `last_insert_index` to track a single "insertion boundary." This works for merging two independent lists, but fails for transitivity:
+
+- When merging A + B: the result establishes relative order of elements from A and B
+- When then merging (A+B) + C: the algorithm doesn't distinguish between:
+  - Original constraints from A or B
+  - Artificial relationships created by the A+B merge
+  - New constraints from C
+
+All are treated equally, leading to false conflict detection.
+
+### 4. The Fundamental Issue: Lack of Topological Sorting
+
+The current approach treats media merging as **sequential list concatenation with conflict detection**, but it should be treated as **dependency graph resolution**:
+
+**What should happen:**
+- Extract all ordering constraints from each individual Media object
+- Build a directed acyclic graph (DAG) of dependencies
+- Perform topological sort to find valid ordering
+- Detect actual conflicts (cycles in the DAG) vs. false positives
+
+**What currently happens:**
+- Merge lists pairwise, creating intermediate results
+- Each intermediate result becomes a new list with its own constraints
+- The algorithm confuses intermediate artifacts with original constraints
+- False conflicts are reported when the topological order differs from merge order
+
+## Specific Issues in Current Code
+
+### Issue 1: _js and _css Properties
+
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+This sequentially merges all stored lists left-to-right. With three or more lists, the intermediate results cause the problem identified above.
+
+### Issue 2: merge() Method Design
+
+```python
+if index > last_insert_index:
+    warnings.warn(...)
+```
+
+This check assumes `last_insert_index` represents the only valid ordering boundary. It doesn't account for:
+- Multiple independent constraint sources
+- The difference between transitive vs. direct constraints
+- The possibility that the "conflict" might be resolvable by reordering earlier elements
+
+### Issue 3: __add__ Concatenation
+
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+This simply appends lists. When `_js` and `_css` properties are accessed, they merge left-to-right, creating path-dependent results. The order of addition matters, even when it shouldn't.
+
+## Why This Manifests as False Warnings
+
+The warning message reports `text-editor-extras.js` and `text-editor.js` as the conflicting pair, but:
+
+1. Neither of these two files were in opposite order in the first merge
+2. The conflict is artifactually created by combining `color-picker.js` ordering from the first merge with `FancyTextWidget` constraints
+3. The actual resolvable order exists: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+The algorithm fails to recognize this valid ordering because it's locked into a sequential merge paradigm that creates and preserves intermediate artifacts.
+
+## Summary
+
+The root cause is **architectural**: the Media class uses sequential pairwise merging with local conflict detection (`last_insert_index`) rather than global constraint resolution via topological sorting. This causes:
+
+1. **False positives**: Valid orderings are rejected as conflicts
+2. **Suboptimal results**: The final order depends on merge sequence rather than original constraints
+3. **Confusing warnings**: The reported conflict pair doesn't match the actual problematic relationship
+
+The fix requires replacing the merge strategy with a topological sort approach that:
+- Extracts all ordering constraints from each individual Media object
+- Treats all constraints equally (none are "privileged" from earlier merges)
+- Resolves to a valid topological order or reports genuine cycles
+- Handles multiple Media combinations without path dependency

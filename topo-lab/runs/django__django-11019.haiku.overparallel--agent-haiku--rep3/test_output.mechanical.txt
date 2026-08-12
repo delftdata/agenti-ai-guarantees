@@ -1,0 +1,686 @@
+===== test_combine_media (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\widgets.py", line 20, in <module>
+    from django.utils.topological_sort import topological_sort
+ImportError: cannot import name 'topological_sort' from 'django.utils.topological_sort' (C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\utils\topological_sort.py)
+
+
+===== test_construction (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\widgets.py", line 20, in <module>
+    from django.utils.topological_sort import topological_sort
+ImportError: cannot import name 'topological_sort' from 'django.utils.topological_sort' (C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\utils\topological_sort.py)
+
+
+===== test_form_media (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\widgets.py", line 20, in <module>
+    from django.utils.topological_sort import topological_sort
+ImportError: cannot import name 'topological_sort' from 'django.utils.topological_sort' (C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\utils\topological_sort.py)
+
+
+===== test_media_deduplication (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\widgets.py", line 20, in <module>
+    from django.utils.topological_sort import topological_sort
+ImportError: cannot import name 'topological_sort' from 'django.utils.topological_sort' (C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\utils\topological_sort.py)
+
+
+===== test_media_inheritance (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\widgets.py", line 20, in <module>
+    from django.utils.topological_sort import topological_sort
+ImportError: cannot import name 'topological_sort' from 'django.utils.topological_sort' (C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\utils\topological_sort.py)
+
+
+===== test_media_inheritance_extends (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\widgets.py", line 20, in <module>
+    from django.utils.topological_sort import topological_sort
+ImportError: cannot import name 'topological_sort' from 'django.utils.topological_sort' (C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\utils\topological_sort.py)
+
+
+===== test_media_property_parent_references (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\widgets.py", line 20, in <module>
+    from django.utils.topological_sort import topological_sort
+ImportError: cannot import name 'topological_sort' from 'django.utils.topological_sort' (C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\utils\topological_sort.py)
+
+
+===== test_merge (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\widgets.py", line 20, in <module>
+    from django.utils.topological_sort import topological_sort
+ImportError: cannot import name 'topological_sort' from 'django.utils.topological_sort' (C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\utils\topological_sort.py)
+
+
+===== test_merge_css_three_way (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\widgets.py", line 20, in <module>
+    from django.utils.topological_sort import topological_sort
+ImportError: cannot import name 'topological_sort' from 'django.utils.topological_sort' (C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\utils\topological_sort.py)
+
+
+===== test_merge_js_three_way (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\widgets.py", line 20, in <module>
+    from django.utils.topological_sort import topological_sort
+ImportError: cannot import name 'topological_sort' from 'django.utils.topological_sort' (C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\utils\topological_sort.py)
+
+
+===== test_merge_js_three_way2 (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\widgets.py", line 20, in <module>
+    from django.utils.topological_sort import topological_sort
+ImportError: cannot import name 'topological_sort' from 'django.utils.topological_sort' (C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\utils\topological_sort.py)
+
+
+===== test_merge_warning (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\widgets.py", line 20, in <module>
+    from django.utils.topological_sort import topological_sort
+ImportError: cannot import name 'topological_sort' from 'django.utils.topological_sort' (C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\utils\topological_sort.py)
+
+
+===== test_multi_widget (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\widgets.py", line 20, in <module>
+    from django.utils.topological_sort import topological_sort
+ImportError: cannot import name 'topological_sort' from 'django.utils.topological_sort' (C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\utils\topological_sort.py)
+
+
+===== test_media (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\widgets.py", line 20, in <module>
+    from django.utils.topological_sort import topological_sort
+ImportError: cannot import name 'topological_sort' from 'django.utils.topological_sort' (C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\utils\topological_sort.py)
+
+
+===== test_render_options (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\widgets.py", line 20, in <module>
+    from django.utils.topological_sort import topological_sort
+ImportError: cannot import name 'topological_sort' from 'django.utils.topological_sort' (C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\utils\topological_sort.py)
+
+
+===== test_inline_media_only_inline (admin_inlines.tests.TestInlineMedia): FAIL =====
+
+--- stderr ---
+Traceback (most recent call last):
+  File "tests/runtests.py", line 17, in <module>
+    from django.test import TestCase, TransactionTestCase
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\__init__.py", line 3, in <module>
+    from django.test.client import Client, RequestFactory
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\test\client.py", line 14, in <module>
+    from django.core.handlers.base import BaseHandler
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\handlers\base.py", line 8, in <module>
+    from django.urls import get_resolver, set_urlconf
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\__init__.py", line 1, in <module>
+    from .base import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\base.py", line 8, in <module>
+    from .exceptions import NoReverseMatch, Resolver404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\urls\exceptions.py", line 1, in <module>
+    from django.http import Http404
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\__init__.py", line 5, in <module>
+    from django.http.response import (
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\http\response.py", line 15, in <module>
+    from django.core.serializers.json import DjangoJSONEncoder
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\__init__.py", line 23, in <module>
+    from django.core.serializers.base import SerializerDoesNotExist
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\core\serializers\base.py", line 7, in <module>
+    from django.db import models
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\__init__.py", line 3, in <module>
+    from django.db.models.aggregates import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\aggregates.py", line 5, in <module>
+    from django.db.models.expressions import Case, Func, Star, When
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\expressions.py", line 8, in <module>
+    from django.db.models import fields
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\db\models\fields\__init__.py", line 11, in <module>
+    from django import forms
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\__init__.py", line 6, in <module>
+    from django.forms.boundfield import *  # NOQA
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\boundfield.py", line 4, in <module>
+    from django.forms.widgets import Textarea, TextInput
+  File "C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\forms\widgets.py", line 20, in <module>
+    from django.utils.topological_sort import topological_sort
+ImportError: cannot import name 'topological_sort' from 'django.utils.topological_sort' (C:\Users\rares\AppData\Local\Temp\tmpqnqbcufv\wt\django\utils\topological_sort.py)

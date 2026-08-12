@@ -1,0 +1,102 @@
+# Analysis of Media Ordering Issue in Django Forms
+
+## Problem Summary
+When merging 3 or more media objects, Django produces incorrect ordering and unnecessary `MediaOrderConflictWarning`s. The issue occurs because intermediate merge results impose incorrect ordering constraints on subsequent merges.
+
+## Root Cause Analysis
+
+### The Problematic Flow
+Let's trace what happens with the example from the problem statement:
+
+```python
+ColorPicker().media          # Media(js=['color-picker.js'])
+SimpleTextWidget().media     # Media(js=['text-editor.js'])
+FancyTextWidget().media      # Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
+```
+
+**Step 1:** `ColorPicker().media + SimpleTextWidget().media`
+- Merges: `['color-picker.js']` + `['text-editor.js']`
+- Result: `['color-picker.js', 'text-editor.js']`
+- **This creates the false constraint:** color-picker.js must come before text-editor.js
+
+**Step 2:** Result + `FancyTextWidget().media`
+- Merges: `['color-picker.js', 'text-editor.js']` + `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+- The merge algorithm processes FancyTextWidget's list in reverse: `['color-picker.js', 'text-editor-extras.js', 'text-editor.js']`
+- When it encounters `'text-editor.js'`, it finds it at index 1 in the combined list
+- When it encounters `'text-editor-extras.js'`, it tries to insert at position after index 1
+- When it encounters `'color-picker.js'`, it finds it at index 0 (before the insertion point)
+- **This triggers the warning** because the algorithm detects that it's trying to insert something after a position, then encounters something that should be before that position
+- Final result: `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']` ✗ (Wrong order)
+
+### Why the Current Algorithm Fails
+
+The `Media.merge()` static method has a fundamental flaw in its logic:
+
+```python
+@staticmethod
+def merge(list_1, list_2):
+    combined_list = list(list_1)
+    last_insert_index = len(list_1)
+    
+    for path in reversed(list_2):
+        try:
+            index = combined_list.index(path)  # Find existing item
+        except ValueError:
+            # New item - insert at last_insert_index
+            combined_list.insert(last_insert_index, path)
+        else:
+            if index > last_insert_index:
+                # WARN: detect "opposite order"
+                warnings.warn(...)
+            # Update insertion point for next new items
+            last_insert_index = index
+    return combined_list
+```
+
+**The flaw:** The algorithm assumes that if it finds an existing item at an index before `last_insert_index`, that's an error. However, this produces false positives because:
+
+1. It only considers pairwise merges in isolation
+2. When merging A+B+C via (A+B)+C, the intermediate result A+B may impose constraints that don't reflect the original intent
+3. The algorithm doesn't distinguish between:
+   - A genuine ordering conflict (two lists demand incompatible orders)
+   - A false conflict created by how intermediate additions were performed
+
+### Specific Issue with the Example
+
+The real dependency in FancyTextWidget is:
+- `text-editor.js` must come **before** `text-editor-extras.js`
+
+But when merging intermediate results, the algorithm encounters:
+- From intermediate result: `color-picker.js` before `text-editor.js`
+- From FancyTextWidget: `text-editor.js` before `text-editor-extras.js` before `color-picker.js`
+
+These constraints **are actually compatible** if we respect the real dependencies:
+1. `text-editor.js` before `text-editor-extras.js` (from FancyTextWidget)
+2. `color-picker.js` can go anywhere (no explicit dependency in FancyTextWidget)
+
+But the merge algorithm creates a false constraint by incorrectly treating the intermediate result's order as a strict requirement.
+
+## The Core Issue
+
+The `Media.__add__` method concatenates `_css_lists` and `_js_lists`:
+
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+Then when `_js` property is accessed, it merges all lists in order. The problem is that **intermediate merge results become part of the permanent list**, forcing their ordering constraints on subsequent merges.
+
+## Summary of Root Causes
+
+1. **Merging strategy**: Pairwise merging (A+B)+C propagates intermediate ordering constraints that may not reflect true dependencies
+2. **Algorithm limitation**: The merge function treats all items in list_1 as equally important constraints, even when some are artifacts of previous merges
+3. **Accumulation problem**: Each `__add__` call stores both operands' lists separately, causing a cascading effect where all previous merge decisions must be preserved
+
+The solution would require either:
+- A topological sort based on explicit dependencies (not just order)
+- Flattening and re-merging all lists together instead of pairwise
+- Tracking actual dependency information rather than just ordering

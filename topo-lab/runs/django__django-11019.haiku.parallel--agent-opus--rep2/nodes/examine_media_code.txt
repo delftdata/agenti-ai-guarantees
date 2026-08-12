@@ -1,0 +1,57 @@
+I'll analyze the current Media class merging logic in `django/forms/widgets.py`.
+
+## Analysis of Current Media Merging Logic
+
+### Data Storage
+The `Media` class stores media as lists of lists:
+- `self._css_lists = [css]` — a list of CSS dictionaries
+- `self._js_lists = [js]` — a list of JS lists
+
+When two `Media` objects are combined via `__add__`, their underlying lists are simply concatenated:
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+### Resolution via Pairwise Merging
+The actual flattened media is computed lazily in the `_js` and `_css` properties, which **fold** the list of lists pairwise from left to right:
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+This is the source of the problem described. Each `merge` call combines two lists at a time, accumulating an intermediate result. This intermediate result imposes ordering constraints that never existed in the original separate lists.
+
+### The `merge` Algorithm
+The `merge(list_1, list_2)` static method:
+1. Starts with a copy of `list_1`.
+2. Walks `list_2` in reverse, inserting each element into `combined_list` at `last_insert_index` if it doesn't already exist.
+3. If an element from `list_2` already exists in `combined_list` at an index **greater than** `last_insert_index`, it emits a `MediaOrderConflictWarning` (interpreting this as a contradiction).
+4. Updates `last_insert_index` to track relative positioning.
+
+### Why the Bug Occurs
+The core issue is that **pairwise, order-sensitive merging of two lists at a time is too eager**. When merging 3+ media objects, intermediate merges create artificial ordering constraints.
+
+In the example:
+- `ColorPicker`: `['color-picker.js']`
+- `SimpleTextWidget`: `['text-editor.js']`
+- `FancyTextWidget`: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+Combining `ColorPicker + SimpleTextWidget` produces `['color-picker.js', 'text-editor.js']`. This **wrongly asserts** that `color-picker.js` must come before `text-editor.js`, even though those two files are actually independent — the ordering was purely incidental to the accumulation order.
+
+Then merging that intermediate result with `FancyTextWidget` (which has `color-picker.js` *after* `text-editor.js`) triggers the false `MediaOrderConflictWarning`, and produces a worse ordering than the naive Django 1.11 approach.
+
+### The Correct Approach
+The fundamental flaw is treating each list as imposing a total ordering. Instead, each list should only impose ordering constraints between its own consecutive/relative pairs. The proper fix is to:
+1. Collect all the individual media lists (already stored in `_js_lists` / `_css_lists`).
+2. Build a graph of pairwise ordering dependencies where each list contributes edges only among its own elements.
+3. Perform a **topological sort** over all files, only warning when a genuine cycle (real conflict) is detected.
+
+This treats the merge as a constraint-satisfaction / dependency-graph problem rather than a series of eager two-way merges, which avoids inventing spurious constraints between unrelated files. Django's codebase already has `django/utils/topological_sort.py`, which could be leveraged for this purpose.

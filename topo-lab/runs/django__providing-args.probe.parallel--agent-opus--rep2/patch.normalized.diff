@@ -1,0 +1,15 @@
+The current files already have no `providing_args`. The only change needed is in `tests/dispatch/tests.py` to remove the `providing_args` arguments from the fixture signals.
+
+diff --git a/tests/dispatch/tests.py b/tests/dispatch/tests.py
+--- a/tests/dispatch/tests.py
++++ b/tests/dispatch/tests.py
+@@ -36,8 +36,8 @@ class Callable:
+         return val
+ 
+ 
+-a_signal = Signal(providing_args=["val"])
+-b_signal = Signal(providing_args=["val"])
++a_signal = Signal()
++b_signal = Signal()
+ c_signal = Signal()
+ d_signal = Signal(use_caching=True)

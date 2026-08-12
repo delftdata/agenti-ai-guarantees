@@ -1,0 +1,57 @@
+# Analysis of Media Tests and Problem Statement
+
+## Problem Summary
+When merging 3 or more media objects, Django throws unnecessary `MediaOrderConflictWarnings`. The specific issue occurs when:
+
+1. Three widgets are combined in a form
+2. Some widgets have dependencies (e.g., text-editor-extras.js depends on text-editor.js)
+3. The order of addition matters and can create false conflicts
+
+## Example from Problem Statement
+```python
+ColorPicker: ['color-picker.js']
+SimpleTextWidget: ['text-editor.js']
+FancyTextWidget: ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+```
+
+When merged as: `ColorPicker().media + SimpleTextWidget().media + FancyTextWidget().media`
+
+The intermediate result creates a false constraint:
+- `ColorPicker + SimpleTextWidget = ['color-picker.js', 'text-editor.js']` (wrongly suggests color-picker must come before text-editor)
+- This then conflicts when `FancyTextWidget` asserts text-editor must come before text-editor-extras
+
+Expected order: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+## Key Test Cases Analysis
+
+From `test_media.py`, the relevant tests are:
+
+### `test_merge_js_three_way()`
+- Tests three-way merge of JavaScript files
+- Shows that relative ordering should be preserved across multiple merges
+- Result: `['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js']`
+- This test PASSES, suggesting the algorithm works for some cases
+
+### `test_merge_css_three_way()`
+- Tests CSS merging where same files appear in different orders in different forms
+- Shows that merging should succeed when relative ordering was never explicitly specified
+- Key assertion: `merged._css` succeeds despite `form1` and `form2` having different orders
+
+### `test_merge_warning()`
+- Explicitly tests that a warning IS raised when true conflicts exist: `[1, 2]` vs `[2, 1]`
+- This is a legitimate conflict that should warn
+
+## Expected Behavior
+
+1. **True conflicts** (e.g., `[1, 2]` + `[2, 1]`) → WARNING
+2. **Implicit ordering** (e.g., `[a, b]` + `[b, c]`) → OK, result `[a, b, c]`
+3. **Three-way merges** should not create false conflicts when intermediate results have temporary orderings
+4. The algorithm should recognize when an order constraint is "temporary" (from intermediate merge) vs. "permanent" (from widget definition)
+
+## Root Cause
+
+The issue is in how the merge algorithm processes multiple additions. When `A + B` produces an intermediate ordering, and then `(A + B) + C` is evaluated, the algorithm treats the intermediate ordering as a hard constraint rather than recognizing that:
+- Some orderings come from explicit widget definitions (real constraints)
+- Some orderings emerge from previous merge operations (not real constraints)
+
+The problem is that the `Media.merge()` function doesn't distinguish between these two sources of ordering information.

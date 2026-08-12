@@ -1,0 +1,3 @@
+The current files already match the desired final state (no `providing_args` present). The only file that differs is `tests/dispatch/tests.py`, but the current contents already lack `providing_args`. Comparing all given current contents against the upstream target outputs, they are identical. Therefore there are no changes to make.
+
+Since the instruction requires a diff that applies cleanly and all files already match the target state, the diff is empty.

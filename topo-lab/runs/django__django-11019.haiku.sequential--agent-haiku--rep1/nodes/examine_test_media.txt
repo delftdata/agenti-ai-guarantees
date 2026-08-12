@@ -1,0 +1,59 @@
+# Analysis of Media Tests
+
+## Current Expected Behavior
+
+Based on the test file, here's what Django's Media class is expected to do:
+
+### 1. **Media Construction and Rendering**
+   - Media objects can be constructed with css and js dictionaries/tuples
+   - They render to HTML with proper `<link>` and `<script>` tags
+   - Absolute paths are preserved; relative paths are combined with STATIC_URL
+
+### 2. **Media Combination (Addition)**
+   - Media objects can be combined using the `+` operator
+   - Duplicate resources should appear only once
+   - The order of resources matters (dependencies)
+
+### 3. **Merging Logic (Core to the Problem)**
+   - `Media.merge(list1, list2)` is the key method that combines two lists
+   - It handles ordering with dependency tracking
+   - Test cases in `test_merge()`:
+     - `([1,2], [3,4])` → `[1,2,3,4]` - simple append
+     - `([1,2], [2,3])` → `[1,2,3]` - remove duplicates, maintain order
+     - `([2,3], [1,2])` → `[1,2,3]` - reorder to satisfy constraints
+     - `([1,3], [2,3])` → `[1,2,3]` - resolve ordering
+     - `([1,2], [1,3])` → `[1,2,3]` - maintain relative order
+     - `([1,2], [3,2])` → `[1,3,2]` - specific ordering test
+
+### 4. **Warning on Conflicts**
+   - `test_merge_warning()` shows that `Media.merge([1,2], [2,1])` should:
+     - Return `[1,2]` (i.e., preserve first list's order when there's conflict)
+     - Issue a `RuntimeWarning` with message "Detected duplicate Media files in an opposite order:\n1\n2"
+
+### 5. **Three-Way Merge Tests**
+   - `test_merge_js_three_way()`: Tests merging media in sequence
+     - Widget1 + Widget2 → form_media
+     - Then form_media + inline_media should work correctly
+   
+   - `test_merge_css_three_way()`: Tests CSS merging
+     - Widget3 + form1 + form2 should merge successfully
+     - Even when form1 and form2 have reversed ordering of form's widgets
+
+## Problem Statement Connection
+
+The issue in the bug report is:
+- `ColorPicker().media + SimpleTextWidget().media` produces `Media(js=['color-picker.js', 'text-editor.js'])`
+- Then adding `FancyTextWidget().media` with `js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` causes:
+  - False MediaOrderConflictWarning about text-editor-extras.js and text-editor.js
+  - Wrong final order: `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`
+  
+The expected result should be: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+## Root Cause Indicators
+
+The problem appears to be in how the merge algorithm handles:
+1. **Transitive ordering constraints** - It's not properly tracking that text-editor.js must come before text-editor-extras.js
+2. **Multiple merges** - When merging 3+ media objects sequentially, the constraints from earlier merges contaminate later ones
+3. **False conflict detection** - It's incorrectly identifying a conflict between text-editor-extras.js and text-editor.js when the real constraint issue is elsewhere
+
+The merge algorithm needs to be more sophisticated in detecting actual vs. false conflicts when dealing with 3+ way merges.

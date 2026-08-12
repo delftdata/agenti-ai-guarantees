@@ -1,0 +1,56 @@
+# Analysis of the Media Class and Merging Logic
+
+## Current Implementation
+
+The `Media` class in `django/forms/widgets.py` handles merging of CSS and JS files across multiple widgets. The key merging logic is in the `merge()` static method (lines 128-158).
+
+## How Media Merging Works
+
+1. **Storage Structure**: 
+   - Media objects store CSS and JS in lists: `_css_lists` and `_js_lists`
+   - When adding two Media objects (`__add__`), the lists are concatenated
+   - Properties `_css` and `_js` lazily merge all the accumulated lists
+
+2. **The merge() Method Logic**:
+   - Takes two lists (list_1 and list_2) and combines them
+   - Starts with a copy of list_1 as the base
+   - Iterates through list_2 in reverse order
+   - For each item in list_2:
+     - If it already exists in combined_list, updates `last_insert_index` to that position
+     - If it doesn't exist, inserts it at `last_insert_index`
+   - **Warning Condition**: If an existing item's index > `last_insert_index`, a `MediaOrderConflictWarning` is issued
+
+## The Problem
+
+When merging 3+ Media objects sequentially:
+
+1. `ColorPicker().media` = `['color-picker.js']`
+2. `SimpleTextWidget().media` = `['text-editor.js']`
+3. First merge: `['color-picker.js'] + ['text-editor.js']` = `['color-picker.js', 'text-editor.js']`
+4. Now merge with `FancyTextWidget().media` = `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+When the final merge processes `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`:
+- Processing in reverse: first `'color-picker.js'` is found at index 0, sets `last_insert_index = 0`
+- Then `'text-editor-extras.js'` is not found, gets inserted at position 0
+- Then `'text-editor.js'` is found at index 1, and since `1 > 0` (last_insert_index), it triggers the warning
+- Result: `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`
+
+## Root Cause
+
+The merge algorithm doesn't account for **transitive ordering constraints**. It only looks at the immediate two lists being merged, not the global ordering constraints implied by all the lists that have been accumulated.
+
+The constraint from the first intermediate merge (`ColorPicker + SimpleTextWidget`) creates an artificial ordering that `color-picker.js` must come before `text-editor.js`, even though this wasn't specified in any widget's Media definition. This constraint then conflicts with the actual constraint in `FancyTextWidget` that `text-editor.js` should come before `color-picker.js`.
+
+## Key Issues
+
+1. **Order of addition matters**: Different sequences of adding the same widgets produce different results
+2. **False warnings**: The warning is issued even though the final result could be correct
+3. **Suboptimal ordering**: The result is worse than simply flattening all constraints and doing a topological sort
+4. **Limited context**: The merge function only sees two lists at a time and can't evaluate global constraints
+
+## Solution Approach Needed
+
+Rather than processing lists pairwise with a greedy algorithm, the code should:
+1. Collect ALL ordering constraints from ALL the lists
+2. Perform a global topological sort that respects all constraints simultaneously
+3. Only warn if constraints are genuinely contradictory (circular dependencies)

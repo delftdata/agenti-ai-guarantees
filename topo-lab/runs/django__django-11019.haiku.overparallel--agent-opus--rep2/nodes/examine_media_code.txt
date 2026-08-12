@@ -1,0 +1,31 @@
+The current `Media` class merging logic works as follows:
+
+## Data Storage
+- `Media.__init__` stores CSS and JS as lists of lists: `self._css_lists = [css]` and `self._js_lists = [js]`.
+- `__add__` combines two Media objects by concatenating their lists: `combined._js_lists = self._js_lists + other._js_lists`. This defers actual merging until the media is accessed.
+
+## Lazy Merging via Properties
+- The `_js` property performs the merge only when accessed. It starts with the first list and repeatedly folds in each subsequent list using `merge(js, obj)`:
+  ```python
+  js = self._js_lists[0]
+  for obj in filter(None, self._js_lists[1:]):
+      js = self.merge(js, obj)
+  ```
+- The `_css` property does similar merging per-medium.
+
+## The `merge` Algorithm (the source of the problem)
+`merge(list_1, list_2)` merges two lists pairwise:
+1. Starts with a copy of `list_1` as `combined_list`, with `last_insert_index = len(list_1)`.
+2. Walks `list_2` in **reverse**, inserting each element that isn't already present, otherwise updating `last_insert_index` to that element's index.
+3. If a found element's index is **greater** than `last_insert_index`, it warns about a conflict (an element that appeared later in list_2 must come before an element that appeared earlier — an ordering contradiction).
+
+## Why the bug occurs
+The core issue is that merging is done **pairwise and sequentially, two lists at a time**, accumulating an intermediate result that imposes ordering constraints not actually present in any single input list.
+
+In the example:
+- `ColorPicker` → `['color-picker.js']`
+- `SimpleTextWidget` → `['text-editor.js']`
+- Merging these two independent lists produces `['color-picker.js', 'text-editor.js']`, which **fabricates** a constraint that `color-picker.js` must come before `text-editor.js` — even though these files are completely independent.
+- Then merging with `FancyTextWidget`'s `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` conflicts with that fabricated ordering, producing a spurious `MediaOrderConflictWarning`.
+
+The pairwise merge treats the mere adjacency of two independent files in an intermediate result as a hard ordering constraint. The real constraints are only the relative orderings *within* each original list. The fix requires collecting all lists and merging them together in a way that only enforces genuine dependencies (e.g., a topological sort based on pairwise constraints derived from each input list), rather than folding lists two at a time and letting arbitrary intermediate orderings become constraints.

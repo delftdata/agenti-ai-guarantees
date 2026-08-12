@@ -1,0 +1,93 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..74e2df60e0 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -125,29 +125,69 @@ class Media:
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
++        # Build a combined list respecting ordering constraints from both lists
++        # using a topological sort approach
++        
++        # Collect all unique items
++        all_items = []
++        seen = set()
++        for item in chain(list_1, list_2):
++            if item not in seen:
++                all_items.append(item)
++                seen.add(item)
++        
++        # Build adjacency information: for each item, what items must come before it
++        # based on the ordering in list_1 and list_2
++        must_come_before = {}  # item -> set of items that must come before it
++        
++        for lst in [list_1, list_2]:
++            for i, item in enumerate(lst):
++                if item not in must_come_before:
++                    must_come_before[item] = set()
++                # All items that appear after this item in this list must come after it
++                for later_item in lst[i + 1:]:
++                    must_come_before[later_item].add(item)
++        
++        # Detect conflicts: if A must come before B and B must come before A
++        for item in all_items:
++            for before_item in must_come_before.get(item, set()):
++                if item in must_come_before.get(before_item, set()):
++                    # Circular dependency - this is a real conflict
++                    # Fall back to the old behavior and warn
+                     warnings.warn(
+                         'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
++                        '%s\n%s' % (before_item, item),
+                         MediaOrderConflictWarning,
+                     )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++                    # Return a simple merge: list_1 items first, then list_2 items not in list_1
++                    combined = list(list_1)
++                    for item in list_2:
++                        if item not in combined:
++                            combined.append(item)
++                    return combined
++        
++        # Topological sort: arrange items respecting all constraints
++        result = []
++        remaining = set(all_items)
++        
++        while remaining:
++            # Find an item with no unsatisfied constraints
++            ready = None
++            for item in remaining:
++                # Check if all items that must come before it are already in result
++                if all(before_item in result for before_item in must_come_before.get(item, set())):
++                    ready = item
++                    break
++            
++            if ready is None:
++                # This shouldn't happen if there are no circular dependencies
++                # Just pick the first remaining item
++                ready = next(iter(remaining))
++            
++            result.append(ready)
++            remaining.remove(ready)
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()

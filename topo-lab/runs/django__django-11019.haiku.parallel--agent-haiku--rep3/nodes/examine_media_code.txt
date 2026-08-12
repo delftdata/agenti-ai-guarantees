@@ -1,0 +1,76 @@
+# Analysis of the Media Class and the Problem
+
+## Current Implementation
+
+The `Media` class in `django/forms/widgets.py` manages CSS and JavaScript files with a `merge()` static method that attempts to maintain relative ordering while detecting conflicts.
+
+### Key Components:
+
+1. **Storage**: `Media` stores CSS and JS in lists (`_css_lists`, `_js_lists`)
+2. **Properties**: `_css` and `_js` properties merge stored lists using the `merge()` method
+3. **Addition**: `__add__()` concatenates `_css_lists` and `_js_lists` from two Media objects
+
+### The merge() Method Logic:
+
+```python
+@staticmethod
+def merge(list_1, list_2):
+    combined_list = list(list_1)
+    last_insert_index = len(list_1)
+    
+    for path in reversed(list_2):
+        try:
+            index = combined_list.index(path)
+        except ValueError:
+            # New item: insert at last_insert_index
+            combined_list.insert(last_insert_index, path)
+        else:
+            # Existing item: check for conflict
+            if index > last_insert_index:
+                # WARN: opposite order detected
+                warnings.warn(...)
+            last_insert_index = index
+    return combined_list
+```
+
+## The Problem
+
+### Test Case Walkthrough:
+
+Given the form:
+```python
+ColorPicker: ['color-picker.js']
+SimpleTextWidget: ['text-editor.js']
+FancyTextWidget: ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+```
+
+**Step 1**: `ColorPicker().media + SimpleTextWidget().media`
+- Merging `['color-picker.js']` + `['text-editor.js']`
+- Result: `['color-picker.js', 'text-editor.js']` (no conflict)
+
+**Step 2**: Previous result + `FancyTextWidget().media`
+- Merging `['color-picker.js', 'text-editor.js']` + `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+- Processing `list_2` in reverse: `['color-picker.js', 'text-editor-extras.js', 'text-editor.js']`
+
+**Processing Step-by-Step**:
+1. `'color-picker.js'`: Already at index 0, `last_insert_index = 2`, so `0 < 2` → `last_insert_index = 0`
+2. `'text-editor-extras.js'`: Not found, insert at `last_insert_index = 0` → `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`
+3. `'text-editor.js'`: Found at index 2, `last_insert_index = 0`, so `2 > 0` → **FALSE WARNING**
+
+### Root Cause:
+
+The algorithm treats **all three lists as a flat merge sequence**. When combining `['color-picker.js', 'text-editor.js']` with `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`, it:
+
+1. Incorrectly infers from the first list that `color-picker.js` must come before `text-editor.js`
+2. This constraint isn't part of any single input list; it's an artifact of the addition operation order
+3. When it later encounters the constraint from `FancyTextWidget` that `text-editor.js` comes before `color-picker.js`, it falsely reports a conflict
+
+## What Should Happen
+
+The optimal order is: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+This satisfies:
+- `text-editor-extras.js` after `text-editor.js` (from FancyTextWidget)
+- All files present from all widgets
+
+The solution requires **topological sorting** instead of sequential pairwise merging, to handle the dependencies correctly across 3+ media objects.

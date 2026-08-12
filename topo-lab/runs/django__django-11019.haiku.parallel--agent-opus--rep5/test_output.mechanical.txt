@@ -1,0 +1,945 @@
+===== test_combine_media (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+E
+======================================================================
+ERROR: test_combine_media (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('/path/to/css2', {'path/to/css1'}), ('/path/to/css3', {'path/to/css1', '/path/to/css2'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 122, in test_combine_media
+    str(w1.media + w2.media + w3.media),
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\html.py", line 388, in <lambda>
+    klass.__str__ = lambda self: mark_safe(klass_str(self))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 63, in __str__
+    return self.render()
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 78, in render
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 78, in <genexpr>
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 91, in render_css
+    media = sorted(self._css)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 71, in _css
+    return {medium: self.merge(*lists) for medium, lists in css.items()}
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 71, in <dictcomp>
+    return {medium: self.merge(*lists) for medium, lists in css.items()}
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ('path/to/css1', '/path/to/css2'), ('/path/to/css2', '/path/to/css3'), ('path/to/css1', '/path/to/css3')
+
+----------------------------------------------------------------------
+Ran 1 test in 0.005s
+
+FAILED (errors=1)
+
+
+===== test_construction (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+E
+======================================================================
+ERROR: test_construction (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('/path/to/css2', {'path/to/css1'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 19, in test_construction
+    str(m),
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\html.py", line 388, in <lambda>
+    klass.__str__ = lambda self: mark_safe(klass_str(self))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 63, in __str__
+    return self.render()
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 78, in render
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 78, in <genexpr>
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 91, in render_css
+    media = sorted(self._css)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 71, in _css
+    return {medium: self.merge(*lists) for medium, lists in css.items()}
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 71, in <dictcomp>
+    return {medium: self.merge(*lists) for medium, lists in css.items()}
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ('path/to/css1', '/path/to/css2')
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (errors=1)
+
+
+===== test_form_media (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+E
+======================================================================
+ERROR: test_form_media (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('/path/to/css2', {'path/to/css1'}), ('/path/to/css3', {'/path/to/css2'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 470, in test_form_media
+    str(f1.media),
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\html.py", line 388, in <lambda>
+    klass.__str__ = lambda self: mark_safe(klass_str(self))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 63, in __str__
+    return self.render()
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 78, in render
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 78, in <genexpr>
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 91, in render_css
+    media = sorted(self._css)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 71, in _css
+    return {medium: self.merge(*lists) for medium, lists in css.items()}
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 71, in <dictcomp>
+    return {medium: self.merge(*lists) for medium, lists in css.items()}
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ('path/to/css1', '/path/to/css2'), ('/path/to/css2', '/path/to/css3')
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (errors=1)
+
+
+===== test_media_deduplication (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+E
+======================================================================
+ERROR: test_media_deduplication (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('/path/to/css1', {'/path/to/css1'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 162, in test_media_deduplication
+    self.assertEqual(str(media), """<link href="/path/to/css1" type="text/css" media="all" rel="stylesheet">
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\html.py", line 388, in <lambda>
+    klass.__str__ = lambda self: mark_safe(klass_str(self))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 63, in __str__
+    return self.render()
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 78, in render
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 78, in <genexpr>
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 91, in render_css
+    media = sorted(self._css)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 71, in _css
+    return {medium: self.merge(*lists) for medium, lists in css.items()}
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 71, in <dictcomp>
+    return {medium: self.merge(*lists) for medium, lists in css.items()}
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ('/path/to/css1', '/path/to/css1')
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (errors=1)
+
+
+===== test_media_inheritance (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+E
+======================================================================
+ERROR: test_media_inheritance (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('/path/to/css2', {'path/to/css1'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 237, in test_media_inheritance
+    str(w7.media),
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\html.py", line 388, in <lambda>
+    klass.__str__ = lambda self: mark_safe(klass_str(self))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 63, in __str__
+    return self.render()
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 78, in render
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 78, in <genexpr>
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 91, in render_css
+    media = sorted(self._css)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 71, in _css
+    return {medium: self.merge(*lists) for medium, lists in css.items()}
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 71, in <dictcomp>
+    return {medium: self.merge(*lists) for medium, lists in css.items()}
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ('path/to/css1', '/path/to/css2'), ('path/to/css1', '/path/to/css2')
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (errors=1)
+
+
+===== test_media_inheritance_extends (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+E
+======================================================================
+ERROR: test_media_inheritance_extends (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('/path/to/css2', {'path/to/css1'}), ('path/to/css1', {'/path/to/css3'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 330, in test_media_inheritance_extends
+    str(w11.media),
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\html.py", line 388, in <lambda>
+    klass.__str__ = lambda self: mark_safe(klass_str(self))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 63, in __str__
+    return self.render()
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 78, in render
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 78, in <genexpr>
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 91, in render_css
+    media = sorted(self._css)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 71, in _css
+    return {medium: self.merge(*lists) for medium, lists in css.items()}
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 71, in <dictcomp>
+    return {medium: self.merge(*lists) for medium, lists in css.items()}
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ('path/to/css1', '/path/to/css2'), ('/path/to/css3', 'path/to/css1')
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (errors=1)
+
+
+===== test_media_property_parent_references (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+E
+======================================================================
+ERROR: test_media_property_parent_references (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('/path/to/css2', {'path/to/css1'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 209, in test_media_property_parent_references
+    str(w6.media),
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\html.py", line 388, in <lambda>
+    klass.__str__ = lambda self: mark_safe(klass_str(self))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 63, in __str__
+    return self.render()
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 78, in render
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 78, in <genexpr>
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 91, in render_css
+    media = sorted(self._css)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 71, in _css
+    return {medium: self.merge(*lists) for medium, lists in css.items()}
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 71, in <dictcomp>
+    return {medium: self.merge(*lists) for medium, lists in css.items()}
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ('path/to/css1', '/path/to/css2'), ('/other/path',)
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (errors=1)
+
+
+===== test_merge (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=([1, 2], [3, 4]))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: (2, {1}), (4, {3})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: [1, 2], [3, 4]
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=([1, 2], [2, 3]))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: (2, {1}), (3, {2})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: [1, 2], [2, 3]
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=([2, 3], [1, 2]))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: (3, {2}), (2, {1})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: [2, 3], [1, 2]
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=([1, 3], [2, 3]))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: (3, {1, 2})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: [1, 3], [2, 3]
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=([1, 2], [1, 3]))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: (2, {1}), (3, {1})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: [1, 2], [1, 3]
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=([1, 2], [3, 2]))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: (2, {1, 3})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: [1, 2], [3, 2]
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=([1, 2], [1, 2]))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: (2, {1})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: [1, 2], [1, 2]
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=[[1, 2], [1, 3], [2, 3], [5, 7], [5, 6], [6, 7, 9], [8, 9]])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: (2, {1}), (3, {1, 2}), (7, {5, 6}), (6, {5}), (9, {8, 7})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: [1, 2], [1, 3], [2, 3], [5, 7], [5, 6], [6, 7, 9], [8, 9]
+
+======================================================================
+ERROR: test_merge (forms_tests.tests.test_media.FormsMediaTestCase) (lists=([1, 2],))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: (2, {1})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 553, in test_merge
+    self.assertEqual(Media.merge(*lists), expected)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: [1, 2]
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (errors=9)
+
+
+===== test_merge_css_three_way (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+E
+======================================================================
+ERROR: test_merge_css_three_way (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('e.css', {'d.css'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 587, in test_merge_css_three_way
+    self.assertEqual(merged._css, {'screen': ['c.css', 'a.css'], 'all': ['d.css', 'e.css']})
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 71, in _css
+    return {medium: self.merge(*lists) for medium, lists in css.items()}
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 71, in <dictcomp>
+    return {medium: self.merge(*lists) for medium, lists in css.items()}
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ['d.css', 'e.css']
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (errors=1)
+
+
+===== test_merge_js_three_way (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+E
+======================================================================
+ERROR: test_merge_js_three_way (forms_tests.tests.test_media.FormsMediaTestCase)
+The relative order of scripts is preserved in a three-way merge.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('text-editor-extras.js', {'text-editor.js'}), ('color-picker.js', {'text-editor-extras.js'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 568, in test_merge_js_three_way
+    self.assertEqual(merged._js, ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 75, in _js
+    return self.merge(*self._js_lists)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ['color-picker.js'], ['text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (errors=1)
+
+
+===== test_merge_js_three_way2 (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+E
+======================================================================
+ERROR: test_merge_js_three_way2 (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('c', {'b', 'a'}), ('f', {'b', 'c'}), ('g', {'f'}), ('k', {'h', 'f', 'g'}), ('b', {'a'}), ('h', {'f'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 578, in test_merge_js_three_way2
+    self.assertEqual(merged._js, ['a', 'b', 'c', 'f', 'g', 'h', 'k'])
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 75, in _js
+    return self.merge(*self._js_lists)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ['a', 'c', 'f', 'g', 'k'], ['a', 'b', 'f', 'h', 'k'], ['b', 'c', 'f', 'k']
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (errors=1)
+
+
+===== test_merge_warning (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_multi_widget (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+E
+======================================================================
+ERROR: test_multi_widget (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('/path/to/css2', {'path/to/css1'}), ('/path/to/css3', {'/path/to/css2', 'path/to/css1'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\forms_tests\tests\test_media.py", line 428, in test_multi_widget
+    str(mymulti.media),
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\html.py", line 388, in <lambda>
+    klass.__str__ = lambda self: mark_safe(klass_str(self))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 63, in __str__
+    return self.render()
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 78, in render
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 78, in <genexpr>
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 91, in render_css
+    media = sorted(self._css)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 71, in _css
+    return {medium: self.merge(*lists) for medium, lists in css.items()}
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 71, in <dictcomp>
+    return {medium: self.merge(*lists) for medium, lists in css.items()}
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ('path/to/css1', '/path/to/css2'), ('/path/to/css2', '/path/to/css3'), ('path/to/css1', '/path/to/css3')
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (errors=1)
+
+
+===== test_media (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+
+======================================================================
+ERROR: test_media (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests) (lang='de')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('admin/js/vendor/select2/select2.full.min.js', {'admin/js/vendor/jquery/jquery.min.js'}), ('admin/js/vendor/select2/i18n/de.js', {'admin/js/vendor/select2/select2.full.min.js'}), ('admin/js/jquery.init.js', {'admin/js/vendor/select2/i18n/de.js'}), ('admin/js/autocomplete.js', {'admin/js/jquery.init.js'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\admin_widgets\test_autocomplete_widget.py", line 142, in test_media
+    self.assertEqual(AutocompleteSelect(rel, admin.site).media._js, list(expected_files))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 75, in _js
+    return self.merge(*self._js_lists)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ('admin/js/vendor/jquery/jquery.min.js', 'admin/js/vendor/select2/select2.full.min.js', 'admin/js/vendor/select2/i18n/de.js', 'admin/js/jquery.init.js', 'admin/js/autocomplete.js')
+
+======================================================================
+ERROR: test_media (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests) (lang='00')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('admin/js/vendor/select2/select2.full.min.js', {'admin/js/vendor/jquery/jquery.min.js'}), ('admin/js/jquery.init.js', {'admin/js/vendor/select2/select2.full.min.js'}), ('admin/js/autocomplete.js', {'admin/js/jquery.init.js'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\admin_widgets\test_autocomplete_widget.py", line 142, in test_media
+    self.assertEqual(AutocompleteSelect(rel, admin.site).media._js, list(expected_files))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 75, in _js
+    return self.merge(*self._js_lists)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ('admin/js/vendor/jquery/jquery.min.js', 'admin/js/vendor/select2/select2.full.min.js', 'admin/js/jquery.init.js', 'admin/js/autocomplete.js')
+
+======================================================================
+ERROR: test_media (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests) (lang='sr-cyrl')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('admin/js/vendor/select2/select2.full.min.js', {'admin/js/vendor/jquery/jquery.min.js'}), ('admin/js/vendor/select2/i18n/sr-Cyrl.js', {'admin/js/vendor/select2/select2.full.min.js'}), ('admin/js/jquery.init.js', {'admin/js/vendor/select2/i18n/sr-Cyrl.js'}), ('admin/js/autocomplete.js', {'admin/js/jquery.init.js'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\admin_widgets\test_autocomplete_widget.py", line 142, in test_media
+    self.assertEqual(AutocompleteSelect(rel, admin.site).media._js, list(expected_files))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 75, in _js
+    return self.merge(*self._js_lists)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ('admin/js/vendor/jquery/jquery.min.js', 'admin/js/vendor/select2/select2.full.min.js', 'admin/js/vendor/select2/i18n/sr-Cyrl.js', 'admin/js/jquery.init.js', 'admin/js/autocomplete.js')
+
+======================================================================
+ERROR: test_media (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests) (lang='zh-hans')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('admin/js/vendor/select2/select2.full.min.js', {'admin/js/vendor/jquery/jquery.min.js'}), ('admin/js/vendor/select2/i18n/zh-CN.js', {'admin/js/vendor/select2/select2.full.min.js'}), ('admin/js/jquery.init.js', {'admin/js/vendor/select2/i18n/zh-CN.js'}), ('admin/js/autocomplete.js', {'admin/js/jquery.init.js'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\admin_widgets\test_autocomplete_widget.py", line 142, in test_media
+    self.assertEqual(AutocompleteSelect(rel, admin.site).media._js, list(expected_files))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 75, in _js
+    return self.merge(*self._js_lists)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ('admin/js/vendor/jquery/jquery.min.js', 'admin/js/vendor/select2/select2.full.min.js', 'admin/js/vendor/select2/i18n/zh-CN.js', 'admin/js/jquery.init.js', 'admin/js/autocomplete.js')
+
+======================================================================
+ERROR: test_media (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests) (lang='zh-hant')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('admin/js/vendor/select2/select2.full.min.js', {'admin/js/vendor/jquery/jquery.min.js'}), ('admin/js/vendor/select2/i18n/zh-TW.js', {'admin/js/vendor/select2/select2.full.min.js'}), ('admin/js/jquery.init.js', {'admin/js/vendor/select2/i18n/zh-TW.js'}), ('admin/js/autocomplete.js', {'admin/js/jquery.init.js'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\admin_widgets\test_autocomplete_widget.py", line 142, in test_media
+    self.assertEqual(AutocompleteSelect(rel, admin.site).media._js, list(expected_files))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 75, in _js
+    return self.merge(*self._js_lists)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ('admin/js/vendor/jquery/jquery.min.js', 'admin/js/vendor/select2/select2.full.min.js', 'admin/js/vendor/select2/i18n/zh-TW.js', 'admin/js/jquery.init.js', 'admin/js/autocomplete.js')
+
+----------------------------------------------------------------------
+Ran 1 test in 0.015s
+
+FAILED (errors=5)
+Destroying test database for alias 'default'...
+
+
+
+===== test_render_options (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.030s
+
+OK
+Destroying test database for alias 'default'...
+
+
+
+===== test_inline_media_only_inline (admin_inlines.tests.TestInlineMedia): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+E
+======================================================================
+ERROR: test_inline_media_only_inline (admin_inlines.tests.TestInlineMedia)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 137, in merge
+    return stable_topological_sort(all_items, dependency_graph)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 32, in stable_topological_sort
+    for layer in topological_sort_as_sets(dependency_graph):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\topological_sort.py", line 20, in topological_sort_as_sets
+    raise CyclicDependencyError('Cyclic dependency in graph: {}'.format(
+django.utils.topological_sort.CyclicDependencyError: Cyclic dependency in graph: ('admin/js/jquery.init.js', {'admin/js/vendor/jquery/jquery.min.js'}), ('admin/js/core.js', {'admin/js/jquery.init.js'}), ('admin/js/admin/RelatedObjectLookups.js', {'admin/js/core.js'}), ('admin/js/actions.min.js', {'admin/js/admin/RelatedObjectLookups.js'}), ('admin/js/urlify.js', {'admin/js/actions.min.js'}), ('admin/js/prepopulate.min.js', {'admin/js/urlify.js'}), ('admin/js/vendor/xregexp/xregexp.min.js', {'admin/js/prepopulate.min.js'}), ('admin/js/inlines.min.js', {'admin/js/jquery.init.js'})
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\tests\admin_inlines\tests.py", line 495, in test_inline_media_only_inline
+    response = self.client.get(change_url)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\test\client.py", line 538, in get
+    response = super().get(path, data=data, secure=secure, **extra)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\test\client.py", line 345, in get
+    return self.generic('GET', path, secure=secure, **{
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\test\client.py", line 422, in generic
+    return self.request(**r)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\test\client.py", line 506, in request
+    raise exc_value
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\core\handlers\exception.py", line 34, in inner
+    response = get_response(request)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\core\handlers\base.py", line 145, in _get_response
+    response = self.process_exception_by_middleware(e, request)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\core\handlers\base.py", line 143, in _get_response
+    response = response.render()
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\template\response.py", line 106, in render
+    self.content = self.rendered_content
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\template\response.py", line 83, in rendered_content
+    content = template.render(context, self._request)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\template\backends\django.py", line 61, in render
+    return self.template.render(context)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\template\base.py", line 171, in render
+    return self._render(context)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\test\utils.py", line 95, in instrumented_test_render
+    return self.nodelist.render(context)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\template\base.py", line 937, in render
+    bit = node.render_annotated(context)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\template\base.py", line 904, in render_annotated
+    return self.render(context)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\template\loader_tags.py", line 150, in render
+    return compiled_parent._render(context)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\test\utils.py", line 95, in instrumented_test_render
+    return self.nodelist.render(context)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\template\base.py", line 937, in render
+    bit = node.render_annotated(context)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\template\base.py", line 904, in render_annotated
+    return self.render(context)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\template\loader_tags.py", line 150, in render
+    return compiled_parent._render(context)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\test\utils.py", line 95, in instrumented_test_render
+    return self.nodelist.render(context)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\template\base.py", line 937, in render
+    bit = node.render_annotated(context)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\template\base.py", line 904, in render_annotated
+    return self.render(context)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\template\loader_tags.py", line 62, in render
+    result = block.nodelist.render(context)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\template\base.py", line 937, in render
+    bit = node.render_annotated(context)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\template\base.py", line 904, in render_annotated
+    return self.render(context)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\template\base.py", line 993, in render
+    return render_value_in_context(output, context)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\template\base.py", line 972, in render_value_in_context
+    value = str(value)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\utils\html.py", line 388, in <lambda>
+    klass.__str__ = lambda self: mark_safe(klass_str(self))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 63, in __str__
+    return self.render()
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 78, in render
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 78, in <genexpr>
+    return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 85, in render_js
+    ) for path in self._js
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 75, in _js
+    return self.merge(*self._js_lists)
+  File "C:\Users\rares\AppData\Local\Temp\tmp1p0t14nz\wt\django\forms\widgets.py", line 139, in merge
+    warnings.warn(
+django.forms.widgets.MediaOrderConflictWarning: Detected duplicate Media files in an opposite order: ['admin/js/vendor/jquery/jquery.min.js', 'admin/js/jquery.init.js', 'admin/js/core.js', 'admin/js/admin/RelatedObjectLookups.js', 'admin/js/actions.min.js', 'admin/js/urlify.js', 'admin/js/prepopulate.min.js', 'admin/js/vendor/xregexp/xregexp.min.js'], [], [], [], ['admin/js/vendor/jquery/jquery.min.js', 'admin/js/jquery.init.js', 'admin/js/inlines.min.js'], ('my_awesome_inline_scripts.js',), [], [], ('custom_number.js',), [], [], [], [], [], ('custom_number.js',), [], [], [], [], [], [], ('custom_number.js',), [], [], [], [], [], [], ('custom_number.js',), [], [], [], [], [], [], ('custom_number.js',), [], [], [], [], [], [], ('custom_number.js',), [], [], [], []
+
+----------------------------------------------------------------------
+Ran 1 test in 0.147s
+
+FAILED (errors=1)
+Destroying test database for alias 'default'...
+

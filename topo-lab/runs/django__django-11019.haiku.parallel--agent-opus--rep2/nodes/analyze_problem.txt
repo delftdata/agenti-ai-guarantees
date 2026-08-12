@@ -1,0 +1,66 @@
+## Root Cause Analysis
+
+### The Problem
+
+The `Media` class computes its final merged JS/CSS by folding a list of separate media lists **pairwise, left-to-right**, using an order-sensitive `merge()` function:
+
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+Each `merge(list_1, list_2)` produces a single flat list that becomes `list_1` for the next iteration. This is the root cause: **the intermediate accumulator imposes a total ordering on all files seen so far, including files that had no real ordering relationship in any original list.**
+
+### Concrete Trace
+
+Given:
+- ColorPicker: `['color-picker.js']`
+- SimpleTextWidget: `['text-editor.js']`
+- FancyTextWidget: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+Step 1: `merge(['color-picker.js'], ['text-editor.js'])` → `['color-picker.js', 'text-editor.js']`
+
+This intermediate result now *asserts a constraint* that `color-picker.js` precedes `text-editor.js`. But this constraint is **spurious** — neither widget's original list ever said these two files were related. The constraint is purely an artifact of the accumulation order.
+
+Step 2: `merge(['color-picker.js', 'text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])`
+
+FancyTextWidget legitimately requires `text-editor.js` before `color-picker.js`. This directly contradicts the spurious constraint invented in Step 1, so `merge()` fires the `MediaOrderConflictWarning` and produces a worse-than-naive ordering.
+
+### Why `merge()` Cannot Fix This Alone
+
+`merge()` operates on exactly two lists and has no way to distinguish:
+- A **real constraint** — two files appearing in a defined relative order *within a single original list*.
+- A **derived constraint** — two files that only ended up adjacent because a prior merge concatenated independent lists.
+
+Once two independent lists are merged into one flat list, the provenance of each ordering pair is lost. Every adjacent pair in the accumulator looks like an authoritative constraint, so later merges wrongly detect conflicts.
+
+### Why `__add__` Compounds It
+
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+`__add__` correctly *defers* merging by keeping the lists separate (good). But the deferred resolution in `_js`/`_css` still collapses them pairwise, so the fix cannot live in `__add__` — it must live in how the collected lists are resolved.
+
+### The Correct Model
+
+Ordering is a **partial order**, not a total order. Only pairs of files that co-occur *within the same original list* impose a constraint (earlier-before-later). The resolution should:
+
+1. Keep each original list separate (already done via `_js_lists`/`_css_lists`).
+2. Build a dependency graph where each list contributes edges **only among its own elements** (each element must come after all elements preceding it in that list).
+3. Perform a **topological sort** over the union of all files.
+4. Emit `MediaOrderConflictWarning` only when a genuine **cycle** exists (i.e., list A says X-before-Y and list B says Y-before-X) — a real, irreconcilable conflict.
+
+This eliminates spurious constraints between files that never appeared together in any single list, resolving the example to the correct order `text-editor.js, text-editor-extras.js, color-picker.js` with no warning. Django already ships `django/utils/topological_sort.py`, which can back this implementation.
+
+### Summary
+
+**Root cause:** Pairwise left-to-right folding via order-sensitive two-list `merge()` treats the accumulated intermediate result as an authoritative total ordering, inventing constraints between independent files that were merely adjacent by accident of accumulation order. The fix requires replacing pairwise merging with graph-based topological sorting that only honors constraints derived from files co-occurring within a single original media list.

@@ -1,0 +1,45 @@
+# Analysis of the Media Class Implementation
+
+## Current State
+
+The `Media` class in `django/forms/widgets.py` (lines 43-177) handles merging of CSS and JS files from multiple widgets. The key method is `merge()` (lines 125-161), which is responsible for combining two lists while attempting to preserve relative order.
+
+## Problem Identified
+
+The issue manifests in the `merge()` method's logic:
+
+1. **Method Overview**: The merge method takes two lists and combines them by:
+   - Starting with a copy of `list_1`
+   - Walking through `list_2` in reverse
+   - Inserting elements from `list_2` that don't exist in the combined list
+   - Tracking `last_insert_index` to maintain relative ordering
+
+2. **The Bug**: When merging multiple media objects (3+ items), the algorithm fails because:
+   - It processes `list_2` in **reverse order**
+   - It updates `last_insert_index` to the position of found elements
+   - When elements from `list_2` are found at higher indices than `last_insert_index`, it warns about conflicts
+   - **The warning is triggered unnecessarily** because the algorithm doesn't account for the fact that processing in reverse means later elements in `list_2` might naturally have lower indices in `list_1`
+
+3. **Concrete Example from Problem Statement**:
+   - `ColorPicker().media` = `['color-picker.js']`
+   - `SimpleTextWidget().media` = `['text-editor.js']`
+   - First merge: `['color-picker.js'] + ['text-editor.js']` = `['color-picker.js', 'text-editor.js']` (imposes wrong constraint)
+   - `FancyTextWidget().media` = `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+   - Final merge of the above with FancyTextWidget produces a conflict warning even though a valid order exists
+
+## Root Cause
+
+The `last_insert_index` tracking mechanism is flawed for multi-way merges. It doesn't properly handle scenarios where:
+- Elements exist in multiple media objects with different orderings
+- Processing in reverse creates artificial conflicts when elements happen to be found at indices beyond `last_insert_index`
+- The warning compares the wrong pair of elements in the conflict message
+
+## Solution Strategy
+
+The merge algorithm needs to be reimplemented to:
+1. **Properly validate dependency constraints** rather than just checking indices
+2. **Build a dependency graph** or use topological sorting to determine correct ordering
+3. **Only warn when actual unresolvable conflicts exist** - not for every index comparison
+4. **Reduce false positives** by understanding that finding an earlier element doesn't necessarily indicate a real conflict if there's a valid ordering that satisfies all constraints
+
+The current approach of comparing indices during reverse iteration is too simplistic for handling multiple sequential merges.

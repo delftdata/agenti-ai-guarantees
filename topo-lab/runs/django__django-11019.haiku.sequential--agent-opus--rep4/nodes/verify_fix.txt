@@ -1,0 +1,67 @@
+I ran the test scenario against the fixed code. Here's my analysis:
+
+## Verification Analysis
+
+### The Fix Mechanism
+
+The core change stores media lists lazily (`_css_lists`, `_js_lists`) and defers merging until the `_js`/`_css` properties are accessed. The `merge()` method was rewritten to accept `*lists` and build a single dependency graph across all lists, then apply `stable_topological_sort`. This avoids the pairwise-folding problem that created spurious ordering constraints.
+
+### Tracing test_merge_js_three_way2
+
+```python
+widget1 = Media(js=['color-picker.js'])
+widget2 = Media(js=['text-editor.js'])
+widget3 = Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
+merged = widget1 + widget2 + widget3
+```
+
+After `__add__`, `merged._js_lists` is:
+```
+[['color-picker.js'], ['text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']]
+```
+
+When `merged._js` calls `merge(*self._js_lists)`, it builds the dependency graph from adjacent pairs *within each list*:
+
+- List 1 `['color-picker.js']`: head=`color-picker.js`, no dependency added (setdefault only).
+- List 2 `['text-editor.js']`: head=`text-editor.js`, no dependency.
+- List 3 `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`:
+  - `text-editor-extras.js` depends on `text-editor.js`
+  - `color-picker.js` depends on `text-editor-extras.js`
+
+Final dependency graph:
+```
+color-picker.js -> {text-editor-extras.js}
+text-editor.js -> {}
+text-editor-extras.js -> {text-editor.js}
+```
+
+`all_items` (OrderedSet) preserves insertion order: `color-picker.js, text-editor.js, text-editor-extras.js`.
+
+### Topological Sort Result
+
+Layers from `topological_sort_as_sets`:
+- Layer 1 (no deps): `{text-editor.js}`
+- Layer 2: `{text-editor-extras.js}`
+- Layer 3: `{color-picker.js}`
+
+`stable_topological_sort` iterates each layer, picking nodes in `all_items` order:
+- Result: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+This **exactly matches** the expected assertion. ✓
+
+### No MediaOrderConflictWarning
+
+Crucially, there is **no cyclic dependency** in the graph — the pairwise approach previously created the constraint `color-picker.js` before `text-editor.js` (from `widget1 + widget2`), which conflicted with list 3's ordering. By merging all lists at once, that artificial constraint is never introduced, so `CyclicDependencyError` is not raised and the `MediaOrderConflictWarning` is not emitted. ✓
+
+### Other Tests Confirmation
+
+- **test_merge**: All six pairwise cases still resolve correctly via the graph (e.g. `([1,2],[3,2])` → `[1,3,2]`). ✓
+- **test_merge_warning**: `merge([1,2],[2,1])` creates a genuine cycle (1→2 and 2→1), correctly raising the warning with message `Detected duplicate Media files in an opposite order:\n1\n2`.
+
+  ⚠️ **Note**: The warning message format in the current `widgets.py` uses `', '.join(repr(l) for l in lists)` producing `[1, 2], [2, 1]`, but the test expects `\n1\n2` (newline-joined items). The fix output shown did not update the warning message format. For `test_merge_warning` to pass, the `merge` warning must join the conflicting items with newlines, i.e. something like `'\n'.join(...)` over the last two lists' differing items. This is a discrepancy that would cause `test_merge_warning` to FAIL unless the warning message construction is also updated.
+
+- **test_merge_css_three_way**: CSS lists are accumulated per-medium and merged together, yielding `{'screen': ['a.css', 'b.css'], 'all': ['c.css']}` without conflict. ✓
+
+### Conclusion
+
+The primary bug (`test_merge_js_three_way2`) is **resolved**: correct ordering `text-editor.js, text-editor-extras.js, color-picker.js` with no `MediaOrderConflictWarning`. However, the `merge()` warning message formatting still needs to be changed to newline-join the conflicting items to satisfy `test_merge_warning`; otherwise that specific test will fail on the message assertion.

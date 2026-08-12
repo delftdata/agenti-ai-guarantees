@@ -1,0 +1,17 @@
+The current contents already match the target for most files. Only `tests/dispatch/tests.py` needs changing (removing `providing_args` from c_signal and d_signal). All other listed files already lack `providing_args` in their current contents.
+
+diff --git a/tests/dispatch/tests.py b/tests/dispatch/tests.py
+index 0000000..1111111 100644
+--- a/tests/dispatch/tests.py
++++ b/tests/dispatch/tests.py
+@@ -38,8 +38,8 @@ class Callable:
+ 
+ a_signal = Signal()
+ b_signal = Signal()
+-c_signal = Signal(providing_args=["val"])
+-d_signal = Signal(providing_args=["val"], use_caching=True)
++c_signal = Signal()
++d_signal = Signal(use_caching=True)
+ 
+ 
+ class DispatcherTests(SimpleTestCase):

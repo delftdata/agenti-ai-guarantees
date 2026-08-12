@@ -1,0 +1,42 @@
+## Analysis of the Root Cause
+
+### The current merge algorithm
+
+The `Media` class uses a lazy accumulation approach. `__add__` simply concatenates the internal lists of lists (`_css_lists` and `_js_lists`), and the actual merging happens on-demand in the `_js`/`_css` properties, which fold the lists pairwise from left to right using `merge(list_1, list_2)`.
+
+### Why 3+ objects produce spurious warnings
+
+The core problem is that **pairwise, left-to-right merging imposes false ordering constraints prematurely**. When you merge two lists, every pair of adjacent-or-relatively-ordered elements is treated as a hard ordering constraint, even if those two elements never actually had a dependency relationship — they just happened to end up in some order in an intermediate result.
+
+Walking through the reported example:
+
+- `ColorPicker().media` = `['color-picker.js']`
+- `SimpleTextWidget().media` = `['text-editor.js']`
+- `FancyTextWidget().media` = `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+The form combines them left-to-right:
+
+1. `merge(['color-picker.js'], ['text-editor.js'])` → `['color-picker.js', 'text-editor.js']`
+
+   This is the fatal step. The two files are completely independent, but the merge result now **encodes a constraint that `color-picker.js` must come before `text-editor.js`** — a constraint that was never actually specified by any single widget.
+
+2. Merging that result with `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` then conflicts: `FancyTextWidget` requires `color-picker.js` to appear *after* `text-editor.js`, but the intermediate result (wrongly) requires the opposite. This triggers the `MediaOrderConflictWarning`, and the final order is worse than a naive concatenation.
+
+### The key insight
+
+A two-element list should only impose an ordering constraint between elements that *genuinely* have a relative-order requirement within a single source list. The current algorithm cannot distinguish "these two files were listed together and must be ordered this way" from "these two files ended up adjacent purely as an artifact of a prior pairwise merge."
+
+The `merge` function's contract is: given `list_1` and `list_2`, keep the relative order of each, and warn only when the *same two elements* appear in *opposite* relative order in the two inputs. This contract is fine for two genuine source lists. But when `list_1` is itself the product of merging independent lists, it now contains ordering pairs that were never real constraints, and those artificial constraints get validated against — and conflict with — later real constraints.
+
+### The correct solution direction
+
+Rather than merging pairwise into a single flat list and re-deriving constraints from it, the media resolution should be treated as a **topological sort / dependency graph problem**:
+
+- Each individual source list (from a single widget/Media definition) contributes only the ordering constraints between its *own consecutive elements* (e.g., `text-editor.js` before `text-editor-extras.js` before `color-picker.js` from `FancyTextWidget`).
+- Independent files from different sources impose *no* mutual constraint.
+- Combine all these per-source constraints into a graph, then produce an order that satisfies all of them.
+- Only warn (`MediaOrderConflictWarning`) when there is a genuine cycle — i.e., two files that are required in opposite orders by two different real source lists.
+
+Concretely, `__add__` already defers merging by keeping `_js_lists`/`_css_lists` as a list of original lists — this is the right foundation. The fix is to change the `_js`/`_css` properties to merge *all* the original lists at once using a topological sort over the union of per-list adjacency constraints, instead of folding them pairwise with `merge`. This preserves each source's internal ordering, avoids inventing constraints between independent files, and only reports conflicts when a true ordering contradiction exists across source lists.
+
+For the example, the per-list constraints are only `text-editor.js → text-editor-extras.js → color-picker.js` (from `FancyTextWidget`); the singleton lists add no constraints. A topological sort yields `text-editor.js, text-editor-extras.js, color-picker.js` with no warning — exactly the intuitively correct result.

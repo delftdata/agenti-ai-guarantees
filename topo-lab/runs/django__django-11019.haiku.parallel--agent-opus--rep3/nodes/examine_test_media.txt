@@ -1,0 +1,33 @@
+Looking at the test file, I can understand the expected behavior of Django's Media handling and the fix needed for the `MediaOrderConflictWarning` issue.
+
+## Analysis of the Media Merge Behavior
+
+### The Core Problem
+
+The current `Media` class merges media lists pairwise (two at a time). When you do `A + B + C`, it computes `(A + B) + C`. The problem is that merging two lists imposes ordering constraints between files that don't actually depend on each other. When these artificial constraints propagate through subsequent merges, they can cause spurious `MediaOrderConflictWarning`s.
+
+### Key Tests Revealing Expected Behavior
+
+**`test_merge`** — This tests a `Media.merge(list1, list2)` static method with two-list inputs. The expected results show the merge should:
+- Concatenate non-overlapping lists: `([1,2],[3,4]) → [1,2,3,4]`
+- Merge overlapping lists preserving relative order: `([2,3],[1,2]) → [1,2,3]`
+- Handle genuine conflicts by keeping first order: `([1,2],[3,2]) → [1,3,2]`
+
+This signals `merge` remains a two-argument static method, so the fix is likely in *how* results are accumulated across multiple merges, or in the merge algorithm itself.
+
+**`test_merge_warning`** — Confirms genuine conflicts (`[1,2]` vs `[2,1]`) should still emit a `RuntimeWarning` with the message format `'Detected duplicate Media files in an opposite order:\n1\n2'`. So warnings shouldn't be entirely removed—only spurious ones eliminated.
+
+**`test_merge_js_three_way`** — This is the crux. It demonstrates that in a three-way merge, the relative order of independent scripts should be preserved *without* imposing false constraints:
+- `custom_widget.js` doesn't depend on `jquery.js`.
+- The final merge `form_media + inline_media` should yield `['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js']` **without warnings**, even though `custom_widget.js` appears in different positions relative to jquery across the inputs.
+
+**`test_merge_css_three_way`** — Similar principle for CSS. `widget3 + form1 + form2` where form1 has `[a.css, b.css]` and form2 has `[b.css, a.css]` should merge successfully to `['a.css', 'b.css']` because the relative order of `a.css` and `b.css` was never genuinely constrained.
+
+### Implied Solution
+
+The tests suggest the fix is to change from eager pairwise merging to a **deferred/lazy merge strategy**:
+- Media objects should store their component lists separately (as a list of lists) rather than immediately merging on `+`.
+- The actual topological merge should happen only when the final `_js`/`_css` properties are accessed.
+- This way, all sources are combined at once, so ordering constraints are only derived from genuine adjacency requirements across all inputs, not from intermediate pairwise merges that introduce artificial constraints.
+
+The `_js` and `_css` become properties that perform the merge on-demand from stored `_js_lists`/`_css_lists`. The `merge` algorithm should be robust enough to handle the accumulation without false-positive conflict warnings when independent files simply appear in different relative positions across different (non-conflicting) sources.

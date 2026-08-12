@@ -1,0 +1,13 @@
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 0000000..1111111 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -538,3 +538,15 @@ class FormsMediaTestCase(SimpleTestCase):
+         # was never specified.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_warning(self):
++        msg = 'Detected duplicate Media files in an opposite order:\n1\n2'
++        with self.assertWarnsMessage(RuntimeWarning, msg):
++            self.assertEqual(Media.merge([1, 2], [2, 1]), [1, 2])

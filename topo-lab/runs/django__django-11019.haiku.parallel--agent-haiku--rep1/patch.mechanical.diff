@@ -1,0 +1,132 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..c5b81d41c7 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -63,7 +63,11 @@ class Media:
+         # filter(None, ...) avoids calling merge with empty dicts.
+         for obj in filter(None, self._css_lists[1:]):
+             css = {
+-                medium: self.merge(css.get(medium, []), obj.get(medium, []))
++                medium: self.merge_lists(
++                    css.get(medium, []),
++                    obj.get(medium, []),
++                    is_css=True
++                )
+                 for medium in css.keys() | obj.keys()
+             }
+         return css
+@@ -71,9 +75,9 @@ class Media:
+     @property
+     def _js(self):
+         js = self._js_lists[0]
+-        # filter(None, ...) avoids calling merge() with empty lists.
++        # filter(None, ...) avoids calling merge_lists() with empty lists.
+         for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
++            js = self.merge_lists(js, obj)
+         return js
+ 
+     def render(self):
+@@ -115,39 +119,81 @@ class Media:
+         raise KeyError('Unknown media type "%s"' % name)
+ 
+     @staticmethod
+-    def merge(list_1, list_2):
++    def merge_lists(list_1, list_2, is_css=False):
+         """
+         Merge two lists while trying to keep the relative order of the elements.
+         Warn if the lists have the same two elements in a different relative
+-        order.
++        order (i.e., a true circular dependency).
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
++        # Collect all unique items from both lists
++        combined_list = []
++        seen = set()
++        
++        # First, add all items from list_1
++        for item in list_1:
++            if item not in seen:
++                combined_list.append(item)
++                seen.add(item)
++        
++        # Then, add items from list_2 that aren't already in combined_list
++        for item in list_2:
++            if item not in seen:
++                combined_list.append(item)
++                seen.add(item)
++        
++        # Build a dependency graph from both lists
++        # An edge from A to B means A must come before B
++        dependencies = {}  # item -> set of items that must come after it
++        dependents = {}    # item -> set of items that must come before it
++        
++        for item in combined_list:
++            dependencies[item] = set()
++            dependents[item] = set()
++        
++        # Process list_1: if items A and B appear in this order, A must come before B
++        for i, item_a in enumerate(list_1):
++            for item_b in list_1[i + 1:]:
++                dependencies[item_a].add(item_b)
++                dependents[item_b].add(item_a)
++        
++        # Process list_2: if items A and B appear in this order, A must come before B
++        for i, item_a in enumerate(list_2):
++            for item_b in list_2[i + 1:]:
++                # Check for circular dependency: if item_b must come before item_a
++                # (from list_1), but list_2 says item_a must come before item_b
++                if item_b in dependents.get(item_a, set()):
++                    # True conflict detected
+                     warnings.warn(
+                         'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
++                        '%s\n%s' % (item_a, item_b),
+                         MediaOrderConflictWarning,
+                     )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++                
++                # Add the constraint from list_2
++                dependencies[item_a].add(item_b)
++                dependents[item_b].add(item_a)
++        
++        # Perform topological sort using Kahn's algorithm
++        result = []
++        in_degree = {item: len(dependents[item]) for item in combined_list}
++        queue = [item for item in combined_list if in_degree[item] == 0]
++        
++        while queue:
++            # Sort queue to ensure stable ordering when there are no constraints
++            queue.sort(key=lambda x: combined_list.index(x))
++            current = queue.pop(0)
++            result.append(current)
++            
++            for dependent in sorted(dependencies[current], key=lambda x: combined_list.index(x)):
++                in_degree[dependent] -= 1
++                if in_degree[dependent] == 0:
++                    queue.append(dependent)
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()

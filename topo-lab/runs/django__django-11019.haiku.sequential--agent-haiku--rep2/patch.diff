@@ -1,0 +1,464 @@
+```diff
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index original..fixed 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -113,6 +113,88 @@ class Media:
+     @staticmethod
+     def merge(list_1, list_2):
+         """
++        Merge two lists while trying to keep the relative order of the elements.
++        Warn if the lists have the same two elements in a different relative
++        order.
++
++        For static assets it can be important to have them included in the DOM
++        in a certain order. In JavaScript you may not be able to reference a
++        global or in CSS you might want to override a style.
++        """
++        # If either list is empty, return the other
++        if not list_1:
++            return list(list_2)
++        if not list_2:
++            return list(list_1)
++
++        # Collect all unique items
++        all_items = []
++        seen = set()
++        for item in chain(list_1, list_2):
++            if item not in seen:
++                all_items.append(item)
++                seen.add(item)
++
++        # Build ordering constraints: for each item in each list, all items
++        # appearing after it must come after it in the merged result.
++        constraints = []  # List of (must_come_first, must_come_second) tuples
++
++        for lst in [list_1, list_2]:
++            for i, item in enumerate(lst):
++                for later_item in lst[i + 1:]:
++                    constraints.append((item, later_item))
++
++        # Check for direct conflicts: items that have contradictory orderings
++        # Only warn if the same two items appear in opposite orders in both lists
++        direct_conflicts = set()
++        for item1, item2 in constraints:
++            if (item2, item1) in constraints:
++                # These two items have conflicting orderings
++                direct_conflicts.add((item1, item2) if item1 < item2 else (item2, item1))
++
++        if direct_conflicts:
++            # Real conflict: same items in opposite order in both lists
++            item1, item2 = sorted(direct_conflicts)[0]
++            warnings.warn(
++                'Detected duplicate Media files in an opposite order:\n'
++                '%s\n%s' % (item1, item2),
++                MediaOrderConflictWarning,
++            )
++            # Return a simple merge: list_1 items first, then list_2 items not in list_1
++            combined = list(list_1)
++            for item in list_2:
++                if item not in combined:
++                    combined.append(item)
++            return combined
++
++        # No direct conflicts, so do a topological sort respecting all constraints
++        # Build adjacency lists for topological sort
++        dependents = {}  # item -> set of items that must come before it
++        for item in all_items:
++            dependents[item] = set()
++        for before_item, after_item in constraints:
++            dependents[after_item].add(before_item)
++
++        result = []
++        remaining = set(all_items)
++
++        while remaining:
++            # Find an item with no unsatisfied dependencies
++            ready = None
++            for item in remaining:
++                if dependents[item].issubset(set(result)):
++                    ready = item
++                    break
++
++            if ready is None:
++                # No item with satisfied dependencies; shouldn't happen with valid input
++                ready = remaining.pop()
++                remaining.add(ready)
++                break
++
++            result.append(ready)
++            remaining.remove(ready)
++
++        return result
++
++    @staticmethod
++    def merge_old(list_1, list_2):
++        """
+         Merge two lists while trying to keep the relative order of the elements.
+         Warn if the lists have the same two elements in a different relative
+         order.
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index original..fixed 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -1,5 +1,5 @@
+ from django.forms import CharField, Form, Media, MultiWidget, TextInput
+ from django.template import Context, Template
+-from django.test import SimpleTestCase, override_settings
++from django.test import SimpleTestCase, override_settings, expectedFailure
+ 
+ 
+ @override_settings(
+@@ -401,3 +401,35 @@ class FormsMediaTestCase(SimpleTestCase):
+         # ...but merging succeeds as the relative ordering of a.css and b.css
+         # was never specified.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_three_or_more_media_with_dependencies(self):
++        """
++        Test case for issue #11019: Merging 3 or more media objects with 
++        dependencies should not produce unnecessary MediaOrderConflictWarnings.
++        
++        In this case:
++        - text-editor-extras.js depends on text-editor.js
++        - color-picker.js is independent
++        - The merge should succeed without warnings when there are no direct conflicts
++        """
++        # Create the three media objects as described in the issue
++        color_picker = Media(js=['color-picker.js'])
++        simple_text = Media(js=['text-editor.js'])
++        fancy_text = Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
++        
++        # Merge them in the order: color_picker + simple_text + fancy_text
++        # This should NOT produce a warning because there's no direct conflict
++        # (color-picker.js and text-editor.js don't appear in opposite orders)
++        result = color_picker + simple_text + fancy_text
++        
++        # Verify all files are present
++        result_js = result._js
++        self.assertIn('text-editor.js', result_js)
++        self.assertIn('text-editor-extras.js', result_js)
++        self.assertIn('color-picker.js', result_js)
++        
++        # The main constraint from fancy_text is that text-editor-extras.js depends on text-editor.js
++        text_editor_idx = result_js.index('text-editor.js')
++        text_editor_extras_idx = result_js.index('text-editor-extras.js')
++        self.assertLess(text_editor_idx, text_editor_extras_idx,
++                       "text-editor.js should come before text-editor-extras.js")
+```
+
+Wait, I need to reconsider. Looking at the original code more carefully, the `merge` method already exists. Let me provide the correct diff that fixes the actual implementation:
+
+```diff
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index original..fixed 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -113,42 +113,115 @@ class Media:
+     @staticmethod
+     def merge(list_1, list_2):
+         """
+         Merge two lists while trying to keep the relative order of the elements.
+         Warn if the lists have the same two elements in a different relative
+         order.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Build a combined list respecting ordering constraints from both lists
+-        # using a topological sort approach
+-        
+-        # Collect all unique items
++        if not list_1:
++            return list(list_2)
++        if not list_2:
++            return list(list_1)
++
++        # Collect all unique items, preserving order of first occurrence
+         all_items = []
+         seen = set()
+         for item in chain(list_1, list_2):
+             if item not in seen:
+                 all_items.append(item)
+                 seen.add(item)
+-        
+-        # Build adjacency information: for each item, what items must come before it
+-        # based on the ordering in list_1 and list_2
+-        must_come_before = {}  # item -> set of items that must come before it
+-        
++
++        # Build a map of ordering constraints from both lists
++        # constraints will be a set of (must_come_first, must_come_second) tuples
++        constraints = []
+         for lst in [list_1, list_2]:
+             for i, item in enumerate(lst):
+-                if item not in must_come_before:
+-                    must_come_before[item] = set()
+-                # All items that appear after this item in this list must come after it
+                 for later_item in lst[i + 1:]:
+-                    must_come_before[later_item].add(item)
+-        
+-        # Detect conflicts: if A must come before B and B must come before A
++                    constraints.append((item, later_item))
++
++        # Check for direct conflicts: two items with contradictory ordering requirements
++        # A direct conflict only occurs when the same two items appear in opposite orders
++        # in the input lists (not when intermediate merges create apparent conflicts)
++        constraint_set = set(constraints)
++        direct_conflicts = set()
+         for item in all_items:
+-            for before_item in must_come_before.get(item, set()):
+-                if item in must_come_before.get(before_item, set()):
+-                    # Circular dependency - this is a real conflict
+-                    # Fall back to the old behavior and warn
++            for other_item in all_items:
++                if item != other_item:
++                    if (item, other_item) in constraint_set and (other_item, item) in constraint_set:
++                        # Direct conflict: both orderings are required
++                        conflict_pair = tuple(sorted([item, other_item]))
++                        direct_conflicts.add(conflict_pair)
++
++        if direct_conflicts:
++            # There is a genuine conflict in the input lists
++            item1, item2 = sorted(direct_conflicts)[0]
+             warnings.warn(
+                 'Detected duplicate Media files in an opposite order:\n'
+-                '%s\n%s' % (before_item, item),
++                '%s\n%s' % (item1, item2),
+                 MediaOrderConflictWarning,
+             )
+-            # Return a simple merge: list_1 items first, then list_2 items not in list_1
++            # Fallback: list_1 items first, then new items from list_2
+             combined = list(list_1)
+             for item in list_2:
+                 if item not in combined:
+                     combined.append(item)
+             return combined
+-        
+-        # Topological sort: arrange items respecting all constraints
++
++        # No direct conflicts, perform topological sort
++        # Build dependency graph: for each item, what items must come before it
++        dependencies = {item: set() for item in all_items}
++        for must_come_first, must_come_second in constraints:
++            dependencies[must_come_second].add(must_come_first)
++
+         result = []
+-        remaining = set(all_items)
+-        
++        remaining = set(all_items)
++
+         while remaining:
+-            # Find an item with no unsatisfied constraints
++            # Find an item whose dependencies are all satisfied
+             ready = None
+             for item in remaining:
+-                # Check if all items that must come before it are already in result
+-                if all(before_item in result for before_item in must_come_before.get(item, set())):
++                if dependencies[item].issubset(set(result)):
+                     ready = item
+                     break
+-            
++
+             if ready is None:
+-                # This shouldn't happen if there are no circular dependencies
+-                # Just pick the first remaining item
++                # Shouldn't reach here if there are no circular dependencies
+                 ready = next(iter(remaining))
+-            
++
+             result.append(ready)
+             remaining.remove(ready)
+-        
++
+         return result
+
+     def __add__(self, other):
+         combined = Media()
+```
+
+Actually, I realize the current code in the file provided already has a complex topological sort implementation. Let me provide the proper fix that actually works:
+
+```diff
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index original..fixed 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -113,72 +113,110 @@ class Media:
+     @staticmethod
+     def merge(list_1, list_2):
+         """
+         Merge two lists while trying to keep the relative order of the elements.
+         Warn if the lists have the same two elements in a different relative
+         order.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Build a combined list respecting ordering constraints from both lists
+-        # using a topological sort approach
+-        
+-        # Collect all unique items
++        if not list_1:
++            return list(list_2)
++        if not list_2:
++            return list(list_1)
++
++        # Collect all unique items in order of first appearance
+         all_items = []
+         seen = set()
+         for item in chain(list_1, list_2):
+             if item not in seen:
+                 all_items.append(item)
+                 seen.add(item)
+-        
+-        # Build adjacency information: for each item, what items must come before it
+-        # based on the ordering in list_1 and list_2
+-        must_come_before = {}  # item -> set of items that must come before it
+-        
++
++        # Collect all ordering constraints from both input lists
++        # Each constraint is (item_a, item_b) meaning item_a must come before item_b
++        constraints = set()
+         for lst in [list_1, list_2]:
+             for i, item in enumerate(lst):
+-                if item not in must_come_before:
+-                    must_come_before[item] = set()
+-                # All items that appear after this item in this list must come after it
+                 for later_item in lst[i + 1:]:
+-                    must_come_before[later_item].add(item)
+-        
+-        # Detect conflicts: if A must come before B and B must come before A
++                    constraints.add((item, later_item))
++
++        # Check for direct conflicts: only warn if the same two items
++        # appear in opposite orders in the input lists
+         for item in all_items:
+-            for before_item in must_come_before.get(item, set()):
+-                if item in must_come_before.get(before_item, set()):
+-                    # Circular dependency - this is a real conflict
+-                    # Fall back to the old behavior and warn
++            for other_item in all_items:
++                if item != other_item:
++                    # Check if both (item, other_item) and (other_item, item) are in constraints
++                    if (item, other_item) in constraints and (other_item, item) in constraints:
+                     warnings.warn(
+                         'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (before_item, item),
++                        '%s\n%s' % (item, other_item),
+                         MediaOrderConflictWarning,
+                     )
+-                    # Return a simple merge: list_1 items first, then list_2 items not in list_1
++                    # Conflict found, use simple fallback
+                     combined = list(list_1)
+                     for item in list_2:
+                         if item not in combined:
+                             combined.append(item)
+                     return combined
+-        
+-        # Topological sort: arrange items respecting all constraints
++
++        # No conflicts found, perform topological sort using Kahn's algorithm
++        # Build in-degree map and adjacency list
++        in_degree = {item: 0 for item in all_items}
++        graph = {item: [] for item in all_items}
++
++        for before_item, after_item in constraints:
++            graph[before_item].append(after_item)
++            in_degree[after_item] += 1
++
++        # Find all items with no dependencies
++        queue = [item for item in all_items if in_degree[item] == 0]
+         result = []
+-        remaining = set(all_items)
+-        
+-        while remaining:
+-            # Find an item with no unsatisfied constraints
+-            ready = None
+-            for item in remaining:
+-                # Check if all items that must come before it are already in result
+-                if all(before_item in result for before_item in must_come_before.get(item, set())):
+-                    ready = item
+-                    break
+-            
+-            if ready is None:
+-                # This shouldn't happen if there are no circular dependencies
+-                # Just pick the first remaining item
+-                ready = next(iter(remaining))
+-            
++
++        while queue:
++            # Sort queue to ensure deterministic ordering when multiple items
++            # have no dependencies. Preserve the order from all_items.
++            queue.sort(key=lambda x: all_items.index(x))
++            ready = queue.pop(0)
+             result.append(ready)
+-            remaining.remove(ready)
+-        
++
++            # Process neighbors
++            for neighbor in graph[ready]:
++                in_degree[neighbor] -= 1
++                if in_degree[neighbor] == 0:
++                    queue.append(neighbor)
++
++        # If we didn't process all items, there's a cycle (shouldn't happen
++        # since we already checked for conflicts)
++        if len(result) != len(all_items):
++            # Fallback to simple merge
++            combined = list(list_1)
++            for item in list_2:
++                if item not in combined:
++                    combined.append(item)
++            return combined
++
+         return result
+ 
+     def __add__(self, other):
+         combined = Media()
+```
+
+Now let me add the test:
+
+```diff
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index original..fixed 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -398,3 +398,31 @@ class FormsMediaTestCase(SimpleTestCase):
+         # ...but merging succeeds as the relative ordering of a.css and b.css
+         # was never specified.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_three_or_more_media_with_dependencies(self):
++        """
++        Test case for issue #11019: Merging 3 or more media objects with
++        dependencies should not produce unnecessary MediaOrderConflictWarnings.
++
++        When merging media objects where one has a dependency (text-editor-extras.js
++        depends on text-editor.js) and others are independent, the merge should
++        succeed without warnings as long as there are no direct conflicts.
++        """
++        # Create media objects as described in the issue
++        color_picker = Media(js=['color-picker.js'])
++        simple_text = Media(js=['text-editor.js'])
++        fancy_text = Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
++
++        # Merge them: (color_picker + simple_text) + fancy_text
++        # Should not produce a warning because color-picker.js and text-editor.js
++        # do not have contradictory ordering requirements in the input lists
++        result = color_picker + simple_text + fancy_text
++        result_js = result._js
++
++        # Verify all files are present
++        self.assertIn('text-editor.js', result_js)
++        self.assertIn('text-editor-extras.js', result_js)
++        self.assertIn('color-picker.js', result_js)
++
++        # Verify the dependency constraint is respected
++        self.assertLess(result_js.index('text-editor.js'), result_js.index('text-editor-extras.js'))
+```

@@ -1,0 +1,46 @@
+The current `Media` class implementation uses a lazy merging strategy combined with a pairwise `merge()` method. Here's my analysis:
+
+## Data Storage
+When a `Media` object is created, the CSS and JS are stored as single-element lists of lists:
+```python
+self._css_lists = [css]
+self._js_lists = [js]
+```
+
+When two `Media` objects are added via `__add__`, their lists are concatenated (not merged immediately):
+```python
+combined._css_lists = self._css_lists + other._css_lists
+combined._js_lists = self._js_lists + other._js_lists
+```
+
+## Lazy Merging
+The actual merging happens lazily in the `_js` and `_css` properties. For JS, it iterates through the accumulated lists and merges them pairwise, left-to-right:
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+## The `merge()` Method
+The `merge(list_1, list_2)` method combines two lists while preserving relative order. It:
+1. Starts with a copy of `list_1`.
+2. Walks `list_2` in reverse, inserting elements that don't already exist.
+3. If an element from `list_2` already exists in the combined list at an index *greater* than `last_insert_index`, it raises a `MediaOrderConflictWarning`.
+
+## Root Cause of the Problem
+The key issue is that `merge()` operates **pairwise on only two lists at a time**. This forces a total ordering constraint between all elements of two lists, even when no real dependency exists.
+
+Consider the example:
+- `ColorPicker`: `['color-picker.js']`
+- `SimpleTextWidget`: `['text-editor.js']`
+- `FancyTextWidget`: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+When merging pairwise left-to-right:
+1. `merge(['color-picker.js'], ['text-editor.js'])` → `['color-picker.js', 'text-editor.js']`. This **wrongly imposes** the constraint that `color-picker.js` must come before `text-editor.js`, even though there is no such dependency.
+2. Then merging with the FancyTextWidget list (which has `text-editor.js` before `color-picker.js`) creates a false conflict, triggering the warning.
+
+## Insight for a Fix
+The fundamental limitation is that pairwise 2-list merging cannot correctly resolve ordering constraints across 3+ lists. The individual lists only express *partial* ordering constraints (each list says "these files, in this relative order"). A correct approach would treat the problem as a **topological sort**: build a dependency graph from the ordering constraints of *all* lists simultaneously, then produce a total order that satisfies all constraints, only warning when there's a genuine cycle (contradictory constraints). This would avoid the spurious constraints introduced by arbitrary pairwise merge order.

@@ -1,0 +1,82 @@
+The upstream nodes have already established the fix. Let me analyze whether it resolves the issue.
+
+## Analysis
+
+### The Fix Approach
+
+The core change is to the `Media` class's merge strategy:
+
+1. **Deferred merging via `_css_lists` and `_js_lists`**: Instead of eagerly merging media lists on every `__add__` operation, the `Media` class now stores lists of raw lists (`_css_lists`, `_js_lists`). The `__add__` operation just concatenates these lists without merging. The actual merge happens lazily in the `_css`/`_js` properties.
+
+2. **New `merge(*lists)` that accepts multiple lists**: Rather than merging pairwise (which caused false ordering constraints), the merge now processes ALL lists together, building a single dependency graph and applying a `stable_topological_sort`.
+
+### Why This Fixes the Problem
+
+In the original code, `widget1 + widget2 + widget3` merged pairwise:
+- `[color-picker.js] + [text-editor.js]` → `[color-picker.js, text-editor.js]` — this **incorrectly** imposed that color-picker.js must precede text-editor.js.
+- Then merging with `[text-editor.js, text-editor-extras.js, color-picker.js]` created a cycle, triggering the warning.
+
+With the new approach, all three lists are collected as `_js_lists = [['color-picker.js'], ['text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']]`, and merged together at once. The dependency graph built from these is:
+- `text-editor-extras.js` depends on `text-editor.js`
+- `color-picker.js` depends on `text-editor-extras.js`
+
+No false constraint between color-picker.js and text-editor.js is created from the two independent single-element lists. The topological sort yields `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`.
+
+### Verifying Against the Test Cases
+
+- **`test_merge_js_three_way2`**: Expects `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` with no warning. ✅ Resolved by lazy multi-list merge.
+- **`test_merge`**: Tests pairwise merge cases like `([1,2],[3,4])→[1,2,3,4]`. The new `merge(*lists)` still handles these correctly. ✅
+- **`test_merge_warning`**: `merge([1,2],[2,1])` genuinely cyclic → warning `'Detected duplicate Media files in an opposite order:\n1\n2'`. ⚠️ **Concern**: The warning message format in the fix uses `', '.join(repr(l) for l in lists)` producing `"[1, 2], [2, 1]"`, but the test expects newline-joined `"1\n2"`. The warning message doesn't match the test expectation.
+- **`test_merge_js_three_way`**: Expects establishing order between custom_widget.js and jquery.js. ✅
+- **`test_merge_css_three_way`**: Expects merges succeeding without warnings. ✅
+
+### Issue Found
+
+**The warning message is incompatible with `test_merge_warning`.** The test expects:
+```
+'Detected duplicate Media files in an opposite order:\n1\n2'
+```
+But the fix produces:
+```
+'Detected duplicate Media files in an opposite order: [1, 2], [2, 1]'
+```
+
+The `merge` method needs to be corrected so that when a `CyclicDependencyError` occurs, it identifies the specific conflicting items and reports them newline-separated. The correct implementation should catch the cycle, warn with the offending pair joined by newlines, then fall back to a best-effort merge.
+
+### Corrected `merge` Logic Needed
+
+The proper upstream fix warns per-list during an iterative pairwise-style merge that detects when an item appears before a dependency it should follow:
+
+```python
+@classmethod
+def merge(cls, *lists):
+    dependency_graph = defaultdict(set)
+    all_items = OrderedSet()
+    for list_ in filter(None, lists):
+        head = list_[0]
+        dependency_graph.setdefault(head, set())
+        for item in list_:
+            all_items.add(item)
+            if head != item:
+                dependency_graph[item].add(head)
+            head = item
+    try:
+        return stable_topological_sort(all_items, dependency_graph)
+    except CyclicDependencyError:
+        warnings.warn(
+            'Detected duplicate Media files in an opposite order: {}'.format(
+                ', '.join(repr(l) for l in lists)
+            ), MediaOrderConflictWarning,
+        )
+        return list(all_items)
+```
+
+This still won't match the `'\n1\n2'` expectation. The actual Django fix keeps a two-argument `merge` internally OR adjusts `test_merge_warning` — in the real commit, `test_merge_warning` was updated to expect the newline format because the warning collects the specific conflicting nodes from the cycle, not the raw lists.
+
+## Conclusion
+
+The fix **correctly resolves the core issue** (`test_merge_js_three_way2` passes, no `MediaOrderConflictWarning`, correct ordering `text-editor.js, text-editor-extras.js, color-picker.js`). The lazy-merge with topological sort is the right architecture.
+
+However, the **warning message format in the fix's `merge` does not match `test_merge_warning`'s expectation** (`'\n1\n2'`). The `merge` implementation must be refined to detect the specific conflicting items from the cyclic dependency and emit them newline-joined, so that `Media.merge([1, 2], [2, 1])` produces the message `'Detected duplicate Media files in an opposite order:\n1\n2'` while still returning `[1, 2]`.
+
+To make ALL tests pass, the final `merge` needs to build the result incrementally and, upon detecting an inversion, warn with the two specific conflicting paths joined by `\n`.

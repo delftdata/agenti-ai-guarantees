@@ -1,0 +1,43 @@
+The current `Media` class merges media files pairwise using `merge(list_1, list_2)`, which combines exactly two lists at a time. When more than two Media objects are added (via repeated `__add__`), the merges happen sequentially and accumulate spurious ordering constraints.
+
+## How the current merging works
+
+**Storage (`__add__`):** Adding Media objects doesn't immediately merge; it just concatenates the underlying lists:
+```python
+combined._css_lists = self._css_lists + other._css_lists
+combined._js_lists = self._js_lists + other._js_lists
+```
+So `A + B + C` results in `_js_lists = [A_js, B_js, C_js]`.
+
+**Resolution (`_js` property):** The actual merge happens lazily when `_js` is accessed. It folds left, merging pairwise:
+```python
+js = self._js_lists[0]
+for obj in filter(None, self._js_lists[1:]):
+    js = self.merge(js, obj)
+```
+So it computes `merge(merge(A, B), C)`.
+
+**The `merge(list_1, list_2)` algorithm:**
+- Starts with a copy of `list_1`, sets `last_insert_index = len(list_1)`.
+- Walks `list_2` in reverse. For each `path`:
+  - If not in `combined_list`, insert it at `last_insert_index`.
+  - If already present at `index`: warn if `index > last_insert_index` (opposite-order conflict), then set `last_insert_index = index`.
+
+## Why 3+ merges produce false conflicts
+
+The key problem is that pairwise merging **synthesizes ordering constraints that were never actually required**. When merging two independent lists, `merge` picks *some* total order to combine them. That total order then becomes a hard constraint imposed on the next merge, even though most of those orderings were arbitrary.
+
+Using the issue's example:
+- `ColorPicker.media = [color-picker.js]`
+- `SimpleTextWidget.media = [text-editor.js]`
+- `FancyTextWidget.media = [text-editor.js, text-editor-extras.js, color-picker.js]`
+
+Step 1: `merge([color-picker.js], [text-editor.js])` → `[color-picker.js, text-editor.js]`. This is an arbitrary ordering — the two files are independent — but it now *asserts* color-picker.js must come before text-editor.js.
+
+Step 2: `merge([color-picker.js, text-editor.js], [text-editor.js, text-editor-extras.js, color-picker.js])`. The second list wants color-picker.js after text-editor.js, but step 1 established the opposite. This triggers the `MediaOrderConflictWarning`, even though the only *real* constraint (text-editor.js before text-editor-extras.js) is perfectly satisfiable.
+
+## Conclusions
+
+- The fundamental limitation: pairwise `merge` cannot handle 3+ lists correctly because it commits to a full total order at each step, converting incidental adjacency into binding constraints.
+- The warning message can also be misleading, reporting the pair that conflicts under the synthesized order rather than the genuinely conflicting pair.
+- A correct fix requires treating the merge as a **topological sort / graph problem**: collect only the pairwise "X must come before Y" constraints implied by the *within-list* ordering of each individual list, build a dependency graph across all lists at once, and produce an order consistent with all lists — warning only when there's a genuine cycle (a real conflicting order between two files that both appear in two lists in opposite relative order). This would replace the left-fold-of-pairwise-merge approach in the `_js`/`_css` properties and the `merge` static method.

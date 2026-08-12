@@ -1,0 +1,38 @@
+Looking at the test file and problem statement, I need to understand the expected behavior of media merging.
+
+## Analysis
+
+### The Problem
+
+The current implementation merges media pairwise (two lists at a time). When combining 3+ media objects, this pairwise merging imposes spurious ordering constraints that lead to false `MediaOrderConflictWarning`s.
+
+In the example: `ColorPicker().media + SimpleTextWidget().media` produces `['color-picker.js', 'text-editor.js']`. This *incorrectly* records that `color-picker.js` must come before `text-editor.js`, even though neither widget actually asserted any relationship between those two files. When later merged with `FancyTextWidget`'s media (which puts `color-picker.js` after `text-editor.js`), a false conflict is detected.
+
+### Expected Behavior from Tests
+
+Looking at the test suite, several tests clarify the intended new behavior:
+
+**`test_merge`** — The core `merge` function is now expected to handle pairwise merges where the constraint is only the *relative* order within each list:
+- `([1, 2], [2, 3]) → [1, 2, 3]`
+- `([2, 3], [1, 2]) → [1, 2, 3]` — note: even though list2 comes second and has `1` before `2`, and list1 has no `1`, the result correctly interleaves as `[1, 2, 3]`
+- `([1, 2], [3, 2]) → [1, 3, 2]` — `3` must precede `2` (from list2), `1` must precede `2` (from list1), so `1, 3, 2` is valid
+
+This shows `merge` no longer just appends; it does a proper order-preserving merge where each list only constrains the relative order of *its own* elements.
+
+**`test_merge_warning`** — A genuine conflict `([1, 2], [2, 1])` still warns (RuntimeWarning) and falls back to `[1, 2]`. Real conflicts must still be detected.
+
+**`test_merge_js_three_way`** — This is the key regression test. It demonstrates:
+- `widget1 + widget2` establishes `['custom_widget.js', 'jquery.js', 'uses_jquery.js']` but "without a real need to" — the ordering between `custom_widget.js` and `jquery.js` is incidental, not a real dependency.
+- The final three-way merge must succeed and produce `['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js']` **without warnings**, even though `custom_widget.js` appears in different positions across the inputs.
+
+**`test_merge_css_three_way`** — Similarly, `form1` has `['a.css', 'b.css']` and `form2` has `['b.css', 'a.css']`. Since the a.css/b.css relative order was never genuinely specified (they came from independent widgets), the merge `widget3 + form1 + form2` must succeed producing `{'screen': ['a.css', 'b.css'], 'all': ['c.css']}` without a warning.
+
+### Implication for the Fix
+
+The solution requires changing how media lists accumulate. Instead of eagerly merging pairs (which "bakes in" spurious constraints), the `Media` object should:
+1. Store lists of media (e.g., `_css_lists`, `_js_lists`) deferring the merge.
+2. Only compute the final merged order lazily via a proper multi-list merge algorithm (topological-sort-like) when the media is actually rendered/accessed.
+
+The `merge` method itself changes from "concatenate list2 onto list1 checking conflicts" to a genuine order-preserving two-list merge that only enforces relative ordering of elements *within* each source list, warning only on genuine cyclic conflicts.
+
+This eliminates false warnings from incidental ordering while still catching real conflicts (like `[1,2]` vs `[2,1]`).

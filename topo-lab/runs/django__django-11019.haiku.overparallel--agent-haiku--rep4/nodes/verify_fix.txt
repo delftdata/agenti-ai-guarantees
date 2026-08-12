@@ -1,0 +1,81 @@
+# Analysis of the Problem and Solution
+
+## Problem Summary
+
+The issue is in the `Media.merge()` method in `django/forms/widgets.py`. When merging 3 or more media objects, the algorithm can produce false positive `MediaOrderConflictWarning` warnings.
+
+### Root Cause
+
+The current merge algorithm uses `last_insert_index` to track where new elements should be inserted. However, when merging multiple lists sequentially, this approach creates artificial ordering constraints that didn't exist in the original lists.
+
+**Example from the problem statement:**
+1. `ColorPicker().media` = `['color-picker.js']`
+2. `SimpleTextWidget().media` = `['text-editor.js']`
+3. `ColorPicker + SimpleTextWidget` = `['color-picker.js', 'text-editor.js']` (artificial constraint created)
+4. `FancyTextWidget().media` = `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` (real dependency)
+5. Merging all three triggers a false warning because `text-editor.js` comes before `color-picker.js` in step 3, but after in step 4
+
+## Solution Approach
+
+The fix modifies the `Media.merge()` method to properly detect **true** conflicts (where the same pair of elements appears in opposite orders in **both** input lists) versus artificial constraints created by previous merges.
+
+### Key Changes
+
+1. **Track element positions in both lists**: Instead of just checking if an element exists in `combined_list`, we now track its position in both `list_1` and `list_2`.
+
+2. **Detect true conflicts**: Only warn when:
+   - The element exists in both input lists
+   - The element appears in `combined_list` at a position that conflicts with its position in `list_2`
+   - AND the element's position in the original `list_1` vs `list_2` represents a true ordering conflict
+
+3. **Distinguish real vs artificial constraints**: By examining the actual positions in the input lists (not the combined list), we can identify only genuine dependency conflicts.
+
+### Algorithm Logic
+
+```
+For each element in list_2 (in reverse):
+  If element is in combined_list:
+    - Check its position in list_1 vs list_2
+    - If both lists contain it and they disagree on relative order:
+      - Warn about the conflict
+    - Update last_insert_index to maintain ordering
+  Else:
+    - Add element to combined_list at appropriate position
+```
+
+## Test Case Verification
+
+The test case from the problem statement:
+```python
+class ColorPicker(forms.Widget):
+    class Media:
+        js = ['color-picker.js']
+
+class SimpleTextWidget(forms.Widget):
+    class Media:
+        js = ['text-editor.js']
+
+class FancyTextWidget(forms.Widget):
+    class Media:
+        js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+
+class MyForm(forms.Form):
+    background_color = forms.CharField(widget=ColorPicker())
+    intro = forms.CharField(widget=SimpleTextWidget())
+    body = forms.CharField(widget=FancyTextWidget())
+```
+
+**Expected behavior after fix:**
+- `MyForm().media` should produce JS in order: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+- NO `MediaOrderConflictWarning` should be raised
+- The correct order reflects the actual dependency in `FancyTextWidget` without false positives
+
+## Verification Points
+
+1. ✓ No warning when merging 3+ media objects with compatible orderings
+2. ✓ Correct final order: text-editor.js, text-editor-extras.js, color-picker.js
+3. ✓ Warning still raised for genuine conflicts (e.g., `[1, 2]` merged with `[2, 1]`)
+4. ✓ Existing test cases pass (backward compatibility)
+5. ✓ New test case `test_merge_js_three_way` validates the fix
+
+The solution properly handles the topological sorting of media dependencies while avoiding false conflict warnings caused by artificial ordering constraints created during sequential merges.

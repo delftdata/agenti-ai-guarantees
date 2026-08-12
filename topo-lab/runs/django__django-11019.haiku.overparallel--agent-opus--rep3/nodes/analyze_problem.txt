@@ -1,0 +1,70 @@
+## Analysis of the Root Cause
+
+### The Current Merge Strategy
+
+The `Media` class uses a deferred, pairwise merge strategy. When two `Media` objects are added via `__add__`, their underlying lists are simply concatenated into `_js_lists`:
+
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+Then, when the `_js` property is accessed, the lists are merged **pairwise, left-to-right, in a reduce/fold manner**:
+
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+### The Root Cause
+
+The problem is that **`merge` is a two-way operation that treats every element of `list_1` as strictly ordered relative to every element of `list_2`**. When merging happens pairwise in a left fold, intermediate results impose ordering constraints that never existed in any single original media declaration.
+
+Walk through the example:
+- `ColorPicker`: `['color-picker.js']`
+- `SimpleTextWidget`: `['text-editor.js']`
+- `FancyTextWidget`: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+The fold computes:
+
+1. `merge(['color-picker.js'], ['text-editor.js'])` → `['color-picker.js', 'text-editor.js']`
+
+   **This is where the false constraint is born.** Neither `ColorPicker` nor `SimpleTextWidget` actually says color-picker must come before text-editor. They are completely independent. But because `merge` is asked to combine two lists, it must pick *some* order, and it puts `color-picker.js` before `text-editor.js` purely as an artifact of the addition order.
+
+2. `merge(['color-picker.js', 'text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])`
+
+   Now the intermediate result carries the spurious constraint `color-picker.js < text-editor.js`, while `FancyTextWidget` legitimately requires `text-editor.js < text-editor-extras.js < color-picker.js` (i.e. `color-picker.js` last). These two are contradictory, so `merge` emits the `MediaOrderConflictWarning`, and the final result is a mangled order that is worse than the naive concatenation.
+
+### Why the Warning Message Is Misleading
+
+The warning reports `text-editor-extras.js` and `text-editor.js` as the conflicting pair, but the *actual* wrong-ordered pair from the user's perspective is `color-picker.js` / `text-editor.js`. This is because the conflict is detected during the second merge, where the spurious constraint from step 1 collides with `FancyTextWidget`'s real constraints; the pair reported is whatever happened to trigger `index > last_insert_index` during that specific pass, not the pair that actually caused the logical inconsistency.
+
+### The Fundamental Flaw
+
+`merge` conflates two distinct notions:
+1. **Real ordering constraints**: within a single media list, `a` appearing before `b` means `a` should precede `b`.
+2. **Incidental adjacency**: when combining two *independent* lists, no such constraint should be inferred.
+
+The pairwise-fold approach cannot distinguish these, because as soon as two independent lists are merged into one flat list, the incidental order becomes indistinguishable from a real constraint and gets propagated into subsequent merges.
+
+### The Correct Approach
+
+The proper fix is to stop treating `merge` as a binary list operation applied in a fold, and instead **treat media ordering as a topological sort / dependency graph problem**:
+
+- Each media list only asserts constraints between *consecutive* (or pairwise successive) elements *within that same list*.
+- Collect the full set of such pairwise constraints across *all* lists first, without prematurely flattening intermediate results.
+- Then produce a final ordering that respects all constraints, only warning when there is a genuine cycle (i.e. list A requires `x < y` and list B requires `y < x`).
+
+Under this scheme:
+- `ColorPicker` and `SimpleTextWidget` contribute no cross-constraint between `color-picker.js` and `text-editor.js`.
+- `FancyTextWidget` contributes `text-editor.js < text-editor-extras.js < color-picker.js`.
+- No cycle exists, so the correct order `text-editor.js`, `text-editor-extras.js`, `color-picker.js` (with `color-picker.js` folded in from `ColorPicker` at the position dictated by `FancyTextWidget`) is produced without any warning.
+
+Concretely, `merge` should be reimplemented so it does not insert spurious ordering between elements unique to `list_1` and elements unique to `list_2`, and the `_js`/`_css` accessors should aggregate constraints from all lists rather than folding results left-to-right.

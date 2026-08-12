@@ -1,0 +1,262 @@
+===== test_combine_media (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_combine_media (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\tests\forms_tests\tests\test_media.py", line 121, in test_combine_media
+    self.assertEqual(
+AssertionError: '<lin[341 chars]src="/path/to/js4"></script>\n<script type="te[146 chars]ipt>' != '<lin[341 chars]src="http://media.other.com/path/to/js2"></scr[146 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.006s
+
+FAILED (failures=1)
+
+
+===== test_construction (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_form_media (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_form_media (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\tests\forms_tests\tests\test_media.py", line 469, in test_form_media
+    self.assertEqual(
+AssertionError: '<lin[341 chars]src="/path/to/js4"></script>\n<script type="te[146 chars]ipt>' != '<lin[341 chars]src="http://media.other.com/path/to/js2"></scr[146 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)
+
+
+===== test_media_deduplication (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_media_deduplication (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\tests\forms_tests\tests\test_media.py", line 162, in test_media_deduplication
+    self.assertEqual(str(media), """<link href="/path/to/css1" type="text/css" media="all" rel="stylesheet">
+AssertionError: '<lin[66 chars]">\n<link href="/path/to/css1" type="text/css"[148 chars]ipt>' != '<lin[66 chars]">\n<script type="text/javascript" src="/path/[13 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (failures=1)
+
+
+===== test_media_inheritance (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_media_inheritance (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\tests\forms_tests\tests\test_media.py", line 254, in test_media_inheritance
+    self.assertEqual(
+AssertionError: '<lin[341 chars]src="/path/to/js4"></script>\n<script type="te[146 chars]ipt>' != '<lin[341 chars]src="http://media.other.com/path/to/js2"></scr[146 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)
+
+
+===== test_media_inheritance_extends (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_media_inheritance_extends (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\tests\forms_tests\tests\test_media.py", line 329, in test_media_inheritance_extends
+    self.assertEqual(
+AssertionError: '<lin[341 chars]src="/path/to/js4"></script>\n<script type="te[146 chars]ipt>' != '<lin[341 chars]src="http://media.other.com/path/to/js2"></scr[146 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)
+
+
+===== test_media_property_parent_references (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_merge (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_merge_css_three_way (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_merge_js_three_way (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+OK
+
+
+===== test_merge_js_three_way2 (forms_tests.tests.test_media.FormsMediaTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+
+
+===== test_merge_warning (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_merge_warning (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\tests\forms_tests\tests\test_media.py", line 558, in test_merge_warning
+    self.assertEqual(Media.merge([1, 2], [2, 1]), [1, 2])
+  File "C:\Users\rares\AppData\Local\Python\pythoncore-3.8-64\lib\contextlib.py", line 120, in __exit__
+    next(self.gen)
+  File "C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\django\test\testcases.py", line 676, in _assert_raises_or_warns_cm
+    self.assertIn(expected_message, str(getattr(cm, cm_attr)))
+AssertionError: 'Detected duplicate Media files in an opposite order: [1, 2], [2, 1]' not found in 'Detected duplicate Media files in an opposite order:\n1\n1'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+FAILED (failures=1)
+
+
+===== test_multi_widget (forms_tests.tests.test_media.FormsMediaTestCase): FAIL =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+F
+======================================================================
+FAIL: test_multi_widget (forms_tests.tests.test_media.FormsMediaTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\tests\forms_tests\tests\test_media.py", line 427, in test_multi_widget
+    self.assertEqual(
+AssertionError: '<lin[341 chars]src="/path/to/js4"></script>\n<script type="te[146 chars]ipt>' != '<lin[341 chars]src="http://media.other.com/path/to/js2"></scr[146 chars]ipt>'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (failures=1)
+
+
+===== test_media (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.015s
+
+OK
+Destroying test database for alias 'default'...
+
+
+
+===== test_render_options (admin_widgets.test_autocomplete_widget.AutocompleteMixinTests): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.063s
+
+OK
+Destroying test database for alias 'default'...
+
+
+
+===== test_inline_media_only_inline (admin_inlines.tests.TestInlineMedia): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpt69788_0\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.164s
+
+OK
+Destroying test database for alias 'default'...
+

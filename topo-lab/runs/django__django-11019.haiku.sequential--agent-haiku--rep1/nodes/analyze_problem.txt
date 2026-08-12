@@ -1,0 +1,116 @@
+# Analysis of Media Merging Issues with 3+ Objects
+
+## Problem Summary
+
+When merging 3 or more Media objects, the current algorithm incorrectly tracks ordering constraints. It treats intermediate merge results as definitive orderings, even though these results may contain artificial constraints created by the sequential merging process itself.
+
+## Detailed Analysis
+
+### Current Merging Flow
+
+The `__add__` method (lines 155-160) simply concatenates internal lists:
+
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+This is correct - it defers merging until the `_js` or `_css` properties are accessed.
+
+### The Real Problem: Sequential Merging in Properties
+
+When accessing `_js` property (lines 71-75):
+
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    # filter(None, ...) avoids calling merge() with empty lists.
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+This iteratively merges all lists sequentially. **This is where the false constraints are created.**
+
+### Concrete Example Walkthrough
+
+Given:
+- Widget A: `['color-picker.js']`
+- Widget B: `['text-editor.js']`
+- Widget C: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+Operation: `A.media + B.media + C.media`
+
+**After addition (before property access):**
+- `_js_lists = [['color-picker.js'], ['text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']]`
+
+**When accessing `_js` property:**
+
+1. **First iteration**: `merge(['color-picker.js'], ['text-editor.js'])`
+   - `list_1 = ['color-picker.js']`
+   - `list_2 = ['text-editor.js']`
+   - Processes `'text-editor.js'` (from reversed list_2)
+   - Not found in combined_list, inserts at position 1
+   - **Result: `['color-picker.js', 'text-editor.js']`**
+   - **Problem: This establishes the FALSE constraint that color-picker.js comes before text-editor.js**
+
+2. **Second iteration**: `merge(['color-picker.js', 'text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])`
+   - `list_1 = ['color-picker.js', 'text-editor.js']` (has artificial ordering)
+   - `list_2 = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` (reversed to `['color-picker.js', 'text-editor-extras.js', 'text-editor.js']`)
+   - `last_insert_index = 2` (len(list_1))
+   - Process `'color-picker.js'` (from reversed list_2):
+     - Found at index 0
+     - `0 < 2`, so no warning yet
+     - `last_insert_index = 0`
+   - Process `'text-editor-extras.js'`:
+     - Not found, insert at position 0
+     - `combined_list = ['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`
+   - Process `'text-editor.js'`:
+     - Found at index 2
+     - **Check: `2 > 0` (last_insert_index) → TRUE**
+     - **FALSE WARNING TRIGGERED** (reports 'text-editor-extras.js' and 'text-editor.js')
+   - **Result: `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`** (wrong order)
+
+### Why This Is Wrong
+
+The algorithm reports a conflict between:
+- `'text-editor-extras.js'` (at index 0 in combined_list)
+- `'text-editor.js'` (at index 2 in combined_list)
+
+But the **actual conflict is between**:
+- `'color-picker.js'` and `'text-editor.js'` (artificial ordering from step 1)
+- The natural ordering in list_2 where `'text-editor.js'` comes before `'color-picker.js'`
+
+The warning is misidentified and the final result violates the explicit dependency in FancyTextWidget where text-editor-extras.js should come after text-editor.js.
+
+## Root Causes Identified
+
+1. **No Dependency Tracking**: The algorithm doesn't track which files have explicit dependencies on which other files (e.g., text-editor-extras depends on text-editor).
+
+2. **Intermediate State Treated as Constraint**: When merging A+B first, the result creates an artificial ordering that is treated as a genuine constraint in the next merge iteration.
+
+3. **Lost Provenance Information**: The algorithm doesn't track which original input list established an ordering. It can't distinguish between:
+   - Genuinely conflicting orderings (same pair in opposite orders in different input lists)
+   - Artificial orderings (created by intermediate merge results)
+
+4. **Sequential Merging Assumes Commutativity**: The algorithm assumes that `(A + B) + C ≈ A + (B + C)` but the sequential iterative merge violates this through artificial constraint accumulation.
+
+5. **Reverse Iteration Without Context**: Processing list_2 in reverse order is meant to preserve relative ordering, but without tracking dependency information, it creates false constraints.
+
+## The Correct Approach
+
+The fix requires recognizing that:
+
+1. **Only genuine ordering constraints should be tracked** - constraints that come directly from individual input lists, not from intermediate merge results.
+
+2. **A better merging strategy** would be to:
+   - Treat the problem as a constraint satisfaction problem
+   - Only merge at the final access point with all lists simultaneously
+   - Or, use topological sorting based on explicit dependencies found in any single input list
+   - Use a method that doesn't accumulate artificial constraints
+
+3. **The key insight**: When all lists are available simultaneously (at property access time), we can detect true conflicts more accurately rather than sequentially creating false ones.

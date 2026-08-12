@@ -1,0 +1,46 @@
+# Analysis of the Media Merge Problem
+
+## The Core Issue
+
+The current `Media.merge()` method merges only two lists at a time. When combining media from multiple widgets, the additions happen pairwise (`w1 + w2 + w3`), so intermediate merges impose ordering constraints that don't actually exist in the original requirements.
+
+For example, with:
+- `ColorPicker`: `['color-picker.js']`
+- `SimpleTextWidget`: `['text-editor.js']`
+- `FancyTextWidget`: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+Merging `ColorPicker + SimpleTextWidget` first yields `['color-picker.js', 'text-editor.js']`, which wrongly asserts `color-picker.js` must come before `text-editor.js`. When this then merges with `FancyTextWidget`'s list (which has `color-picker.js` last), a false conflict is detected.
+
+## Expected Behavior from the Tests
+
+Looking at the test file, the key tests that constrain a solution are:
+
+**`test_merge`**: The two-list `merge` still works, producing these results:
+- `([1, 2], [3, 4])` → `[1, 2, 3, 4]`
+- `([1, 2], [2, 3])` → `[1, 2, 3]`
+- `([2, 3], [1, 2])` → `[1, 2, 3]` (list2 elements before shared element go first)
+- `([1, 3], [2, 3])` → `[1, 2, 3]`
+- `([1, 2], [1, 3])` → `[1, 2, 3]`
+- `([1, 2], [3, 2])` → `[1, 3, 2]`
+
+**`test_merge_warning`**: `merge([1, 2], [2, 1])` still warns (real conflict) and returns `[1, 2]`.
+
+**`test_merge_js_three_way`**: This is the crucial new test. It demonstrates that a three-way merge should preserve relative order without introducing false constraints. `custom_widget.js` can float relative to `jquery.js` since no real dependency exists between them, resolving to `['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js']`.
+
+**`test_merge_css_three_way`**: Similarly, CSS files whose relative ordering was never specified should merge without warnings: `widget3 + form1 + form2` succeeds.
+
+## Implied Design Change
+
+The tests indicate the solution should:
+
+1. Change `merge` semantics so it merges a new list *into* an accumulated list, treating the accumulated list as the "combined so far" and only asserting constraints that genuinely appear in individual source lists — not constraints synthesized by prior pairwise merges.
+
+2. Change `Media.__init__` / the `_js` and `_css` properties to defer merging. Instead of eagerly combining lists on each `+`, the Media object should retain the list of individual media lists (js lists and css dicts per media type), and only run the merge when the combined `_js` / `_css` property is accessed. This way the full set of source lists is available at once, allowing a proper multi-way merge that doesn't accumulate spurious ordering constraints.
+
+3. The `merge` algorithm itself should be reworked to insert a new list's elements relative to already-seen elements correctly, warning only when the *last seen index* of an element being inserted violates a genuine ordering from the input lists.
+
+The tests reference `form_media._js` and `merged._css` directly, confirming that `_js` and `_css` become computed properties over stored lists of lists, rather than pre-merged flat lists stored as `_js`/`_css` attributes at construction time.
+
+## Summary
+
+The fix requires refactoring `django/forms/widgets.py`'s `Media` class to accumulate raw media lists and perform a single N-way merge lazily, plus rewriting `Media.merge` to only detect true conflicts. The tests `test_merge_js_three_way` and `test_merge_css_three_way` are new additions validating this behavior, while `test_merge` and `test_merge_warning` ensure the two-list merge base cases still behave correctly.

@@ -1,0 +1,75 @@
+# Analysis: Merging 3+ Media Objects and False MediaOrderConflictWarnings
+
+## Problem Summary
+
+The issue is in how Django's `Media.merge()` method handles the combination of 3 or more media objects. When merging multiple media objects, the algorithm can incorrectly infer ordering constraints that don't actually exist, leading to unnecessary `MediaOrderConflictWarning`s.
+
+## Root Cause Analysis
+
+The `Media.merge()` method processes two lists at a time, inserting items from `list_2` into `combined_list` (initially a copy of `list_1`). The algorithm tracks a `last_insert_index` to maintain relative ordering.
+
+The bug manifests when merging three lists:
+1. `widget1.media` = `['color-picker.js']`
+2. `widget2.media` = `['text-editor.js']`
+3. `widget3.media` = `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+**Step-by-step execution:**
+
+**First merge** (`widget1 + widget2`):
+- Start: `combined_list = ['color-picker.js']`, `last_insert_index = 1`
+- Process `text-editor.js`: Not found, insert at position 1
+- Result: `['color-picker.js', 'text-editor.js']`
+
+This creates a FALSE constraint: color-picker.js < text-editor.js (not specified anywhere!)
+
+**Second merge** (result + `widget3`):
+- Start: `combined_list = ['color-picker.js', 'text-editor.js']`, `last_insert_index = 2`
+- Process `color-picker.js`: Found at index 0
+  - Since `0 < 2`, no warning, `last_insert_index = 0`
+- Process `text-editor-extras.js`: Not found, insert at position 0
+  - Result: `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`
+- Process `text-editor.js`: Found at index 2
+  - Since `2 > 0`, **WARNING TRIGGERED** (false positive!)
+  - `last_insert_index = 2`
+
+The warning is triggered because the algorithm sees text-editor-extras.js being inserted before text-editor.js (position 0), but later encounters text-editor.js at position 2 - treating this as an "opposite order" conflict.
+
+## The Algorithm Flaw
+
+The current algorithm only handles pairwise merging and doesn't account for the fact that when merging A + B, it creates transitive constraints that may not be semantically meaningful when merged with C.
+
+The fundamental issue: **The algorithm treats first-merge artifacts as real constraints in subsequent merges.**
+
+## Solution Strategy
+
+The correct approach is to check if there's actually a **dependency** between the conflicting elements before issuing a warning. A dependency exists when:
+1. One element appears BEFORE the other in the current list
+2. The same two elements appear in the opposite order in the list being merged
+
+This requires comparing the actual relative positions in both the original and incoming lists, not just checking against a synthetic `last_insert_index`.
+
+**Key insight**: Only warn if there's a genuine conflict where:
+- `list_1` has element A before element B
+- `list_2` has element B before element A
+- Both elements appear in both lists
+
+This avoids false positives from transitive ordering constraints introduced during earlier merges.
+
+## Expected Behavior After Fix
+
+For the test case:
+```python
+ColorPicker().media + SimpleTextWidget().media + FancyTextWidget().media
+```
+
+Should produce:
+- `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+**Without any warning**, because:
+- text-editor.js and text-editor-extras.js: Only text-editor-extras.js depends on text-editor.js (explicit in FancyTextWidget)
+- text-editor.js and color-picker.js: No actual dependency in either direction (false constraint from first merge)
+- text-editor-extras.js and color-picker.js: No actual dependency
+
+The fix must distinguish between:
+1. **Real conflicts**: Same two elements in different orders in separate, independent sources
+2. **Artificial conflicts**: Ordering artifacts from transitive merges

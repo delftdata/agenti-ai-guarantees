@@ -1,0 +1,74 @@
+The upstream nodes already provided the complete solution. Let me analyze and verify the fix produces the correct output.
+
+## Analysis of the Fix
+
+The core change moves from **pairwise merging** to **collecting all lists and doing a single topological sort**.
+
+### Before (buggy behavior)
+Previously, `Media.__add__` eagerly merged lists pairwise. Merging `ColorPicker + SimpleTextWidget` produced `['color-picker.js', 'text-editor.js']`, which imposed an artificial constraint that `color-picker.js` must precede `text-editor.js`. When this was later merged with `FancyTextWidget` (`text-editor.js`, `text-editor-extras.js`, `color-picker.js`), the two constraints conflicted, triggering the spurious `MediaOrderConflictWarning`.
+
+### After (fixed behavior)
+1. `Media.__add__` no longer merges — it just concatenates the raw lists: `combined._js_lists = self._js_lists + other._js_lists`.
+2. Merging is deferred until `_js`/`_css` are accessed, at which point **all** lists are passed to a single `merge(*lists)` call.
+3. `merge` builds one dependency graph from all lists together and runs `stable_topological_sort`.
+
+## Tracing `test_merge_js_three_way2`
+
+```python
+widget1 = Media(js=['color-picker.js'])
+widget2 = Media(js=['text-editor.js'])
+widget3 = Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
+merged = widget1 + widget2 + widget3
+```
+
+After the additions, `merged._js_lists` is:
+```
+[['color-picker.js'], ['text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']]
+```
+
+`merge` builds the dependency graph (item -> {things it depends on}):
+- From `['color-picker.js']`: `color-picker.js` depends on nothing (head added to graph).
+- From `['text-editor.js']`: `text-editor.js` depends on nothing.
+- From `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`:
+  - `text-editor-extras.js` depends on `text-editor.js`
+  - `color-picker.js` depends on `text-editor-extras.js`
+
+Resulting graph:
+```
+color-picker.js      -> {text-editor-extras.js}
+text-editor.js       -> {}
+text-editor-extras.js-> {text-editor.js}
+```
+
+`all_items` (OrderedSet, insertion order): `color-picker.js`, `text-editor.js`, `text-editor-extras.js`
+
+`stable_topological_sort` processes layers:
+- Layer 1 (no deps): `{text-editor.js}` → emit `text-editor.js`
+- Layer 2: `{text-editor-extras.js}` → emit `text-editor-extras.js`
+- Layer 3: `{color-picker.js}` → emit `color-picker.js`
+
+**Result: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`** ✓
+
+No `CyclicDependencyError` is raised because there is no cycle — the constraints are consistent when considered globally. Therefore **no `MediaOrderConflictWarning`** is emitted.
+
+## Verifying Other Tests Still Pass
+
+- **`test_merge`**: still tests the two-list variadic `merge` — all cases produce expected output since `merge(*lists)` handles the two-list case identically.
+- **`test_merge_warning`**: `merge([1,2],[2,1])` — graph has `1->{2}` and `2->{1}`, a genuine cycle → `CyclicDependencyError` → warning `"Detected duplicate Media files in an opposite order:\n1\n2"`. 
+
+  ⚠️ **Note**: The test expects the message `'Detected duplicate Media files in an opposite order:\n1\n2'` (newline-separated), but the `merge` code in the upstream fix uses `', '.join(repr(l) for l in lists)` which would produce `'[1, 2], [2, 1]'`. This is a **mismatch**. The warning message format needs to be updated to join the individual items with newlines, not the lists. The expected format iterates over the conflicting items. This should be:
+  ```python
+  ', '.join(repr(l) for l in lists)
+  ```
+  does NOT match `\n1\n2`. The correct implementation should format the differing items. This is a discrepancy that would cause `test_merge_warning` and `test_merge_js_three_way`'s sibling tests to fail.
+
+- **`test_merge_css_three_way`**: `_css` collects per-medium lists and merges them together in one call — `{'screen': ['a.css','b.css'], 'all': ['c.css']}` is produced without warning. ✓
+- **`test_combine_media`**, **`test_form_media`**, **`test_multi_widget`**: These rely on deferred merging producing the same rendered output. Since the constraints are consistent, they produce identical results.
+
+## Verification Conclusion
+
+The primary fix **correctly resolves the issue**: `test_merge_js_three_way2` now produces `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` with no `MediaOrderConflictWarning`.
+
+However, I identified a **warning-message format bug**: `test_merge_warning` expects `'...opposite order:\n1\n2'` but the upstream `merge` still uses `', '.join(...)` over the lists. The warning message must be corrected to output the conflicting items newline-separated. The proper implementation should track and report the two items whose relative order conflicts (`\n{item1}\n{item2}`), rather than repr'ing the whole lists comma-separated.
+
+The deliverable diff should therefore also update the `merge` method's warning message to match the expected `'Detected duplicate Media files in an opposite order:\n%s\n%s'` format for the test suite to fully pass.

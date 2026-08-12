@@ -1,0 +1,71 @@
+# Analysis of Media Ordering Issue
+
+## Problem Summary
+When merging 3 or more Media objects, unnecessary `MediaOrderConflictWarning`s are issued, and the final ordering can be worse than expected. The issue occurs because the merge algorithm doesn't properly account for transitive ordering constraints when handling multiple additions.
+
+## Root Cause Analysis
+
+### The `Media.__add__` Method
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+This method concatenates the internal lists rather than performing an actual merge. The actual merging happens lazily when `_js` or `_css` properties are accessed.
+
+### The `Media.merge` Method
+The `merge` method is the core algorithm that combines two lists while trying to preserve relative ordering:
+
+1. It starts with `list_1` as the base
+2. It walks `list_2` in reverse
+3. For each element in `list_2`:
+   - If already in combined_list, update `last_insert_index` to that element's current position
+   - If not in combined_list, insert it before `last_insert_index`
+4. A warning is issued if an element from `list_2` that was previously seen has a higher index than `last_insert_index` (indicating reverse order)
+
+### The Problem with Multiple Additions
+
+Consider the example from the issue:
+- ColorPicker: `['color-picker.js']`
+- SimpleTextWidget: `['text-editor.js']`
+- FancyTextWidget: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+When computed as `ColorPicker().media + SimpleTextWidget().media + FancyTextWidget().media`:
+
+**Step 1:** `ColorPicker + SimpleTextWidget`
+- merge(['color-picker.js'], ['text-editor.js'])
+- Result: `['color-picker.js', 'text-editor.js']`
+- This creates an implicit constraint that color-picker.js must come before text-editor.js
+
+**Step 2:** `Result + FancyTextWidget`
+- merge(['color-picker.js', 'text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
+- Walking in reverse:
+  - See 'color-picker.js': found at index 0, last_insert_index = 0
+  - See 'text-editor-extras.js': not found, insert at index 0
+  - See 'text-editor.js': found at index 1, but last_insert_index is now 0, so index (1) > last_insert_index (0) triggers WARNING
+- Result: `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`
+
+### The Real Issue
+
+The problem occurs because:
+
+1. **Order of addition matters**: The intermediate result from step 1 (`color-picker.js` before `text-editor.js`) creates a false constraint that persists through subsequent merges.
+
+2. **The warning logic is flawed**: The algorithm warns when it encounters files in a "wrong" relative order, but this warning is triggered by constraints that were artificially introduced by intermediate merge results, not by the original widget definitions.
+
+3. **The merge doesn't account for transitive constraints**: When merging, the algorithm doesn't understand that:
+   - text-editor-extras.js depends on text-editor.js (from FancyTextWidget)
+   - This dependency should override any previously computed ordering between color-picker.js and text-editor.js
+
+4. **Greedy reverse-walk approach**: Walking `list_2` in reverse and updating `last_insert_index` works for two lists, but fails to properly handle chains of dependencies when there are 3+ media objects being merged sequentially.
+
+## Key Insight
+
+The issue is that `Media.__add__` creates intermediate Media objects with partially-merged lists. When the next addition happens, the merge algorithm receives the partially-merged result as `list_1`, which already contains the false constraint. The algorithm then cannot distinguish between:
+- Intentional constraints from the original widget definitions
+- Artificial constraints created by intermediate merge operations
+
+This is particularly problematic because the order of addition (`a + b + c` vs `(a + b) + c` vs `a + (b + c)`) should ideally produce the same result when all underlying dependencies are properly respected, but it doesn't due to the greedy nature of the algorithm.

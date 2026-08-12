@@ -1,0 +1,52 @@
+I'll analyze the current Media merging logic in `django/forms/widgets.py`.
+
+## Current Merging Logic Analysis
+
+### Storage Structure
+The `Media` class stores its assets as lists of lists:
+- `self._css_lists` — a list of CSS dicts
+- `self._js_lists` — a list of JS lists
+
+When two `Media` objects are added via `__add__`, their respective `_css_lists` and `_js_lists` are simply concatenated (no merging happens at add-time):
+
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+### Merging Happens Lazily
+The actual merge is deferred to the `_js` and `_css` properties. For JS:
+
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+This performs a **left fold (pairwise reduction)**: it merges list 0 with list 1, then merges that result with list 2, and so on.
+
+### The `merge` Method
+`merge(list_1, list_2)` combines two lists while preserving relative order:
+- Starts with a copy of `list_1`
+- Walks `list_2` in **reverse**, inserting each element into `combined_list` at `last_insert_index` if not already present
+- If an element already exists at `index > last_insert_index`, it warns about a `MediaOrderConflictWarning`
+- Updates `last_insert_index` to track ordering constraints
+
+### Root Cause of the Problem
+The bug described is a consequence of **pairwise (two-at-a-time) merging**. Because `merge` only ever compares two lists, intermediate merges impose ordering constraints that don't actually exist in the original data.
+
+In the example:
+- `ColorPicker` + `SimpleTextWidget` produces `['color-picker.js', 'text-editor.js']`
+- This intermediate result **wrongly asserts** that `color-picker.js` must come before `text-editor.js` (they are actually independent).
+- When this is later merged with `FancyTextWidget`'s list `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`, the previously-fabricated constraint conflicts with the real ordering, producing the spurious warning.
+
+### Key Insight for a Fix
+The proper solution is to **merge all lists at once** rather than folding pairwise. The relationships between files form a graph of ordering constraints (dependencies). Since each individual list only expresses *real* constraints (each file must come after the ones before it in that list), the correct approach is a **topological sort** over all the constraint pairs derived from every input list. This only warns when there's a genuine cycle (two files required in opposite orders by different lists), avoiding the false positives created by intermediate two-way merges.
+
+Notably, `django/utils/topological_sort.py` exists in the repository, which could support such an implementation.

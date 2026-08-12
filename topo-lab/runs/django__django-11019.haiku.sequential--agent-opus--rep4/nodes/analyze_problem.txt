@@ -1,0 +1,73 @@
+# Root Cause Analysis: MediaOrderConflictWarning with 3+ Media Objects
+
+## Summary
+
+The root cause is that `Media._js` and `Media._css` compute the merged result via a **pairwise left-fold** over the list of source lists, using a `merge()` method that treats its running accumulator as a **fully-ordered list**. This fabricates false ordering constraints between independent files, which later collide with genuine constraints from other sources, producing spurious warnings and incorrect ordering.
+
+## Detailed Analysis
+
+### How merging currently works
+
+`__add__` defers work by concatenating the underlying source lists:
+
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+The actual merge happens lazily in `_js`:
+
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+This is a left-fold: `merge(merge(list0, list1), list2)...`.
+
+### Why the fold is lossy
+
+`merge(list_1, list_2)` produces a single, totally-ordered list. Once two lists are merged, the result no longer distinguishes between:
+
+- **Real constraints**: two files that appeared adjacent *within the same original source list* in a specific order.
+- **Incidental orderings**: two independent files that merely ended up adjacent in the accumulator because of the order in which sources were combined.
+
+Every element in the accumulator is treated as strictly ordered relative to every other, so the next `merge()` step cannot tell which orderings actually matter.
+
+### The bug in the example
+
+Sources:
+- `ColorPicker`: `['color-picker.js']`
+- `SimpleTextWidget`: `['text-editor.js']`
+- `FancyTextWidget`: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+Step 1: `merge(['color-picker.js'], ['text-editor.js'])` → `['color-picker.js', 'text-editor.js']`
+
+This **fabricates** a constraint that `color-picker.js` precedes `text-editor.js`. No source ever requested this — the two files are independent. The ordering arises purely because ColorPicker was folded in before SimpleTextWidget.
+
+Step 2: merging with `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` introduces the *real* constraint `text-editor.js` before `color-picker.js`, which directly contradicts the fabricated constraint from Step 1. This triggers the `MediaOrderConflictWarning`, and the final ordering is worse than a naïve concatenation.
+
+The confusing warning message (naming `color-picker.js` and `text-editor.js`) further reflects that the reported conflict is between the fabricated constraint and a real one, not between two genuinely conflicting sources.
+
+## Why the design allows a clean fix
+
+The deferred-list architecture (`_js_lists`, `_css_lists`) is actually well-suited to a correct solution because **all original source lists remain available** at the point `_js`/`_css` is computed. Nothing is lost until the fold runs.
+
+The correct approach is to abandon the pairwise fold and instead:
+
+1. Treat only **adjacent pairs within each individual source list** as real ordering constraints (a set of pairwise dependencies).
+2. Build a dependency graph from all sources' constraints combined.
+3. Produce the final ordering via a **topological sort** of that graph.
+4. Emit a `MediaOrderConflictWarning` only when a genuine **cycle** exists among real constraints.
+
+This ensures independent files (like `color-picker.js` and `text-editor.js`) never acquire artificial ordering requirements, eliminating both the spurious warnings and the incorrect final ordering. Django already ships `django.utils.topological_sort`, which can support this implementation.
+
+## Conclusion
+
+The root cause is not `__add__` itself (which correctly defers merging) but the **lossy pairwise left-fold in `_js`/`_css` combined with the total-ordering assumption in `merge()`**. Because `merge` collapses each intermediate result into a fully-ordered list, incidental adjacencies become indistinguishable from real dependencies, causing artificial constraints to accumulate and eventually conflict when three or more media objects are combined.

@@ -1,0 +1,54 @@
+# Analysis of Media Class Merging Logic
+
+## Current Implementation
+
+The `Media` class in `django/forms/widgets.py` handles merging of CSS and JavaScript files through:
+
+1. **Storage Structure**: 
+   - `_css_lists`: list of CSS dictionaries
+   - `_js_lists`: list of JS lists
+   - These are accumulated when using the `+` operator
+
+2. **Merging Process**:
+   - `_css` property: merges CSS dictionaries by medium
+   - `_js` property: calls `self.merge()` for each JS list in sequence
+   - `merge()` static method: performs the actual order-aware merging
+
+## The Problem
+
+The `merge()` method has a fundamental flaw in how it handles 3+ media objects:
+
+**Current Algorithm:**
+1. Start with `combined_list = list(list_1)`
+2. For each item in reversed `list_2`, either:
+   - Insert it at `last_insert_index` if new
+   - Move `last_insert_index` backward if item already exists
+
+**Why This Fails:**
+When merging `A + B + C`:
+- First merge `A + B` produces intermediate result
+- This intermediate result is then merged with `C`
+- The intermediate merge may have imposed incorrect ordering constraints from how `A` and `B` were combined
+- These constraints persist and cause false conflicts when `C` is added
+
+**Example from the issue:**
+- `ColorPicker().media` = `['color-picker.js']`
+- `SimpleTextWidget().media` = `['text-editor.js']`
+- `ColorPicker + SimpleTextWidget` = `['color-picker.js', 'text-editor.js']` ← *creates false ordering constraint*
+- This intermediate result falsely requires `color-picker.js` before `text-editor.js`
+- When merged with `FancyTextWidget().media` = `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+- The algorithm detects a conflict where `text-editor-extras.js` appears in reverse order relative to `text-editor.js`, but the real issue is the constraint from step 2
+
+## Root Cause
+
+The algorithm treats intermediate merge results as having explicit ordering requirements. When three or more media objects are being merged sequentially (via `+` operator), earlier merges create constraints that should only reflect actual dependencies, not the accidental order of combining independent elements.
+
+## What Should Happen
+
+The algorithm should:
+1. Recognize that `color-picker.js` and `text-editor.js` have no dependency relationship
+2. Not create an artificial ordering constraint between them
+3. Properly respect actual dependencies: `text-editor-extras.js` depends on `text-editor.js`
+4. Produce: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` without warnings
+
+The issue is that the current merge algorithm doesn't distinguish between "items that were combined together" vs "items that have explicit ordering requirements".
