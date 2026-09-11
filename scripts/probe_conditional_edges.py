@@ -1,3 +1,11 @@
+"""Scratch probe: does LangGraph's ``add_conditional_edges`` accept a list map?
+
+Compares the list form against the dict form and prints the compiled mermaid
+diagram for visual inspection. Prints results; asserts nothing.
+
+Requires the ``llm`` extra. Run from the repo root:
+    python scripts/probe_conditional_edges.py
+"""
 from langgraph.graph import StateGraph, START, END
 from typing import TypedDict
 
