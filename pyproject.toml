@@ -24,3 +24,7 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["topo-lab/runs", "topo-lab/tasks", ".venv", ".venv38"]
