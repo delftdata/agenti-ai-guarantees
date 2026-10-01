@@ -1,0 +1,53 @@
+## Analysis of the Media Ordering Bug
+
+### Root Cause
+
+The core problem is that `Media.merge()` performs **pairwise merging of complete lists**, which forces the merge algorithm to impose a **total ordering** on all elements involved, even when only a partial ordering constraint actually exists.
+
+### Walking Through the Bug
+
+Consider the example:
+- `ColorPicker`: `['color-picker.js']`
+- `SimpleTextWidget`: `['text-editor.js']`
+- `FancyTextWidget`: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+When `MyForm().media` is computed, the `_js_lists` accumulate via `__add__`:
+```
+_js_lists = [
+    ['color-picker.js'],
+    ['text-editor.js'],
+    ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'],
+]
+```
+
+Then `_js` reduces them left-to-right by repeated pairwise `merge()`:
+
+**Step 1:** `merge(['color-picker.js'], ['text-editor.js'])`
+→ `['color-picker.js', 'text-editor.js']`
+
+This is where the damage is done. **Merging these two independent lists invents a false constraint**: that `color-picker.js` must come before `text-editor.js`. In reality, there is no dependency between them — this ordering is an accidental artifact of the order the widgets happened to appear in the form.
+
+**Step 2:** `merge(['color-picker.js', 'text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])`
+
+Now the intermediate result carries the fabricated constraint `color-picker.js < text-editor.js`, but the third list carries the real constraints `text-editor.js < text-editor-extras.js < color-picker.js`. These conflict, producing the `MediaOrderConflictWarning`, and yielding the poor final result.
+
+### Why the Warning Message Is Confusing
+
+The warning reports `text-editor-extras.js` and `text-editor.js`, not `color-picker.js`/`text-editor.js`. This is because the `index > last_insert_index` comparison in `merge()` detects the conflict at a different point than where the original false constraint was introduced. The reported pair is a downstream symptom, not the true source, making the message actively misleading.
+
+### The Deeper Design Flaw
+
+`merge()` treats its two input lists as **fully-ordered sequences** and tries to interleave them while preserving both orderings completely. But a single widget's media list is genuinely fully-ordered (real dependencies), whereas the *combination* of independent widgets' lists should only preserve each individual list's internal order — not create cross-list ordering constraints.
+
+By reducing pairwise, every intermediate result "hardens" incidental orderings into constraints that get propagated forward, so later merges see conflicts that never truly existed.
+
+### Correct Approach
+
+The fix is to stop treating this as a series of pairwise total-order merges. Instead, the problem should be modeled as a **topological sort / dependency graph**:
+
+1. Each individual media list contributes edges (each element must precede the following elements *within that same list only*).
+2. Build a graph of all these "must-come-before" constraints across all lists.
+3. Perform a topological sort to produce a valid global ordering.
+4. A real conflict (and thus a warning) only occurs when there is an actual **cycle** in the dependency graph — i.e., two files are required in opposite orders by genuine constraints — not merely because of the arbitrary order widgets were added.
+
+Concretely, `merge()` should be reworked so that combining N lists collects the ordering relationships from each list independently and resolves them together, rather than folding pairwise. This way, `color-picker.js` and `text-editor.js` remain unconstrained relative to each other, `text-editor.js < text-editor-extras.js < color-picker.js` is respected, and a valid order like `text-editor.js, text-editor-extras.js, color-picker.js` is produced with no spurious warning.

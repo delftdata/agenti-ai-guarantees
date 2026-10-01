@@ -1,0 +1,78 @@
+# Analysis of the Media Class and Merging Logic
+
+## Current Implementation Overview
+
+The `Media` class in `django/forms/widgets.py` handles merging of CSS and JavaScript files from multiple widgets. The issue stems from the `merge()` static method (lines 131-157) which is responsible for combining two lists while attempting to preserve relative ordering.
+
+## How Media Merging Currently Works
+
+1. **Storage Structure**: Media objects maintain separate lists via `_css_lists` and `_js_lists` (lines 45-50)
+2. **Lazy Evaluation**: The actual `_css` and `_js` properties (lines 57-73) merge all stored lists when accessed
+3. **Addition Operation** (lines 192-196): When two Media objects are added, their lists are concatenated, not immediately merged
+
+## The Problem with Current `merge()` Logic
+
+The `merge()` method (lines 131-157) uses a flawed algorithm:
+
+```python
+def merge(list_1, list_2):
+    combined_list = list(list_1)
+    last_insert_index = len(list_1)
+    
+    for path in reversed(list_2):
+        try:
+            index = combined_list.index(path)
+        except ValueError:
+            # Add new path
+            combined_list.insert(last_insert_index, path)
+        else:
+            if index > last_insert_index:
+                # WARNING: False positive detection
+                warnings.warn(...)
+            last_insert_index = index
+    return combined_list
+```
+
+### Critical Issues
+
+1. **False Positive Warnings**: The algorithm doesn't track dependencies between files. When merging:
+   - `ColorPicker().media` + `SimpleTextWidget().media` produces `['color-picker.js', 'text-editor.js']`
+   - This artificially constrains `color-picker.js` before `text-editor.js`
+   - When later merging with `FancyTextWidget` (which has `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`), a false conflict is detected
+
+2. **Wrong Order Detection**: The warning message shows `text-editor-extras.js` and `text-editor.js`, but the actual problematic pair is `color-picker.js` and `text-editor.js`
+
+3. **Sequential Merging Issue**: The problem occurs because:
+   - Step 1: `ColorPicker + SimpleTextWidget` → creates artificial `color-picker < text-editor` constraint
+   - Step 2: Merging with `FancyTextWidget` sees `text-editor < text-editor-extras < color-picker` in FancyTextWidget but has `color-picker < text-editor` from Step 1
+   - Result: False conflict warning and suboptimal ordering
+
+## Why This Happens
+
+The merge algorithm doesn't distinguish between:
+- **Original dependencies** (stated in widget definitions)
+- **Artificial constraints** (created by the order of additions to the form)
+
+When `A + B` creates a combined list, that ordering becomes a "fact" for future merges, even if it contradicts dependencies in other widgets.
+
+## Expected Behavior
+
+For the example form:
+- `ColorPicker`: `['color-picker.js']`
+- `SimpleTextWidget`: `['text-editor.js']`
+- `FancyTextWidget`: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+The final result should be: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+No warning should be raised because:
+- `text-editor.js` must come before `text-editor-extras.js` (explicit dependency)
+- `color-picker.js` is independent and can follow both
+- There are no actual ordering conflicts
+
+## Solution Direction
+
+The fix needs to:
+1. Better track actual dependencies vs. artificial constraints
+2. Only warn when there are genuine conflicts (same pair appears in different orders in input lists)
+3. Not warn when the conflict is merely a consequence of the order operations happen in
+4. Possibly use topological sorting or better dependency tracking to resolve ordering

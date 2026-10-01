@@ -1,0 +1,83 @@
+# Analysis of Media Tests
+
+## Current Test Coverage
+
+The test file `tests/forms_tests/tests/test_media.py` contains comprehensive tests for Django's media handling system. Here are the key test cases:
+
+### Core Functionality Tests:
+1. **test_construction** - Basic Media object creation and string representation
+2. **test_media_dsl** - Class-based Media definitions in widgets
+3. **test_combine_media** - Adding multiple Media objects together, deduplication
+4. **test_media_property** - Property-based media definitions
+5. **test_media_inheritance** - Media inheritance in widget hierarchies
+6. **test_multi_media** - CSS media types (screen, print, etc.)
+7. **test_form_media** - Media aggregation from form fields
+
+### Merge Algorithm Tests:
+1. **test_merge** - Core merge logic with various input combinations
+2. **test_merge_warning** - Detects and warns about conflicting orderings
+3. **test_merge_js_three_way** - Three-way merge for JavaScript files
+4. **test_merge_css_three_way** - Three-way merge for CSS files
+
+## Expected Behavior from Tests
+
+### From `test_merge`:
+```python
+test_values = (
+    (([1, 2], [3, 4]), [1, 2, 3, 4]),  # Non-overlapping
+    (([1, 2], [2, 3]), [1, 2, 3]),      # Overlap at 2
+    (([2, 3], [1, 2]), [1, 2, 3]),      # Overlap at 2, different first order
+    (([1, 3], [2, 3]), [1, 2, 3]),      # Overlap at 3
+    (([1, 2], [1, 3]), [1, 2, 3]),      # Overlap at 1
+    (([1, 2], [3, 2]), [1, 3, 2]),      # Overlap at 2, different positions
+)
+```
+
+Key insight: The merge should preserve **relative ordering constraints** without being strict about absolute ordering when constraints aren't specified.
+
+### From `test_merge_warning`:
+- When merging `[1, 2]` with `[2, 1]`, a `RuntimeWarning` is issued because there's a **real conflict** (1 must come before 2, but 2 must come before 1)
+- Result should still be `[1, 2]` (preferring the first list's ordering)
+
+### From `test_merge_js_three_way` and `test_merge_css_three_way`:
+- Three-way merges should work correctly
+- The problem statement indicates the current code **fails on 3+ way merges** where intermediate results create false constraints
+
+## The Problem Statement Issue
+
+The issue from the problem statement:
+```python
+class ColorPicker(forms.Widget):
+    class Media:
+        js = ['color-picker.js']
+
+class SimpleTextWidget(forms.Widget):
+    class Media:
+        js = ['text-editor.js']
+
+class FancyTextWidget(forms.Widget):
+    class Media:
+        js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+```
+
+When merging:
+1. `ColorPicker().media + SimpleTextWidget().media` → `['color-picker.js', 'text-editor.js']`
+   - This creates a **false constraint** that `color-picker.js` must precede `text-editor.js`
+2. Adding `FancyTextWidget().media` → `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+   - Conflicts with the constraint from step 1
+   - Results in warning about wrong pair and incorrect final order
+
+## Expected Solution
+
+The merge algorithm must:
+1. **Only record explicit ordering constraints** from the input lists themselves
+2. **Not infer constraints** from intermediate merge results
+3. Handle 3+ way merges correctly by:
+   - Respecting all original input orderings simultaneously
+   - Only warning when there's a **true conflict** (impossible to satisfy all constraints)
+   - Producing the correct topological sort when no true conflicts exist
+
+The algorithm should recognize that:
+- `color-picker.js` and `text-editor.js` have no explicit ordering requirement between them
+- The constraint from step 1 was artificial/temporary
+- The correct order should honor `text-editor.js` < `text-editor-extras.js` and let `color-picker.js` float to satisfy both merges

@@ -1,0 +1,78 @@
+===== test_send (dispatch.tests.DispatcherTests): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpwywx5y2d\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+OK
+
+
+===== test_send_robust_success (dispatch.tests.DispatcherTests): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpwywx5y2d\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+OK
+
+
+===== test_cached_garbaged_collected (dispatch.tests.DispatcherTests): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpwywx5y2d\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.017s
+
+OK
+
+
+===== test_receiver_signal_list (dispatch.tests.ReceiverTestCase): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpwywx5y2d\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+OK
+
+
+===== test_save_signals (signals.tests.SignalTests): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpwywx5y2d\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+OK
+Destroying test database for alias 'default'...
+
+
+
+===== test_delete_signals (signals.tests.SignalTests): PASS =====
+Testing against Django installed in 'C:\Users\rares\AppData\Local\Temp\tmpwywx5y2d\wt\django'
+System check identified no issues (0 silenced).
+
+--- stderr ---
+Creating test database for alias 'default'...
+
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+OK
+Destroying test database for alias 'default'...
+

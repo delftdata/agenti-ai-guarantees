@@ -1,0 +1,63 @@
+## Analysis of the Root Cause
+
+### How the current code works
+
+The `Media` class defers merging until the `_css`/`_js` properties are accessed. When you do `A + B`, the `__add__` method simply concatenates the underlying lists:
+
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+Then `_js` folds all these lists together left-to-right using `merge`, two at a time:
+
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+### The problem: pairwise merging fabricates false constraints
+
+The `merge(list_1, list_2)` function treats `list_1` as an already-established ordering and inserts `list_2`'s items into it, warning when it detects a reversal. The key issue is that **each pairwise merge produces an intermediate list that is treated as a hard ordering constraint for the next merge**, even though that intermediate ordering was arbitrary.
+
+Walking through the example (`ColorPicker + SimpleTextWidget + FancyTextWidget`):
+
+- Lists: `['color-picker.js']`, `['text-editor.js']`, `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+- `merge(['color-picker.js'], ['text-editor.js'])` → `['color-picker.js', 'text-editor.js']`
+
+This intermediate result now *asserts* that `color-picker.js` must come before `text-editor.js`. But that constraint is **completely fabricated** — the two files are independent, and their relative order was decided only by which widget happened to be listed first in the form. Neither original `Media` object ever said `color-picker.js` precedes `text-editor.js`.
+
+- `merge(['color-picker.js', 'text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])`
+
+Now the third list carries a *real* constraint: `text-editor.js` before `text-editor-extras.js` before `color-picker.js`. This directly contradicts the fabricated constraint (`color-picker.js` before `text-editor.js`), so a `MediaOrderConflictWarning` is raised — and the final ordering is worse than the naïve result.
+
+### Root cause summary
+
+The root cause is that **merging is done pairwise/sequentially and each intermediate merge result is treated as a total-order constraint rather than a set of only the pairwise-adjacency constraints that were actually specified.** Pairwise 2-way merging cannot distinguish between:
+
+1. An ordering that is *required* (both files appeared together in one list in that order), and
+2. An ordering that merely *emerged incidentally* from merging two lists that share no elements.
+
+Once two independent files are placed in some order by the first merge, that incidental order becomes a rigid constraint that later merges must respect (or warn about). With 3+ objects this readily manufactures spurious conflicts.
+
+### The correct approach
+
+The correct model is to treat each input list only as a set of *pairwise precedence constraints between elements that actually co-occur in the same list*, then perform a **topological sort** over the union of all these constraints. Under this model:
+
+- `color-picker.js` and `text-editor.js` have **no** constraint between them (they never appear together), so no false conflict arises.
+- The only real constraints are `text-editor.js → text-editor-extras.js → color-picker.js`, yielding the desired order `text-editor.js, text-editor-extras.js, color-picker.js`.
+- A `MediaOrderConflictWarning` is emitted only when a genuine cycle exists in the constraint graph (i.e., two lists really do specify opposite orders for the same pair).
+
+Concretely, the fix is to replace the sequential 2-way `merge` folding in `_js`/`_css` with a routine that:
+1. Collects all lists.
+2. Builds a dependency graph: for each list, every earlier element must precede every later element (or, more efficiently, adjacency-based edges).
+3. Runs a topological (stable) sort, warning only on actual cycles.
+
+This eliminates the fabricated ordering constraints that cause the spurious warnings when merging three or more `Media` objects.

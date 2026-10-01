@@ -53,6 +53,13 @@ def load_decomp(path: Path) -> dict:
     if stripped != text:
         repairs.append("removed markdown fences")
     text = stripped.strip()
+    # prose around the JSON object (harness ignored "no prose"): keep the
+    # outermost {...} span
+    if not text.startswith("{"):
+        s, e = text.find("{"), text.rfind("}")
+        if s != -1 and e > s:
+            text = text[s:e + 1]
+            repairs.append("stripped surrounding prose")
     # invalid JSON escapes like \w \A \Z from raw regex strings.
     # Consume escape pairs atomically so valid \\ sequences are untouched.
     def _fix(m):

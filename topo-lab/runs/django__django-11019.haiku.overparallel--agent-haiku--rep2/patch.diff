@@ -1,0 +1,267 @@
+```diff
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -119,57 +119,52 @@ class Media:
+     @staticmethod
+     def merge(list_1, list_2):
+         """
+         Merge two lists while trying to keep the relative order of the elements.
+         Warn if the lists have the same two elements in a different relative
+         order.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+         # Start with a copy of list_1.
+         combined_list = list(list_1)
+         last_insert_index = len(list_1)
+ 
+         # Walk list_2 in reverse, inserting each element into combined_list if
+         # it doesn't already exist.
+         for path in reversed(list_2):
+             try:
+                 # Does path already exist in the list?
+                 index = combined_list.index(path)
+             except ValueError:
+                 # Add path to combined_list since it doesn't exist.
+                 combined_list.insert(last_insert_index, path)
+             else:
+-                if index > last_insert_index:
+-                    # This is a potential conflict - the same item appears
+-                    # in a different position. But we should only warn if
+-                    # there's a real constraint violation.
+-                    # Check if there's an actual item at last_insert_index
++                # path already exists in the list. Check for ordering conflicts.
++                if index > last_insert_index:
++                    # Only report a conflict if there's an actual item at
++                    # last_insert_index that comes after path in list_2.
+                     if last_insert_index < len(combined_list):
+-                        other_item = combined_list[last_insert_index]
+-                        # Only report conflict if other_item comes from list_2
+-                        # and appears after path in list_2
++                        item_at_last_insert = combined_list[last_insert_index]
++                        # Check if this represents a genuine ordering conflict
++                        # in list_2: both items appear in list_2 in opposite order
+                         if other_item in list_2:
+-                            idx_path_in_list2 = list_2.index(path) if path in list_2 else -1
+-                            idx_other_in_list2 = list_2.index(other_item) if other_item in list_2 else -1
+-                            # Conflict: path comes after other_item in list_2,
+-                            # but before in combined_list
+-                            if idx_path_in_list2 > idx_other_in_list2:
+-                                conflicts_found.append((other_item, path))
+-                
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
++                            try:
++                                path_idx_in_list2 = list_2.index(path)
++                                item_idx_in_list2 = list_2.index(item_at_last_insert)
++                                # Report conflict only if item_at_last_insert comes
++                                # after path in list_2 (genuine ordering conflict)
++                                if item_idx_in_list2 > path_idx_in_list2:
++                                    warnings.warn(
++                                        'Detected duplicate Media files in an opposite order:\n'
++                                        '%s\n%s' % (item_at_last_insert, path),
++                                        MediaOrderConflictWarning,
++                                    )
++                            except ValueError:
++                                # One of the items is not in list_2, no conflict
++                                pass
++                
++                # path already exists in the list. Update last_insert_index so
++                # that the following elements are inserted in front of this one.
+                 last_insert_index = index
+-        
+-        # Warn about conflicts only if we found real ones
+-        for before, after in conflicts_found:
+-            warnings.warn(
+-                'Detected duplicate Media files in an opposite order:\n'
+-                '%s\n%s' % (before, after),
+-                MediaOrderConflictWarning,
+-            )
+         
+         return combined_list
+ 
+     def __add__(self, other):
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 1234567..abcdefg 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -356,6 +356,36 @@ class FormsMediaTestCase(SimpleTestCase):
+         # but merging succeeds as the relative ordering of a.css and b.css
+         # was never specified.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
+ 
++    def test_merge_three_way_with_dependency_chain(self):
++        """
++        Test case from issue #11019: Merging 3 or more media objects
++        with a dependency chain should not raise unnecessary warnings.
++        
++        In this case:
++        - text-editor-extras.js depends on text-editor.js
++        - color-picker.js is independent
++        - form uses all three widgets
++        
++        The correct order should be: text-editor.js, text-editor-extras.js, color-picker.js
++        without raising MediaOrderConflictWarning.
++        """
++        class ColorPicker(TextInput):
++            class Media:
++                js = ['color-picker.js']
++
++        class SimpleTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js']
++
++        class FancyTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        # Merging widgets should not raise a MediaOrderConflictWarning
++        result_media = ColorPicker().media + SimpleTextWidget().media + FancyTextWidget().media
++        # The merged media should have the correct order
++        self.assertEqual(
++            result_media._js,
++            ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        )
+```
+
+Wait, I see there's an error in my diff. Let me fix it - the variable name changed from `other_item` to `item_at_last_insert`:
+
+```diff
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -119,57 +119,52 @@ class Media:
+     @staticmethod
+     def merge(list_1, list_2):
+         """
+         Merge two lists while trying to keep the relative order of the elements.
+         Warn if the lists have the same two elements in a different relative
+         order.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+         # Start with a copy of list_1.
+         combined_list = list(list_1)
+         last_insert_index = len(list_1)
+         
+-        # Track conflicts - pairs that appear in opposite orders
+-        conflicts_found = []
+-        
+         # Walk list_2 in reverse, inserting each element into combined_list if
+         # it doesn't already exist.
+         for path in reversed(list_2):
+             try:
+                 # Does path already exist in the list?
+                 index = combined_list.index(path)
+             except ValueError:
+                 # Add path to combined_list since it doesn't exist.
+                 combined_list.insert(last_insert_index, path)
+             else:
+-                if index > last_insert_index:
+-                    # This is a potential conflict - the same item appears
+-                    # in a different position. But we should only warn if
+-                    # there's a real constraint violation.
+-                    # Check if there's an actual item at last_insert_index
++                # path already exists in the list. Check for ordering conflicts.
++                if index > last_insert_index:
++                    # Only report a conflict if there's an actual item at
++                    # last_insert_index that comes after path in list_2.
+                     if last_insert_index < len(combined_list):
+-                        other_item = combined_list[last_insert_index]
+-                        # Only report conflict if other_item comes from list_2
+-                        # and appears after path in list_2
+-                        if other_item in list_2:
+-                            idx_path_in_list2 = list_2.index(path) if path in list_2 else -1
+-                            idx_other_in_list2 = list_2.index(other_item) if other_item in list_2 else -1
+-                            # Conflict: path comes after other_item in list_2,
+-                            # but before in combined_list
+-                            if idx_path_in_list2 > idx_other_in_list2:
+-                                conflicts_found.append((other_item, path))
+-                
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
++                        item_at_last_insert = combined_list[last_insert_index]
++                        # Check if this represents a genuine ordering conflict
++                        # in list_2: both items appear in list_2 in opposite order
++                        if item_at_last_insert in list_2:
++                            try:
++                                path_idx_in_list2 = list_2.index(path)
++                                item_idx_in_list2 = list_2.index(item_at_last_insert)
++                                # Report conflict only if item_at_last_insert comes
++                                # after path in list_2 (genuine ordering conflict)
++                                if item_idx_in_list2 > path_idx_in_list2:
++                                    warnings.warn(
++                                        'Detected duplicate Media files in an opposite order:\n'
++                                        '%s\n%s' % (item_at_last_insert, path),
++                                        MediaOrderConflictWarning,
++                                    )
++                            except ValueError:
++                                # One of the items is not in list_2, no conflict
++                                pass
++                
++                # path already exists in the list. Update last_insert_index so
++                # that the following elements are inserted in front of this one.
+                 last_insert_index = index
+-        
+-        # Warn about conflicts only if we found real ones
+-        for before, after in conflicts_found:
+-            warnings.warn(
+-                'Detected duplicate Media files in an opposite order:\n'
+-                '%s\n%s' % (before, after),
+-                MediaOrderConflictWarning,
+-            )
+         
+         return combined_list
+ 
+     def __add__(self, other):
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 1234567..abcdefg 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -356,6 +356,36 @@ class FormsMediaTestCase(SimpleTestCase):
+         # but merging succeeds as the relative ordering of a.css and b.css
+         # was never specified.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
+ 
++    def test_merge_three_way_with_dependency_chain(self):
++        """
++        Test case from issue #11019: Merging 3 or more media objects
++        with a dependency chain should not raise unnecessary warnings.
++        
++        In this case:
++        - text-editor-extras.js depends on text-editor.js
++        - color-picker.js is independent
++        - form uses all three widgets
++        
++        The correct order should be: text-editor.js, text-editor-extras.js, color-picker.js
++        without raising MediaOrderConflictWarning.
++        """
++        class ColorPicker(TextInput):
++            class Media:
++                js = ['color-picker.js']
++
++        class SimpleTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js']
++
++        class FancyTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        # Merging widgets should not raise a MediaOrderConflictWarning
++        result_media = ColorPicker().media + SimpleTextWidget().media + FancyTextWidget().media
++        # The merged media should have the correct order
++        self.assertEqual(
++            result_media._js,
++            ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        )
+```

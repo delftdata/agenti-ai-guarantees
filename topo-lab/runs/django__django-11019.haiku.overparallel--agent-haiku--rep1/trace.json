@@ -1,0 +1,180 @@
+{
+  "graph": "django__django-11019.haiku.overparallel.json",
+  "topology": "overparallel",
+  "agent": "haiku",
+  "mock": false,
+  "schedule": [
+    [
+      "analyze_problem",
+      "create_test_case",
+      "examine_media_code",
+      "examine_test_media",
+      "fix_media_merge",
+      "verify_fix"
+    ],
+    [
+      "generate_diff"
+    ]
+  ],
+  "wall_s": 99.93,
+  "total_cost_usd": 0.263,
+  "overwrite_events": [],
+  "nodes": [
+    {
+      "node": "analyze_problem",
+      "wall_s": 11.96,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 37371,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [
+        "examine_media_code"
+      ],
+      "input_tokens": 10397,
+      "cache_read_tokens": 32333,
+      "output_tokens": 1084,
+      "cost_usd": 0.01905,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "create_test_case",
+      "wall_s": 46.77,
+      "reads": [
+        {
+          "path": "tests/forms_tests/tests/test_media.py",
+          "bytes": 26171,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [
+        "examine_test_media"
+      ],
+      "input_tokens": 8098,
+      "cache_read_tokens": 32333,
+      "output_tokens": 8896,
+      "cost_usd": 0.05581,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "tests/forms_tests/tests/test_media.py"
+      ]
+    },
+    {
+      "node": "examine_media_code",
+      "wall_s": 9.74,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 37371,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 10391,
+      "cache_read_tokens": 32333,
+      "output_tokens": 890,
+      "cost_usd": 0.01807,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "examine_test_media",
+      "wall_s": 10.61,
+      "reads": [
+        {
+          "path": "tests/forms_tests/tests/test_media.py",
+          "bytes": 26171,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 8040,
+      "cache_read_tokens": 32333,
+      "output_tokens": 1035,
+      "cost_usd": 0.01645,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "fix_media_merge",
+      "wall_s": 77.36,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 37371,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [
+        "analyze_problem"
+      ],
+      "input_tokens": 10506,
+      "cache_read_tokens": 32333,
+      "output_tokens": 11442,
+      "cost_usd": 0.07095,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "django/forms/widgets.py"
+      ]
+    },
+    {
+      "node": "verify_fix",
+      "wall_s": 11.79,
+      "reads": [
+        {
+          "path": "tests/forms_tests/tests/test_media.py",
+          "bytes": 26171,
+          "writer": "__seed__"
+        },
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 37371,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [
+        "create_test_case",
+        "fix_media_merge"
+      ],
+      "input_tokens": 18431,
+      "cache_read_tokens": 32333,
+      "output_tokens": 1068,
+      "cost_usd": 0.027,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "generate_diff",
+      "wall_s": 22.56,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 39788,
+          "writer": "fix_media_merge"
+        },
+        {
+          "path": "tests/forms_tests/tests/test_media.py",
+          "bytes": 28443,
+          "writer": "create_test_case"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 32233,
+      "cache_read_tokens": 32333,
+      "output_tokens": 4045,
+      "cost_usd": 0.05569,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    }
+  ]
+}

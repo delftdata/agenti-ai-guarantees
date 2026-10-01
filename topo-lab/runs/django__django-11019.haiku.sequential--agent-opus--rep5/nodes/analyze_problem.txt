@@ -1,0 +1,64 @@
+## Analysis of `Media.__add__` and Related Methods
+
+### Root Cause
+
+The `Media` class uses a **pairwise left-fold merge** strategy that converts *incidental adjacency* into *hard ordering constraints*, producing spurious `MediaOrderConflictWarning`s when 3 or more media objects are combined.
+
+### Detailed Breakdown
+
+**1. Deferred storage (`__add__`)**
+
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+`__add__` itself is not where ordering goes wrong — it merely concatenates the raw lists-of-lists, deferring the actual merge. This is fine.
+
+**2. The fold in `_js`**
+
+```python
+js = self._js_lists[0]
+for obj in filter(None, self._js_lists[1:]):
+    js = self.merge(js, obj)
+return js
+```
+
+Here is where the problem originates. The property reduces all source lists **pairwise, left to right**: `merge(merge(list0, list1), list2)...`. After the first `merge`, the intermediate result is a *single flat ordered list*. All information about *which* ordering relationships were genuinely required versus which were arbitrary is lost — every adjacency in the flattened list becomes a constraint for the next merge.
+
+**3. The `merge` method treats within-list order as a hard constraint**
+
+`merge(list_1, list_2)` preserves the full relative order of *both* input lists and warns whenever it detects two elements appearing in opposite relative orders. It cannot distinguish between:
+- a *real* constraint (A must precede B, stated within one widget's list), and
+- an *accidental* constraint (A and B happened to be adjacent only because they were independently merged into one intermediate list).
+
+### Worked Example
+
+Sources:
+- ColorPicker: `['color-picker.js']`
+- SimpleTextWidget: `['text-editor.js']`
+- FancyTextWidget: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+Fold step 1: `merge(['color-picker.js'], ['text-editor.js'])` → `['color-picker.js', 'text-editor.js']`
+
+This **fabricates** the constraint `color-picker.js` before `text-editor.js`. Neither widget ever expressed a relationship between these two independent files — the order is purely an artifact of the merge sequence.
+
+Fold step 2: merging that intermediate result against FancyTextWidget's list, which contains `text-editor.js` *before* `color-picker.js`, directly contradicts the fabricated constraint → `MediaOrderConflictWarning`.
+
+The warning is thus a false positive, and the final result is worse than a naive concatenation.
+
+### Why This Is Fundamentally Wrong
+
+The pairwise-fold collapses lists into a single total order **too early**. Each source list should only contribute *pairwise "must-come-before" constraints between consecutive elements of that same list*. The merge instead treats the entire flattened intermediate list as an ordered constraint set, inventing relationships between file pairs that no single source ever related.
+
+### Direction for the Fix
+
+Model the problem as a **topological sort over a dependency graph**:
+- Each source list `[a, b, c]` contributes only the edges `a → b`, `b → c` (each element must precede the *next* element in the *same* list).
+- Compute a single ordering satisfying all real constraints simultaneously.
+- Raise `MediaOrderConflictWarning` **only when a genuine cycle exists** (mutually contradictory constraints), not merely because two independent files were arbitrarily ordered in an intermediate step.
+
+Django already ships `django/utils/topological_sort.py`, which can be leveraged to implement this. The fix should replace the pairwise-fold-plus-`merge` approach with a graph-based merge that accumulates dependencies across all lists before determining a final order.

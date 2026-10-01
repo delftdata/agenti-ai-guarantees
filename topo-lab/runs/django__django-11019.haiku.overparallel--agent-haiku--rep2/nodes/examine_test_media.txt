@@ -1,0 +1,52 @@
+# Analysis of Media Tests and Problem Statement
+
+## Problem Summary
+When merging 3+ media objects, Django throws unnecessary `MediaOrderConflictWarning` warnings even when the final result is valid. The issue occurs because:
+
+1. Individual media objects are combined in sequence (left-to-right)
+2. Each intermediate combination imposes ordering constraints
+3. These constraints can be contradictory even when a valid global ordering exists
+
+## Example from Problem Statement
+```python
+ColorPicker().media              # ['color-picker.js']
+SimpleTextWidget().media         # ['text-editor.js']
+FancyTextWidget().media          # ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+
+# First merge: ColorPicker + SimpleTextWidget
+# Result: ['color-picker.js', 'text-editor.js']
+# This imposes constraint: color-picker.js BEFORE text-editor.js
+
+# Second merge: (ColorPicker + SimpleTextWidget) + FancyTextWidget
+# FancyTextWidget requires: text-editor.js BEFORE text-editor-extras.js BEFORE color-picker.js
+# Conflict: color-picker.js BEFORE text-editor.js vs color-picker.js AFTER text-editor.js
+# ❌ WARNING thrown, even though valid ordering exists
+```
+
+## Expected Behavior from Tests
+
+Looking at `test_media.py`, I can identify the expected merge behavior:
+
+1. **test_merge**: Tests `Media.merge(list1, list2)` static method with various cases:
+   - `[1,2] + [3,4]` → `[1,2,3,4]` (concatenate)
+   - `[1,2] + [2,3]` → `[1,2,3]` (remove duplicate)
+   - `[2,3] + [1,2]` → `[1,2,3]` (reorder to satisfy: 1→2→3)
+   - `[1,3] + [2,3]` → `[1,2,3]` (reorder to satisfy: 1→2, 2→3)
+   - `[1,2] + [1,3]` → `[1,2,3]` (reorder to satisfy: 1→2, 1→3)
+   - `[1,2] + [3,2]` → `[1,3,2]` (reorder to satisfy: 1→2, 1→3, 3→2)
+
+2. **test_merge_warning**: Only warns when true conflict exists: `[1,2] + [2,1]` (impossible ordering)
+
+3. **test_merge_js_three_way**: Tests that relative ordering is preserved in three-way merges without false warnings
+
+4. **test_merge_css_three_way**: Similar for CSS with different media types
+
+## Key Insight
+
+The current implementation detects ordering conflicts by checking if files appear in opposite order in the two input lists being merged. However, it doesn't account for **transitive dependencies** and **indirect orderings** that emerge through multiple merges.
+
+The problem is in how the merge algorithm identifies "opposite order" conflicts. It should only warn when there's a **true circular dependency** (A must be before B AND B must be before A), not when a temporary reordering in an intermediate step creates the appearance of conflict.
+
+## Root Cause Location
+
+The issue is in `django/forms/widgets.py` in the `Media` class's merge logic, specifically in how it detects and reports `MediaOrderConflictWarning`. The warning is triggered too aggressively when doing pairwise merges without considering whether a valid topological sort exists for the complete set.

@@ -1,0 +1,18 @@
+flowchart TD
+    examine_media_code[examine_media_code]
+    examine_test_media[examine_test_media]
+    analyze_problem[analyze_problem]
+    create_test_case[create_test_case]
+    fix_media_merge[fix_media_merge]
+    verify_fix[verify_fix]
+    generate_diff[generate_diff]
+    examine_media_code -.-> analyze_problem
+    examine_test_media -.-> create_test_case
+    analyze_problem --> fix_media_merge
+    create_test_case --> verify_fix
+    fix_media_merge --> verify_fix
+    fix_media_merge --> generate_diff
+    verify_fix --> generate_diff
+    examine_media_code --> generate_diff
+    examine_test_media --> generate_diff
+    style generate_diff stroke-width:3px

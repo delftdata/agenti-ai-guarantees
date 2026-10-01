@@ -1,5 +1,845 @@
 [
   {
+    "run": "django__django-11019.haiku.overparallel--agent-haiku--rep1",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 0.5,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.062,
+    "f2p_pass": 1,
+    "f2p_total": 16,
+    "tests": "1/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.overparallel--agent-haiku--rep1/patch.normalized.diff:121"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.overparallel--agent-haiku--rep2",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 0.5,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.062,
+    "f2p_pass": 1,
+    "f2p_total": 16,
+    "tests": "1/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.overparallel--agent-haiku--rep2/patch.normalized.diff:87"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.overparallel--agent-haiku--rep3",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.0,
+    "f2p_pass": 0,
+    "f2p_total": 16,
+    "tests": "0/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.overparallel--agent-haiku--rep3/patch.normalized.diff:89"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.overparallel--agent-haiku--rep4",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 0.5,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.062,
+    "f2p_pass": 1,
+    "f2p_total": 16,
+    "tests": "1/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.overparallel--agent-haiku--rep4/patch.normalized.diff:111"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.overparallel--agent-haiku--rep5",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 0.5,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.062,
+    "f2p_pass": 1,
+    "f2p_total": 16,
+    "tests": "1/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.overparallel--agent-haiku--rep5/patch.normalized.diff:140"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.overparallel--agent-opus--rep1",
+    "task": "django__django-11019",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 16,
+    "f2p_total": 16,
+    "tests": "16/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.overparallel--agent-opus--rep1/patch.normalized.diff:65"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.overparallel--agent-opus--rep2",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.188,
+    "f2p_pass": 3,
+    "f2p_total": 16,
+    "tests": "3/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.overparallel--agent-opus--rep2/patch.normalized.diff:30"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.overparallel--agent-opus--rep3",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.188,
+    "f2p_pass": 3,
+    "f2p_total": 16,
+    "tests": "3/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: patch fragment without header at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.overparallel--agent-opus--rep3/patch.normalized.diff:12: @@ -13,10 +14,14 @@ from django.conf i"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.overparallel--agent-opus--rep4",
+    "task": "django__django-11019",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 16,
+    "f2p_total": 16,
+    "tests": "16/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 0.5,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.overparallel--agent-opus--rep4/patch.normalized.diff:14"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.overparallel--agent-opus--rep5",
+    "task": "django__django-11019",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 16,
+    "f2p_total": 16,
+    "tests": "16/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 0.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.overparallel--agent-opus--rep5/patch.normalized.diff:61"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.parallel--agent-haiku--rep1",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.062,
+    "f2p_pass": 1,
+    "f2p_total": 16,
+    "tests": "1/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.parallel--agent-haiku--rep1/patch.normalized.diff:235"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.parallel--agent-haiku--rep2",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 0.5,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.125,
+    "f2p_pass": 2,
+    "f2p_total": 16,
+    "tests": "2/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.parallel--agent-haiku--rep2/patch.normalized.diff:132"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.parallel--agent-haiku--rep3",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 0.5,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.25,
+    "f2p_pass": 4,
+    "f2p_total": 16,
+    "tests": "4/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 0.5,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.parallel--agent-haiku--rep3/patch.normalized.diff:221"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.parallel--agent-haiku--rep4",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 0.5,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.125,
+    "f2p_pass": 2,
+    "f2p_total": 16,
+    "tests": "2/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.parallel--agent-haiku--rep4/patch.normalized.diff:225"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.parallel--agent-haiku--rep5",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.188,
+    "f2p_pass": 3,
+    "f2p_total": 16,
+    "tests": "3/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.parallel--agent-haiku--rep5/patch.normalized.diff:181"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.parallel--agent-opus--rep1",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.062,
+    "f2p_pass": 1,
+    "f2p_total": 16,
+    "tests": "1/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: patch fragment without header at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.parallel--agent-opus--rep1/patch.normalized.diff:28: @@ -40,26 +43,22 @@ class MediaOrderConfli"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.parallel--agent-opus--rep2",
+    "task": "django__django-11019",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 16,
+    "f2p_total": 16,
+    "tests": "16/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.parallel--agent-opus--rep2/patch.normalized.diff:26"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.parallel--agent-opus--rep3",
+    "task": "django__django-11019",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 16,
+    "f2p_total": 16,
+    "tests": "16/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: patch fragment without header at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.parallel--agent-opus--rep3/patch.normalized.diff:26: @@ -43,20 +47,20 @@ class MediaOrderConfli"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.parallel--agent-opus--rep4",
+    "task": "django__django-11019",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 16,
+    "f2p_total": 16,
+    "tests": "16/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.parallel--agent-opus--rep4/patch.normalized.diff:28"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.parallel--agent-opus--rep5",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.125,
+    "f2p_pass": 2,
+    "f2p_total": 16,
+    "tests": "2/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: patch fragment without header at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.parallel--agent-opus--rep5/patch.normalized.diff:26: @@ -39,16 +43,16 @@ class MediaOrderConfli"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.sequential--agent-haiku--rep1",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.25,
+    "f2p_pass": 4,
+    "f2p_total": 16,
+    "tests": "4/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.sequential--agent-haiku--rep1/patch.normalized.diff:174"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.sequential--agent-haiku--rep2",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.062,
+    "f2p_pass": 1,
+    "f2p_total": 16,
+    "tests": "1/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.sequential--agent-haiku--rep2/patch.normalized.diff:99"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.sequential--agent-haiku--rep3",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 0.5,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.062,
+    "f2p_pass": 1,
+    "f2p_total": 16,
+    "tests": "1/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.sequential--agent-haiku--rep3/patch.normalized.diff:111"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.sequential--agent-haiku--rep4",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.062,
+    "f2p_pass": 1,
+    "f2p_total": 16,
+    "tests": "1/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 0.5,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.sequential--agent-haiku--rep4/patch.normalized.diff:54"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.sequential--agent-haiku--rep5",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.375,
+    "f2p_pass": 6,
+    "f2p_total": 16,
+    "tests": "6/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.sequential--agent-haiku--rep5/patch.normalized.diff:178"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.sequential--agent-opus--rep1",
+    "task": "django__django-11019",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 16,
+    "f2p_total": 16,
+    "tests": "16/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: patch fragment without header at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.sequential--agent-opus--rep1/patch.normalized.diff:26: @@ -43,25 +47,28 @@ class MediaOrderConf"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.sequential--agent-opus--rep2",
+    "task": "django__django-11019",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 16,
+    "f2p_total": 16,
+    "tests": "16/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.sequential--agent-opus--rep2/patch.normalized.diff:26"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.sequential--agent-opus--rep3",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.062,
+    "f2p_pass": 1,
+    "f2p_total": 16,
+    "tests": "1/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: patch fragment without header at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.sequential--agent-opus--rep3/patch.normalized.diff:28: @@ -43,20 +47,29 @@ class MediaOrderConf"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.sequential--agent-opus--rep4",
+    "task": "django__django-11019",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 16,
+    "f2p_total": 16,
+    "tests": "16/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.sequential--agent-opus--rep4/patch.normalized.diff:27"
+    }
+  },
+  {
+    "run": "django__django-11019.haiku.sequential--agent-opus--rep5",
+    "task": "django__django-11019",
+    "stage": 3,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.062,
+    "f2p_pass": 1,
+    "f2p_total": 16,
+    "tests": "1/16",
+    "excluded_gold_test_files": [
+      "tests/forms_tests/tests/test_media.py"
+    ],
+    "emitted": {
+      "stage": 1,
+      "content": 1.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.haiku.sequential--agent-opus--rep5/patch.normalized.diff:26"
+    }
+  },
+  {
     "run": "django__django-11019.opus.cut25--agent-haiku--rep1",
     "task": "django__django-11019",
     "stage": 3,
@@ -892,15 +1732,15 @@
   {
     "run": "django__django-11019.opus.sequential--agent-haiku--rep5",
     "task": "django__django-11019",
-    "stage": 0,
-    "content": 0.0,
-    "applies": false,
-    "test_patch_applies": false,
+    "stage": 3,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
     "resolved": false,
-    "test_frac": null,
-    "f2p_pass": null,
-    "f2p_total": null,
-    "tests": "no workspace",
+    "test_frac": 0.562,
+    "f2p_pass": 9,
+    "f2p_total": 16,
+    "tests": "9/16",
     "excluded_gold_test_files": [
       "tests/forms_tests/tests/test_media.py"
     ],
@@ -914,7 +1754,7 @@
       "f2p_pass": null,
       "f2p_total": null,
       "tests": "n/a",
-      "apply_error": "error: corrupt patch at line 107"
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__django-11019.opus.sequential--agent-haiku--rep5/patch.normalized.diff:229"
     }
   },
   {
@@ -2057,6 +2897,136 @@
     }
   },
   {
+    "run": "django__providing-args.probe.parallel--agent-opus--rep1",
+    "task": "django__providing-args",
+    "stage": 3,
+    "content": 0.5,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.333,
+    "f2p_pass": 2,
+    "f2p_total": 6,
+    "tests": "2/6",
+    "excluded_gold_test_files": [],
+    "emitted": {
+      "stage": 1,
+      "content": 0.5,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: patch failed: tests/dispatch/tests.py:35\nerror: tests/dispatch/tests.py: patch does not apply"
+    }
+  },
+  {
+    "run": "django__providing-args.probe.parallel--agent-opus--rep2",
+    "task": "django__providing-args",
+    "stage": 3,
+    "content": 0.5,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.333,
+    "f2p_pass": 2,
+    "f2p_total": 6,
+    "tests": "2/6",
+    "excluded_gold_test_files": [],
+    "emitted": {
+      "stage": 1,
+      "content": 0.5,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__providing-args.probe.parallel--agent-opus--rep2/patch.normalized.diff:16"
+    }
+  },
+  {
+    "run": "django__providing-args.probe.parallel--agent-opus--rep3",
+    "task": "django__providing-args",
+    "stage": 3,
+    "content": 0.5,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.333,
+    "f2p_pass": 2,
+    "f2p_total": 6,
+    "tests": "2/6",
+    "excluded_gold_test_files": [],
+    "emitted": {
+      "stage": 1,
+      "content": 0.5,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__providing-args.probe.parallel--agent-opus--rep3/patch.normalized.diff:16"
+    }
+  },
+  {
+    "run": "django__providing-args.probe.parallel--agent-opus--rep4",
+    "task": "django__providing-args",
+    "stage": 3,
+    "content": 0.5,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.333,
+    "f2p_pass": 2,
+    "f2p_total": 6,
+    "tests": "2/6",
+    "excluded_gold_test_files": [],
+    "emitted": {
+      "stage": 1,
+      "content": 0.5,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: patch failed: tests/dispatch/tests.py:35\nerror: tests/dispatch/tests.py: patch does not apply"
+    }
+  },
+  {
+    "run": "django__providing-args.probe.parallel--agent-opus--rep5",
+    "task": "django__providing-args",
+    "stage": 3,
+    "content": 0.5,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": false,
+    "test_frac": 0.333,
+    "f2p_pass": 2,
+    "f2p_total": 6,
+    "tests": "2/6",
+    "excluded_gold_test_files": [],
+    "emitted": {
+      "stage": 1,
+      "content": 0.5,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: patch failed: tests/dispatch/tests.py:35\nerror: tests/dispatch/tests.py: patch does not apply"
+    }
+  },
+  {
     "run": "django__providing-args.probe.sequential--agent-haiku--rep1",
     "task": "django__providing-args",
     "stage": 4,
@@ -2079,7 +3049,7 @@
       "f2p_pass": null,
       "f2p_total": null,
       "tests": "n/a",
-      "apply_error": "error: corrupt patch at line 13"
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__providing-args.probe.sequential--agent-haiku--rep1/patch.normalized.diff:13"
     }
   },
   {
@@ -2184,6 +3154,136 @@
       "f2p_total": null,
       "tests": "n/a",
       "apply_error": "error: corrupt patch at line 70"
+    }
+  },
+  {
+    "run": "django__providing-args.probe.sequential--agent-opus--rep1",
+    "task": "django__providing-args",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 6,
+    "f2p_total": 6,
+    "tests": "6/6",
+    "excluded_gold_test_files": [],
+    "emitted": {
+      "stage": 1,
+      "content": 0.5,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: patch failed: tests/dispatch/tests.py:38\nerror: tests/dispatch/tests.py: patch does not apply"
+    }
+  },
+  {
+    "run": "django__providing-args.probe.sequential--agent-opus--rep2",
+    "task": "django__providing-args",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 6,
+    "f2p_total": 6,
+    "tests": "6/6",
+    "excluded_gold_test_files": [],
+    "emitted": {
+      "stage": 1,
+      "content": 0.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__providing-args.probe.sequential--agent-opus--rep2/patch.normalized.diff:14"
+    }
+  },
+  {
+    "run": "django__providing-args.probe.sequential--agent-opus--rep3",
+    "task": "django__providing-args",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 6,
+    "f2p_total": 6,
+    "tests": "6/6",
+    "excluded_gold_test_files": [],
+    "emitted": {
+      "stage": 1,
+      "content": 0.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: No valid patches in input (allow with \"--allow-empty\")"
+    }
+  },
+  {
+    "run": "django__providing-args.probe.sequential--agent-opus--rep4",
+    "task": "django__providing-args",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 6,
+    "f2p_total": 6,
+    "tests": "6/6",
+    "excluded_gold_test_files": [],
+    "emitted": {
+      "stage": 1,
+      "content": 0.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: No valid patches in input (allow with \"--allow-empty\")"
+    }
+  },
+  {
+    "run": "django__providing-args.probe.sequential--agent-opus--rep5",
+    "task": "django__providing-args",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 6,
+    "f2p_total": 6,
+    "tests": "6/6",
+    "excluded_gold_test_files": [],
+    "emitted": {
+      "stage": 1,
+      "content": 0.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: No valid patches in input (allow with \"--allow-empty\")"
     }
   },
   {
@@ -2314,6 +3414,136 @@
       "f2p_total": null,
       "tests": "n/a",
       "apply_error": "error: corrupt patch at line 13"
+    }
+  },
+  {
+    "run": "django__providing-args.probeordered.parallel--agent-opus--rep1",
+    "task": "django__providing-args",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 6,
+    "f2p_total": 6,
+    "tests": "6/6",
+    "excluded_gold_test_files": [],
+    "emitted": {
+      "stage": 1,
+      "content": 0.5,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: patch failed: tests/dispatch/tests.py:38\nerror: tests/dispatch/tests.py: patch does not apply"
+    }
+  },
+  {
+    "run": "django__providing-args.probeordered.parallel--agent-opus--rep2",
+    "task": "django__providing-args",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 6,
+    "f2p_total": 6,
+    "tests": "6/6",
+    "excluded_gold_test_files": [],
+    "emitted": {
+      "stage": 1,
+      "content": 0.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: patch failed: tests/dispatch/tests.py:38\nerror: tests/dispatch/tests.py: patch does not apply"
+    }
+  },
+  {
+    "run": "django__providing-args.probeordered.parallel--agent-opus--rep3",
+    "task": "django__providing-args",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 6,
+    "f2p_total": 6,
+    "tests": "6/6",
+    "excluded_gold_test_files": [],
+    "emitted": {
+      "stage": 1,
+      "content": 0.5,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: patch failed: tests/dispatch/tests.py:38\nerror: tests/dispatch/tests.py: patch does not apply"
+    }
+  },
+  {
+    "run": "django__providing-args.probeordered.parallel--agent-opus--rep4",
+    "task": "django__providing-args",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 6,
+    "f2p_total": 6,
+    "tests": "6/6",
+    "excluded_gold_test_files": [],
+    "emitted": {
+      "stage": 1,
+      "content": 0.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__providing-args.probeordered.parallel--agent-opus--rep4/patch.normalized.diff:13"
+    }
+  },
+  {
+    "run": "django__providing-args.probeordered.parallel--agent-opus--rep5",
+    "task": "django__providing-args",
+    "stage": 4,
+    "content": 1.0,
+    "applies": true,
+    "test_patch_applies": true,
+    "resolved": true,
+    "test_frac": 1.0,
+    "f2p_pass": 6,
+    "f2p_total": 6,
+    "tests": "6/6",
+    "excluded_gold_test_files": [],
+    "emitted": {
+      "stage": 1,
+      "content": 0.0,
+      "applies": false,
+      "test_patch_applies": false,
+      "resolved": false,
+      "test_frac": null,
+      "f2p_pass": null,
+      "f2p_total": null,
+      "tests": "n/a",
+      "apply_error": "error: corrupt patch at D:/agenti-ai-guarantees/topo-lab/runs/django__providing-args.probeordered.parallel--agent-opus--rep5/patch.normalized.diff:13"
     }
   },
   {

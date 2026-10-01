@@ -1,0 +1,64 @@
+# Analysis of the Media Class and Merging Logic
+
+## Current Implementation Overview
+
+The `Media` class in `django/forms/widgets.py` handles combining CSS and JavaScript files from multiple widgets. The problem statement describes an issue where merging 3 or more media objects can throw unnecessary `MediaOrderConflictWarnings`.
+
+## Key Components
+
+### Media Storage Structure
+- `_css_lists`: List of CSS dictionaries (one per media source added)
+- `_js_lists`: List of JS file lists (one per media source added)
+- These are lazily merged via `_css` and `_js` properties
+
+### The Merge Method (Lines 125-148)
+
+The `merge()` static method is the core of the issue. It:
+
+1. **Starts with a copy of list_1** (the accumulated list so far)
+2. **Processes list_2 in reverse order**, checking if each path already exists
+3. **Two possible outcomes for existing paths**:
+   - If the path exists at an index **greater than `last_insert_index`**, it warns about order conflict
+   - Updates `last_insert_index` to the existing path's index
+
+### The Problem
+
+The algorithm has a fundamental flaw in how it tracks insertion positions:
+
+1. When `ColorPicker().media + SimpleTextWidget().media` is computed:
+   - list_1 = `['color-picker.js']`
+   - list_2 = `['text-editor.js']`
+   - Result: `['color-picker.js', 'text-editor.js']`
+   - This incorrectly records that color-picker.js must come before text-editor.js
+
+2. When this result is then merged with `FancyTextWidget().media`:
+   - list_1 = `['color-picker.js', 'text-editor.js']`
+   - list_2 = `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+   - Processing in reverse: color-picker.js is already at index 0, but we want it at the end
+   - This triggers a false warning because the algorithm sees color-picker.js at index 0 (before last_insert_index)
+
+## Root Cause
+
+The `last_insert_index` tracking mechanism doesn't properly account for:
+- The actual dependency relationships between files
+- Files appearing in multiple sources with different orderings
+- The fact that when a file appears in both lists, it should be repositioned if needed, not just warned about
+
+The algorithm assumes if a file already exists earlier in the combined list, that ordering is canonical. But that ordering may be an artifact of how previous merges happened, not a real requirement.
+
+## What Should Happen
+
+For the given example:
+- ColorPicker needs: `['color-picker.js']`
+- SimpleTextWidget needs: `['text-editor.js']`
+- FancyTextWidget needs: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+The final merged result should respect FancyTextWidget's explicit ordering (text-editor.js must come before text-editor-extras.js, which must come before color-picker.js). Since these constraints don't conflict with the other widgets' constraints, the result should be: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` with no warning.
+
+## Solution Approach Needed
+
+The merge algorithm needs to be rewritten to:
+1. **Detect true ordering conflicts**: Only warn when there are genuinely incompatible orderings
+2. **Handle transitive relationships**: If A must precede B and B must precede C, this is not a conflict
+3. **Use a topological sort approach**: Rather than a simple left-to-right insertion strategy, establish all precedence constraints and find a valid ordering
+4. **Only warn on actual conflicts**: When two files have mutual dependencies that cannot be satisfied (A before B AND B before A)

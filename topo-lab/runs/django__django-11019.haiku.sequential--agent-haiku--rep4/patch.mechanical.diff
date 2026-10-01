@@ -1,0 +1,129 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..30b57b0dbb 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -118,36 +118,99 @@ class Media:
+     def merge(list_1, list_2):
+         """
+         Merge two lists while trying to keep the relative order of the elements.
+-        Warn if the lists have the same two elements in a different relative
+-        order.
++        Warn if the lists have the same two elements in a different relative order.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
++        
++        Uses topological sorting based on ordering constraints extracted from both
++        input lists. This ensures:
++        1. No spurious conflicts from intermediate merge results
++        2. A single valid ordering if one exists
++        3. Warnings only for genuine contradictions
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++        # Collect all unique items from both lists
++        seen = {}
++        all_items = []
++        for item in list_1:
++            if item not in seen:
++                seen[item] = len(all_items)
++                all_items.append(item)
++        for item in list_2:
++            if item not in seen:
++                seen[item] = len(all_items)
++                all_items.append(item)
++        
++        if not all_items:
++            return []
++        
++        # Build a constraint graph from both lists
++        # Each list defines a "must come before" relationship for consecutive elements
++        constraints = {}  # item -> set of items that must come after it
++        for item in all_items:
++            constraints[item] = set()
++        
++        # Extract constraints from list_1: each element must come before subsequent elements
++        for i, item1 in enumerate(list_1):
++            for item2 in list_1[i + 1:]:
++                constraints[item1].add(item2)
++        
++        # Extract constraints from list_2: each element must come before subsequent elements
++        for i, item2 in enumerate(list_2):
++            for item2_later in list_2[i + 1:]:
++                constraints[item2].add(item2_later)
++        
++        # Check for conflicts: if A must come before B and B must come before A
++        conflict_pairs = []
++        for item in all_items:
++            for must_follow in constraints[item]:
++                # Check if there's a reverse constraint
++                if item in constraints[must_follow]:
++                    # This is a genuine conflict
++                    conflict_pairs.append((item, must_follow))
++        
++        if conflict_pairs:
++            # Report the first conflict found
++            item1, item2 = conflict_pairs[0]
++            warnings.warn(
++                'Detected duplicate Media files in an opposite order:\n'
++                '%s\n%s' % (item1, item2),
++                MediaOrderConflictWarning,
++            )
++        
++        # Perform topological sort using Kahn's algorithm
++        # Count how many constraints each item satisfies (in-degree)
++        in_degree = {item: 0 for item in all_items}
++        
++        for item in all_items:
++            for must_follow in constraints[item]:
++                in_degree[must_follow] += 1
++        
++        # Start with items that have no constraints (in-degree 0)
++        queue = [item for item in all_items if in_degree[item] == 0]
++        result = []
++        
++        while queue:
++            # Sort queue to ensure deterministic ordering when multiple items have in-degree 0
++            # This maintains the order from the original lists when there are no constraints
++            queue.sort(key=lambda x: all_items.index(x))
++            current = queue.pop(0)
++            result.append(current)
++            
++            # For each item that must come after current
++            for must_follow in sorted(constraints[current], key=lambda x: all_items.index(x)):
++                in_degree[must_follow] -= 1
++                if in_degree[must_follow] == 0:
++                    queue.append(must_follow)
++        
++        # If we couldn't add all items, there's a cycle (which we already detected as conflict)
++        if len(result) != len(all_items):
++            # This shouldn't happen if conflict detection is correct, but as a fallback
++            # return items in the order they appeared to avoid complete failure
++            return all_items
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()

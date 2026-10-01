@@ -1,0 +1,73 @@
+I'll analyze whether the fix resolves the issue by tracing through the code with the test scenario.
+
+## Analysis of the Fix
+
+### The Core Change
+
+The key change is that `Media` no longer eagerly merges lists on each `__add__`. Instead:
+
+1. `__init__` stores `self._js_lists = [js]` and `self._css_lists = [css]` (lists of lists).
+2. `__add__` concatenates these lists without merging: `combined._js_lists = self._js_lists + other._js_lists`.
+3. The `_js` and `_css` properties call `merge(*self._js_lists)` — merging ALL sublists at once via a topological sort.
+
+This deferred, all-at-once merge is what avoids the spurious warnings, because the pairwise merge previously imposed false ordering constraints.
+
+### Tracing `test_form_media_ordering_no_conflict`
+
+The form combines widget media in field order:
+- `ColorPicker`: `['color-picker.js']`
+- `SimpleTextWidget`: `['text-editor.js']`
+- `FancyTextWidget`: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+With deferred merging, `MyForm().media._js` calls `merge()` with all three lists together:
+```
+merge(['color-picker.js'], ['text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
+```
+
+Building the dependency graph (item → set of things it must come after):
+- List 1 `['color-picker.js']`: `color-picker.js` depends on nothing.
+- List 2 `['text-editor.js']`: `text-editor.js` depends on nothing.
+- List 3 `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`:
+  - `text-editor-extras.js` depends on `text-editor.js`
+  - `color-picker.js` depends on `text-editor-extras.js`
+
+Resulting graph:
+- `text-editor.js`: {} (no deps)
+- `text-editor-extras.js`: {text-editor.js}
+- `color-picker.js`: {text-editor-extras.js}
+
+No cycle exists, so no warning is emitted. `stable_topological_sort` with `all_items` in insertion order (`color-picker.js`, `text-editor.js`, `text-editor-extras.js`) produces layers:
+- Layer 1 (no deps): {text-editor.js} → emit `text-editor.js`
+- Layer 2: {text-editor-extras.js} → emit `text-editor-extras.js`
+- Layer 3: {color-picker.js} → emit `color-picker.js`
+
+**Result: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`** ✓
+
+Since no `CyclicDependencyError` is raised, no `MediaOrderConflictWarning` is emitted, so `warnings.simplefilter('error')` does not trigger. Both assertions pass.
+
+### Verifying Other Tests Still Pass
+
+- **`test_merge`**: `merge([1,2],[3,2])` → graph: 2 deps {1}, 3 deps... wait, list `[3,2]` gives 2 deps {3}. Combined graph: 1:{}, 2:{1,3}, 3:{}. all_items order [1,2,3]. Layers: {1,3} then {2}. Stable sort by all_items order → `[1,3,2]`. ✓
+- **`test_merge_warning`**: `merge([1,2],[2,1])` → 2 deps {1}, 1 deps {2}: cycle → warning "1\n2"... The warning message format `', '.join` produces `'1, 2'` not `'1\n2'`. 
+
+### Potential Issue with the Warning Message
+
+The test `test_merge_warning` expects:
+```python
+msg = 'Detected duplicate Media files in an opposite order:\n1\n2'
+```
+But the fix's `merge()` produces:
+```python
+'Detected duplicate Media files in an opposite order: {}'.format(', '.join(repr(l) for l in lists))
+```
+This yields `'Detected duplicate Media files in an opposite order: [1, 2], [2, 1]'`, which does NOT match the expected `'\n1\n2'` format. **This test would FAIL.**
+
+The warning message in the merge implementation was not updated to match the newlined single-pair format the test expects. The `merge` should detect the specific conflicting pair and format it as `\n{a}\n{b}`.
+
+## Conclusion
+
+The primary bug fix **works correctly** for the target scenario:
+- `test_form_media_ordering_no_conflict` passes — no warning, correct order `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`.
+- `test_merge_js_three_way2` passes with the same correct ordering.
+
+However, **`test_merge_warning` would fail** because the warning message format (`', '.join(repr(l) for l in lists)`) doesn't match the expected newline-delimited single-pair message (`'\n1\n2'`). The `merge()` implementation needs to be refined to detect and report the specific conflicting pair with the `\n`-joined format rather than dumping all input lists. The fix is incomplete on the warning-message formatting front and should be corrected before it fully passes the test suite.

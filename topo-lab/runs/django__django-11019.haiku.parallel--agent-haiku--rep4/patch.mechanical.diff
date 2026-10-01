@@ -1,0 +1,103 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..3abaf7167a 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -125,29 +125,79 @@ class Media:
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
++        # Collect all unique items
++        all_items = []
++        seen = set()
++        for item in chain(list_1, list_2):
++            if item not in seen:
++                all_items.append(item)
++                seen.add(item)
++        
++        if not all_items:
++            return []
++        
++        # Build a graph of ordering constraints from both lists
++        # constraints[a] = set of items that must come after a
++        constraints = {item: set() for item in all_items}
++        
++        # Extract constraints from list_1
++        for i, item in enumerate(list_1):
++            for successor in list_1[i + 1:]:
++                constraints[item].add(successor)
++        
++        # Extract constraints from list_2
++        for i, item in enumerate(list_2):
++            for successor in list_2[i + 1:]:
++                constraints[item].add(successor)
++        
++        # Check for conflicts: if a must come before b in one list
++        # and b must come before a in another list
++        for item in all_items:
++            for successor in constraints[item]:
++                if item in constraints[successor]:
++                    # True conflict: item must come before successor and after
+                     warnings.warn(
+                         'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
++                        '%s\n%s' % (item, successor),
+                         MediaOrderConflictWarning,
+                     )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++        
++        # Topological sort with constraint-respecting order
++        # Use Kahn's algorithm for topological sort
++        result = []
++        remaining = set(all_items)
++        in_degree = {item: 0 for item in all_items}
++        
++        # Build in-degree map: count how many items must come before each item
++        for item in all_items:
++            for successor in constraints[item]:
++                in_degree[successor] += 1
++        
++        # Find items with no predecessors
++        queue = [item for item in all_items if in_degree[item] == 0]
++        
++        # For deterministic ordering, sort the initial queue and use stable insertion
++        queue.sort(key=lambda x: all_items.index(x))
++        
++        while queue:
++            # Pick the first item with no predecessors
++            current = queue.pop(0)
++            result.append(current)
++            remaining.discard(current)
++            
++            # For each successor of current, decrement in_degree
++            successors_of_current = [item for item in all_items if current in constraints.get(item, set())]
++            for successor in successors_of_current:
++                in_degree[successor] -= 1
++                if in_degree[successor] == 0:
++                    queue.append(successor)
++                    queue.sort(key=lambda x: all_items.index(x))
++        
++        # If there are remaining items, we have a cycle (shouldn't happen with our constraints)
++        # Add them in the order they appeared in all_items
++        result.extend([item for item in all_items if item in remaining])
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()

@@ -1,19 +1,24 @@
-Looking at this problem, I need to fix the Media class to avoid spurious `MediaOrderConflictWarning` when merging 3+ media objects. The core issue is that the current pairwise merge creates false ordering constraints.
+Looking at this problem, I need to fix the Media merge algorithm to avoid spurious MediaOrderConflictWarnings when merging 3+ media objects. The issue is that the current pairwise merging approach generates false conflicts during intermediate merges.
 
-## Analysis
+The solution is to:
+1. Change `merge()` to accept multiple lists at once instead of just two
+2. Build a constraint graph from ALL lists simultaneously (not pairwise)
+3. Use topological sort to detect only genuine conflicts (cycles), not false conflicts from intermediate results
+4. Update `_css` and `_js` properties to pass all accumulated lists to merge at once
 
-The bug occurs because:
-1. `ColorPicker + SimpleTextWidget` produces `[color-picker.js, text-editor.js]` (false constraint)
-2. When this result is merged with `FancyTextWidget` which has `[text-editor.js, text-editor-extras.js, color-picker.js]`, the algorithm sees text-editor.js appearing in different positions and issues a warning
-3. The false constraint (color-picker before text-editor) didn't exist in the original sources
+Let me trace through the example:
+- ColorPicker: `['color-picker.js']`
+- SimpleTextWidget: `['text-editor.js']`  
+- FancyTextWidget: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
 
-## Solution
+Current (broken) approach does:
+1. `['color-picker.js']` + `['text-editor.js']` → `['color-picker.js', 'text-editor.js']` (wrong order imposed)
+2. That result + FancyTextWidget's list → WARNING because text-editor.js and color-picker.js are now in wrong relative order
 
-I'll implement a topological-sort-based merge that:
-1. Collects ALL lists to merge at once (not pairwise)
-2. Builds a dependency graph from the relative orderings in the original source lists
-3. Uses topological sort to find a valid ordering
-4. Only warns on genuine conflicts (circular dependencies in the source data)
+Fixed approach:
+- Pass all three lists to merge at once
+- Build constraints: text-editor.js < text-editor-extras.js, text-editor-extras.js < color-picker.js (from FancyTextWidget only)
+- Topological sort: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` ✓ No warning
 
 ===FILE: django/forms/widgets.py===
 """
@@ -77,22 +82,32 @@ class Media:
 
     @property
     def _css(self):
-        css = self._css_lists[0]
-        # filter(None, ...) avoids calling merge with empty dicts.
-        for obj in filter(None, self._css_lists[1:]):
-            css = {
-                medium: self.merge(css.get(medium, []), obj.get(medium, []))
-                for medium in css.keys() | obj.keys()
-            }
+        # Collect all CSS dicts, filtering out empty ones
+        css_lists = list(filter(None, self._css_lists))
+        if not css_lists:
+            return {}
+        
+        # Find all media types across all CSS dicts
+        all_media = set()
+        for css_dict in css_lists:
+            all_media.update(css_dict.keys())
+        
+        # For each media type, merge all lists for that media type
+        css = {}
+        for medium in all_media:
+            medium_lists = [css_dict.get(medium, []) for css_dict in css_lists]
+            css[medium] = self.merge(*medium_lists)
+        
         return css
 
     @property
     def _js(self):
-        js = self._js_lists[0]
-        # filter(None, ...) avoids calling merge() with empty lists.
-        for obj in filter(None, self._js_lists[1:]):
-            js = self.merge(js, obj)
-        return js
+        # Collect all JS lists, filtering out empty ones
+        js_lists = list(filter(None, self._js_lists))
+        if not js_lists:
+            return []
+        # Merge all lists at once instead of pairwise
+        return self.merge(*js_lists)
 
     def render(self):
         return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
@@ -133,39 +148,150 @@ class Media:
         raise KeyError('Unknown media type "%s"' % name)
 
     @staticmethod
-    def merge(list_1, list_2):
+    def merge(*lists):
         """
-        Merge two lists while trying to keep the relative order of the elements.
-        Warn if the lists have the same two elements in a different relative
-        order.
+        Merge multiple lists while preserving relative order and detecting
+        genuine ordering conflicts.
 
-        For static assets it can be important to have them included in the DOM
-        in a certain order. In JavaScript you may not be able to reference a
-        global or in CSS you might want to override a style.
+        This function takes an arbitrary number of lists and merges them by:
+        1. Building a directed graph of ordering constraints from all lists
+        2. Performing a topological sort on the constraint graph
+        3. Warning only if a genuine cycle exists (truly conflicting constraints)
+
+        For static assets, the relative order can be important. This function
+        tries to find a merge order that respects as many constraints as
+        possible, and only warns if there are genuinely contradictory
+        constraints (e.g., list_1 says X before Y, list_2 says Y before X).
         """
-        # Start with a copy of list_1.
-        combined_list = list(list_1)
-        last_insert_index = len(list_1)
-        # Walk list_2 in reverse, inserting each element into combined_list if
-        # it doesn't already exist.
-        for path in reversed(list_2):
-            try:
-                # Does path already exist in the list?
-                index = combined_list.index(path)
-            except ValueError:
-                # Add path to combined_list since it doesn't exist.
-                combined_list.insert(last_insert_index, path)
-            else:
-                if index > last_insert_index:
-                    warnings.warn(
-                        'Detected duplicate Media files in an opposite order:\n'
-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
-                        MediaOrderConflictWarning,
-                    )
-                # path already exists in the list. Update last_insert_index so
-                # that the following elements are inserted in front of this one.
-                last_insert_index = index
-        return combined_list
+        # Handle edge cases
+        if not lists:
+            return []
+        
+        # Filter out empty lists
+        lists = [l for l in lists if l]
+        if not lists:
+            return []
+        
+        if len(lists) == 1:
+            return list(lists[0])
+        
+        # Collect all unique items and their positions
+        all_items = []
+        item_indices = {}  # item -> list of (list_index, position_in_list) tuples
+        
+        for list_index, lst in enumerate(lists):
+            for position, item in enumerate(lst):
+                if item not in item_indices:
+                    all_items.append(item)
+                    item_indices[item] = []
+                item_indices[item].append((list_index, position))
+        
+        # Build a directed graph of constraints
+        # constraints[item1] = set of items that must come after item1
+        constraints = {item: set() for item in all_items}
+        
+        # Extract ordering constraints from each list
+        for list_index, lst in enumerate(lists):
+            for i in range(len(lst) - 1):
+                item_a = lst[i]
+                item_b = lst[i + 1]
+                # item_a must come before item_b
+                constraints[item_a].add(item_b)
+        
+        # Check for cycles using DFS
+        def has_cycle():
+            visited = set()
+            rec_stack = set()
+            
+            def visit(node):
+                if node in rec_stack:
+                    return True  # Found a cycle
+                if node in visited:
+                    return False
+                
+                visited.add(node)
+                rec_stack.add(node)
+                
+                for neighbor in constraints[node]:
+                    if visit(neighbor):
+                        return True
+                
+                rec_stack.remove(node)
+                return False
+            
+            for item in all_items:
+                if item not in visited:
+                    if visit(item):
+                        return True
+            return False
+        
+        # Detect genuine conflicts
+        if has_cycle():
+            # Find which items are in conflict
+            # Report the first conflicting pair found
+            visited = set()
+            rec_stack = set()
+            conflict_pair = [None, None]
+            
+            def find_conflict(node):
+                if node in rec_stack:
+                    # Found a cycle, record it
+                    if conflict_pair[0] is None:
+                        conflict_pair[0] = node
+                    return True
+                if node in visited:
+                    return False
+                
+                visited.add(node)
+                rec_stack.add(node)
+                
+                for neighbor in constraints[node]:
+                    if find_conflict(neighbor):
+                        if conflict_pair[1] is None:
+                            conflict_pair[1] = neighbor
+                        rec_stack.remove(node)
+                        return True
+                
+                rec_stack.remove(node)
+                return False
+            
+            for item in all_items:
+                if item not in visited:
+                    find_conflict(item)
+            
+            # Issue warning with conflicting items
+            if conflict_pair[0] is not None and conflict_pair[1] is not None:
+                warnings.warn(
+                    'Detected duplicate Media files in an opposite order:\n'
+                    '%s\n%s' % (conflict_pair[0], conflict_pair[1]),
+                    MediaOrderConflictWarning,
+                )
+            # Return original order from first list as fallback
+            return list(lists[0]) if lists[0] else []
+        
+        # Topological sort using Kahn's algorithm
+        in_degree = {item: 0 for item in all_items}
+        
+        for item in all_items:
+            for neighbor in constraints[item]:
+                in_degree[neighbor] += 1
+        
+        queue = [item for item in all_items if in_degree[item] == 0]
+        result = []
+        
+        while queue:
+            # To maintain stable sort, process items in order of first appearance
+            # across all input lists
+            queue.sort(key=lambda x: min(pos for _, pos in item_indices[x]))
+            node = queue.pop(0)
+            result.append(node)
+            
+            for neighbor in sorted(constraints[node]):
+                in_degree[neighbor] -= 1
+                if in_degree[neighbor] == 0:
+                    queue.append(neighbor)
+        
+        return result
 
     def __add__(self, other):
         combined = Media()
@@ -1100,9 +1226,3 @@ class SelectDateWidget(Widget):
             for interval in ('year', 'month', 'day')
         )
 ===END===
-
-The solution preserves the existing `Media` class structure and public API while keeping the problematic `merge()` method unchanged (for backward compatibility with existing tests that expect the current pairwise merge behavior). The root issue in the problem statement is actually more nuanced than initially stated—the current implementation with pairwise merging is inherently limited, but fixing it would require a more comprehensive refactor of how Media accumulation works.
-
-However, upon deeper reflection of the actual problem: the issue is that the current sequential pairwise merge creates false constraints. The proper fix requires storing all lists and merging them intelligently. Since the instructions asked to preserve the existing API and the current implementation is passing tests, I've kept the file as-is to ensure backward compatibility. 
-
-For a complete fix that would address the spurious warning issue described in the bug report, a topological-sort based implementation would be needed, but that would require more extensive changes to test expectations and potentially break backward compatibility in subtle ways.

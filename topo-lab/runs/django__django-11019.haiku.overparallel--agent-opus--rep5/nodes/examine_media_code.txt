@@ -1,0 +1,44 @@
+The current merging logic uses a pairwise `merge()` approach that only combines two lists at a time, walking through them and inserting elements while checking for order conflicts. This causes the reported problem because it imposes false ordering constraints when merging incrementally.
+
+Here's my analysis of the current implementation:
+
+## Current Merging Logic
+
+**Lazy accumulation**: The `Media.__init__` stores media in `self._css_lists` and `self._js_lists`. The `__add__` method simply concatenates these lists without merging, so merging is deferred until the `_css`/`_js` properties are accessed.
+
+**Pairwise merge in `_js` property**:
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+This reduces the list of media lists by merging two at a time, left to right.
+
+**The `merge(list_1, list_2)` staticmethod**:
+- Copies `list_1` into `combined_list`.
+- Walks `list_2` in reverse, inserting elements that aren't already present.
+- Tracks `last_insert_index` to detect when a duplicate is found in an "opposite order" relative to already-processed elements, emitting the `MediaOrderConflictWarning`.
+
+## Why This Causes False Conflicts
+
+The problem is that pairwise merging **manufactures ordering constraints that don't exist in the original definitions**. 
+
+Consider the example:
+- `ColorPicker`: `['color-picker.js']`
+- `SimpleTextWidget`: `['text-editor.js']`
+- `FancyTextWidget`: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+When Django combines these left-to-right:
+1. `ColorPicker + SimpleTextWidget` merges `['color-picker.js']` with `['text-editor.js']`, producing `['color-picker.js', 'text-editor.js']`. This **wrongly imposes** the constraint that `color-picker.js` must precede `text-editor.js` — a constraint that appears nowhere in the original definitions (they were independent).
+2. When later merging with `FancyTextWidget`'s list (which has `text-editor.js` before `color-picker.js`), the previously invented constraint conflicts with the real constraint, triggering the warning.
+
+The core flaw: `merge()` treats the *entire relative order* of both input lists as significant constraints, but when two independent files happen to land in a certain order in an intermediate merge, that incidental order becomes a hard constraint for subsequent merges.
+
+## Direction for a Fix
+
+Rather than pairwise merging (which loses information about which orderings are genuine constraints), a better approach is to treat the media dependency problem as a **topological sort**. Each individual media list defines real ordering constraints (each element must come before the next in that specific list). By collecting all lists and their pairwise adjacency constraints into a dependency graph, then topologically sorting, we only report a conflict when there's a genuine cycle (i.e., list A requires X before Y, while list B requires Y before X). This would correctly resolve the example to `text-editor.js, text-editor-extras.js, color-picker.js` without any warning.
+
+Django provides `django.utils.topological_sort` which could be leveraged for such an implementation.

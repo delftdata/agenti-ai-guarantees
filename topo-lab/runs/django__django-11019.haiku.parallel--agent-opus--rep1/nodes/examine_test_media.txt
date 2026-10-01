@@ -1,0 +1,35 @@
+I've read the media tests. Here's my analysis of the expected behavior and how the fix must be designed.
+
+## Current Design Problem
+
+The current `Media` implementation merges lists two at a time using a pairwise `merge` algorithm. When combining three or more media objects, this pairwise approach establishes spurious ordering constraints. For example, merging `['color-picker.js']` + `['text-editor.js']` produces `['color-picker.js', 'text-editor.js']`, which wrongly asserts that color-picker must come before text-editor. When a later object requires the opposite order, a false `MediaOrderConflictWarning` is raised.
+
+## Key Test Insights
+
+**`test_merge`** — The `Media.merge` method must still work pairwise and produce these results:
+- `([1,2],[3,4]) -> [1,2,3,4]`
+- `([1,2],[2,3]) -> [1,2,3]`
+- `([2,3],[1,2]) -> [1,2,3]`
+- `([1,3],[2,3]) -> [1,2,3]`
+- `([1,2],[1,3]) -> [1,2,3]`
+- `([1,2],[3,2]) -> [1,3,2]`
+
+So `merge` remains a two-list method but its behavior/algorithm may change (e.g., inserting elements of list1 into list2 while preserving relative orderings, rather than the old approach). Notably `([2,3],[1,2]) -> [1,2,3]` shows that when there's no conflict, the combined list respects both relative orders.
+
+**`test_merge_warning`** — A genuine conflict (`[1,2]` vs `[2,1]`) must still raise `RuntimeWarning` with message `'Detected duplicate Media files in an opposite order:\n1\n2'`. So the warning message format now lists just the two conflicting elements (the newly-reported pair), and warns of `RuntimeWarning`/`MediaOrderConflictWarning`.
+
+**`test_merge_js_three_way`** — This is the core new requirement. The design must defer merging so multiple lists combine without spurious constraints:
+- `Media(['custom_widget.js']) + Media(['jquery.js','uses_jquery.js'])` yields `['custom_widget.js','jquery.js','uses_jquery.js']`.
+- Adding `Media(['jquery.js','also_jquery.js']) + Media(['custom_widget.js'])` then merging all four yields `['custom_widget.js','jquery.js','uses_jquery.js','also_jquery.js']` **without a warning**, even though custom_widget.js appears at different positions.
+
+This implies the `Media` object should store its component lists (e.g., `_js_lists`) and only compute the flattened `_js` lazily via a property, merging all lists at access time. The `__add__` operation should concatenate the lists of component media rather than eagerly merging.
+
+**`test_merge_css_three_way`** — Similar for CSS, per-medium (`'screen'`, `'all'`). `form1._css = {'screen':['a.css','b.css']}`, `form2._css = {'screen':['b.css','a.css']}`, and `widget3 + form1 + form2` merges to `{'screen':['a.css','b.css'], 'all':['c.css']}` without warning.
+
+## Design Implications
+
+1. `Media.__init__` should store `_css_lists` and `_js_lists` (lists of dicts/lists) rather than pre-merged data.
+2. `_js` and `_css` become properties that reduce their respective lists via `merge` at access time.
+3. `__add__` returns a new `Media` whose `_js_lists`/`_css_lists` are the concatenation of both operands' lists — deferring the actual merge.
+4. `merge` should be reworked to a stable insertion algorithm: iterate the first list, tracking the last-seen index in the combined result, and detect a conflict only when a genuine reversed dependency appears, warning with just the two conflicting file names.
+5. Existing tests (`test_combine_media`, `test_multi_widget`, `test_form_media`, etc.) must still pass, so the merged output ordering for those established cases must remain identical.

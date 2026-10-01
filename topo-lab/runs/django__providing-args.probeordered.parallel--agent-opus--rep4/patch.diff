@@ -1,0 +1,12 @@
+All the source files already match the current contents (no `providing_args` present). The only file needing changes is `tests/dispatch/tests.py`, which currently already has no `providing_args`. Comparing the given current content of `tests/dispatch/tests.py` (no providing_args) with the upstream nodes, the final desired state matches the current content. Thus the only diff needed is against files that differ — but all provided current files already lack `providing_args`.
+
+diff --git a/tests/dispatch/tests.py b/tests/dispatch/tests.py
+index 0000000..0000000 100644
+--- a/tests/dispatch/tests.py
++++ b/tests/dispatch/tests.py
+@@ -38,7 +38,7 @@ class Callable:
+ 
+ a_signal = Signal()
+ b_signal = Signal()
+ c_signal = Signal()
+ d_signal = Signal(use_caching=True)

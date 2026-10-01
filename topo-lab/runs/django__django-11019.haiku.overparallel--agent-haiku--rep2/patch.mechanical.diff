@@ -1,0 +1,59 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..1b6a5f9776 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -125,9 +125,13 @@ class Media:
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Start with a copy of list_1.
++        # Collect all unique items while maintaining order preference
+         combined_list = list(list_1)
+         last_insert_index = len(list_1)
++        
++        # Track conflicts - pairs that appear in opposite orders
++        conflicts_found = []
++        
+         # Walk list_2 in reverse, inserting each element into combined_list if
+         # it doesn't already exist.
+         for path in reversed(list_2):
+@@ -139,14 +143,34 @@ class Media:
+                 combined_list.insert(last_insert_index, path)
+             else:
+                 if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
++                    # This is a potential conflict - the same item appears
++                    # in a different position. But we should only warn if
++                    # there's a real constraint violation.
++                    # Check if there's an actual item at last_insert_index
++                    if last_insert_index < len(combined_list):
++                        other_item = combined_list[last_insert_index]
++                        # Only report conflict if other_item comes from list_2
++                        # and appears after path in list_2
++                        if other_item in list_2:
++                            idx_path_in_list2 = list_2.index(path) if path in list_2 else -1
++                            idx_other_in_list2 = list_2.index(other_item) if other_item in list_2 else -1
++                            # Conflict: path comes after other_item in list_2,
++                            # but before in combined_list
++                            if idx_path_in_list2 > idx_other_in_list2:
++                                conflicts_found.append((other_item, path))
++                
+                 # path already exists in the list. Update last_insert_index so
+                 # that the following elements are inserted in front of this one.
+                 last_insert_index = index
++        
++        # Warn about conflicts only if we found real ones
++        for before, after in conflicts_found:
++            warnings.warn(
++                'Detected duplicate Media files in an opposite order:\n'
++                '%s\n%s' % (before, after),
++                MediaOrderConflictWarning,
++            )
++        
+         return combined_list
+ 
+     def __add__(self, other):

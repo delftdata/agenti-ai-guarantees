@@ -1,0 +1,12 @@
+The current files already match the desired state (no `providing_args` present). Only `tests/dispatch/tests.py` in the current contents already lacks `providing_args`, so there are no changes to make to any file.
+
+diff --git a/tests/dispatch/tests.py b/tests/dispatch/tests.py
+index 0000000..0000000 100644
+--- a/tests/dispatch/tests.py
++++ b/tests/dispatch/tests.py
+@@ -37,7 +37,7 @@ class Callable:
+ 
+ a_signal = Signal()
+ b_signal = Signal()
+ c_signal = Signal()
+ d_signal = Signal(use_caching=True)

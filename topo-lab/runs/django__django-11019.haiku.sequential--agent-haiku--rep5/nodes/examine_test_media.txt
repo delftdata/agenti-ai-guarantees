@@ -1,0 +1,58 @@
+# Analysis of Media Tests
+
+## Current Expected Behavior
+
+Based on the test file, here's what the Media system is expected to do:
+
+### 1. **Basic Media Combination**
+- Media objects can be added together using the `+` operator
+- Duplicate files are deduplicated (only appear once)
+- The order of files is important for dependencies
+
+### 2. **Merge Function Behavior** (`test_merge`)
+The `Media.merge()` function handles list merging with specific rules:
+- `([1, 2], [3, 4])` → `[1, 2, 3, 4]` - Simple concatenation when no conflicts
+- `([1, 2], [2, 3])` → `[1, 2, 3]` - Deduplication, preserving order
+- `([2, 3], [1, 2])` → `[1, 2, 3]` - Reordering to satisfy dependencies
+- `([1, 3], [2, 3])` → `[1, 2, 3]` - Insert element to maintain order
+- `([1, 2], [1, 3])` → `[1, 2, 3]` - Reorder as needed
+- `([1, 2], [3, 2])` → `[1, 3, 2]` - This is the key case
+
+### 3. **Merge Warning** (`test_merge_warning`)
+- When a conflict is detected (files in opposite order), a `RuntimeWarning` is raised
+- The warning message lists the conflicting files
+- The merge still succeeds, preferring one order
+
+### 4. **Three-Way Merge Tests**
+
+**JavaScript (`test_merge_js_three_way`):**
+- Tests merging of three widgets' media
+- Shows that the relative ordering should be preserved across multiple merges
+- When combining `(widget1 + widget2) + (widget3 + widget4)`, should work correctly
+
+**CSS (`test_merge_css_three_way`):**
+- Similar three-way merge scenario
+- Demonstrates that when `a.css` and `b.css` have no specified ordering constraint, they can appear in either order
+- The merge of `widget3 + form1 + form2` should succeed without warnings
+
+## The Problem
+
+The issue described in the problem statement is:
+
+1. **Unnecessary Warnings**: When merging 3+ media objects, false positive conflict warnings are raised
+2. **Wrong File Pairs**: The warning reports incorrect files as conflicting
+3. **Bad Results**: The final merged order is worse than a naive concatenation
+4. **Root Cause**: The order of additions matters - `ColorPicker().media + SimpleTextWidget().media` incorrectly establishes that `color-picker.js` must come before `text-editor.js`, even though they're independent
+
+## Expected Fix Behavior
+
+The fix should ensure:
+1. **No false warnings** for files that have no real ordering constraint
+2. **Correct final order** that respects actual dependencies
+3. **Intelligent merging** that doesn't create artificial constraints from intermediate merge results
+4. **Three-way merge stability** - adding media in different orders should produce compatible results
+
+The test cases show that the merge logic should be sophisticated enough to:
+- Identify real vs. artificial ordering constraints
+- Reorder files intelligently to satisfy all constraints
+- Only warn when there are genuine conflicts (circular dependencies or impossible orderings)

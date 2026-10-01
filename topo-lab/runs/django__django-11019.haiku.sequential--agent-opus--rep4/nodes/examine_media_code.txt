@@ -1,0 +1,71 @@
+# Analysis of the Media Class Merging Logic
+
+## Current Implementation Overview
+
+The `Media` class handles the merging of CSS and JS assets from multiple sources (widgets, forms, etc.), attempting to preserve a sensible relative ordering while detecting conflicts.
+
+### Deferred Merging via Lists
+
+The class stores media as *lists of lists* rather than eagerly merging:
+
+```python
+self._css_lists = [css]
+self._js_lists = [js]
+```
+
+When two `Media` objects are combined with `__add__`, their lists are simply concatenated (not merged):
+
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+The actual merge is deferred until the `_css` or `_js` property is accessed. For JS:
+
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+This performs a *left-fold* pairwise merge: `merge(merge(merge(list0, list1), list2), list3)...`
+
+### The `merge` Method
+
+`merge(list_1, list_2)` is a **pairwise** (2-list) merge:
+
+1. Starts with a copy of `list_1`, sets `last_insert_index = len(list_1)`.
+2. Walks `list_2` in **reverse**, inserting each new element or, if found, updating `last_insert_index`.
+3. Warns if a path in `list_2` is found in `combined_list` at an index *greater than* `last_insert_index` — meaning the two lists disagree on relative order.
+
+## The Root Cause of the Bug
+
+The problem is that the pairwise left-fold accumulates *false ordering constraints*. Each intermediate 2-list merge imposes a total ordering on its result, even between elements that had no actual dependency relationship.
+
+Consider the example from the issue:
+- `ColorPicker`: `['color-picker.js']`
+- `SimpleTextWidget`: `['text-editor.js']`
+- `FancyTextWidget`: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+The fold does:
+1. `merge(['color-picker.js'], ['text-editor.js'])` → `['color-picker.js', 'text-editor.js']`
+
+This step **fabricates** a constraint that `color-picker.js` must come before `text-editor.js`, even though these two files are actually independent. There was no source requesting that order — it just happened because ColorPicker was combined before SimpleTextWidget.
+
+2. Then merging with `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`, which legitimately requires `text-editor.js` before `color-picker.js`, directly contradicts the fabricated constraint — triggering a spurious `MediaOrderConflictWarning`.
+
+## Key Observation
+
+Because `merge` only operates on two lists at a time and treats the running accumulator as a fully-ordered list, it cannot distinguish between:
+- A **real** ordering constraint (two files that appeared together in one source in a specific order), versus
+- An **incidental** ordering (two independent files that merely ended up adjacent due to merge order).
+
+The fix requires a fundamentally different approach: rather than pairwise-folding lists into a fully-ordered accumulator, the merge should treat ordering as a set of *pairwise dependency constraints* gathered from each individual source list, then produce a topological sort. Only adjacent pairs *within a single original list* constitute real constraints. This way, independent files never accumulate artificial ordering requirements, and warnings are only emitted when there is a genuine cyclic contradiction between real constraints.
+
+The deferred-list design (`_js_lists`, `_css_lists`) is already well-suited to this, since all the original source lists are preserved and available at the point where `_js`/`_css` is computed — the merge logic just needs to be reworked to consider all lists together via a graph-based topological sort rather than a lossy pairwise fold.

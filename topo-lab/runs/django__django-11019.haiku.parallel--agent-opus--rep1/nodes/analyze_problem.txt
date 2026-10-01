@@ -1,0 +1,55 @@
+## Analysis of `Media.__add__` and Related Methods
+
+### The Core Design
+
+The `Media` class defers merging. `__add__` merely concatenates the underlying per-object lists:
+
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+The actual merge happens lazily in the `_js`/`_css` properties via a left-fold of the pairwise `merge` static method:
+
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+So `A + B + C` computes `merge(merge(A, B), C)`.
+
+### Root Cause
+
+The `merge(list_1, list_2)` function takes two lists and produces a single **totally ordered** output list. When the two input lists are independent (share no common elements, or only partially overlap), `merge` still has to interleave them into one sequence — and it does so arbitrarily, appending `list_2`'s new elements relative to `list_1`.
+
+The problem: **this synthesized total order becomes a hard constraint on the next merge in the fold.** Ordering relationships that were never actually required by any single Media definition get "baked in" as if they were real dependencies. The intermediate result cannot distinguish "these two files are genuinely ordered" from "these two files happened to be placed in this order by an earlier arbitrary merge."
+
+Concretely, with the issue's example:
+
+1. `merge([color-picker.js], [text-editor.js])` → `[color-picker.js, text-editor.js]`. These files are independent, but the result now falsely asserts `color-picker.js` must precede `text-editor.js`.
+
+2. `merge([color-picker.js, text-editor.js], [text-editor.js, text-editor-extras.js, color-picker.js])`. The third list legitimately requires `text-editor.js` before `color-picker.js`. This contradicts the fabricated constraint from step 1, so `MediaOrderConflictWarning` fires — and the reported pair reflects the *synthesized* conflict, not any genuine one.
+
+### Why Pairwise Folding Is Fundamentally Inadequate
+
+- `merge` collapses two lists into one total order at each step, **eagerly and irreversibly**. Once collapsed, incidental adjacency is indistinguishable from a required constraint.
+- The left-fold amplifies this: each intermediate total order feeds the next merge as an authoritative input, so early arbitrary decisions constrain all later ones.
+- The only real constraint in the example (`text-editor.js` before `text-editor-extras.js`) is trivially satisfiable, yet the algorithm reports a conflict and even produces a worse ordering than a naïve concatenation.
+
+### Direction of the Correct Fix
+
+The merge must consider **all** lists simultaneously rather than folding pairwise. The correct model is a graph / topological sort:
+
+- Each individual list contributes only the *within-list* ordering constraints ("X immediately-or-eventually precedes Y as they appear in this one list"). These are the only genuine constraints.
+- Build a single dependency graph across all lists at once.
+- Produce a topological ordering consistent with every list's internal order.
+- Warn about a real `MediaOrderConflictWarning` **only** when there is an actual cycle — i.e., two files appear in opposite relative order in two different lists, which is a genuine, unsatisfiable conflict.
+
+This replaces both the left-fold in `_js`/`_css` and the two-list `merge` static method, eliminating the spurious constraints created by arbitrary interleaving of independent files.

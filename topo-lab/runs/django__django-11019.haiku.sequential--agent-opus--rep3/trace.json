@@ -1,0 +1,181 @@
+{
+  "graph": "django__django-11019.haiku.sequential.json",
+  "topology": "sequential",
+  "agent": "opus",
+  "mock": false,
+  "schedule": [
+    [
+      "examine_media_code"
+    ],
+    [
+      "analyze_problem"
+    ],
+    [
+      "examine_test_media"
+    ],
+    [
+      "create_test_case"
+    ],
+    [
+      "fix_media_merge"
+    ],
+    [
+      "verify_fix"
+    ],
+    [
+      "generate_diff"
+    ]
+  ],
+  "wall_s": 538.27,
+  "total_cost_usd": 2.4882,
+  "overwrite_events": [],
+  "nodes": [
+    {
+      "node": "examine_media_code",
+      "wall_s": 19.83,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 37371,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 12766,
+      "cache_read_tokens": 43168,
+      "output_tokens": 1431,
+      "cost_usd": 0.12119,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "analyze_problem",
+      "wall_s": 21.06,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 37371,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 14251,
+      "cache_read_tokens": 43168,
+      "output_tokens": 1490,
+      "cost_usd": 0.13009,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "examine_test_media",
+      "wall_s": 19.55,
+      "reads": [
+        {
+          "path": "tests/forms_tests/tests/test_media.py",
+          "bytes": 26171,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 9715,
+      "cache_read_tokens": 43168,
+      "output_tokens": 1399,
+      "cost_usd": 0.10513,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "create_test_case",
+      "wall_s": 88.63,
+      "reads": [
+        {
+          "path": "tests/forms_tests/tests/test_media.py",
+          "bytes": 26171,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 11238,
+      "cache_read_tokens": 43168,
+      "output_tokens": 10551,
+      "cost_usd": 0.34155,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "tests/forms_tests/tests/test_media.py"
+      ]
+    },
+    {
+      "node": "fix_media_merge",
+      "wall_s": 292.45,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 37371,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 14463,
+      "cache_read_tokens": 43168,
+      "output_tokens": 32000,
+      "cost_usd": 0.8939,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "django/forms/widgets.py"
+      ]
+    },
+    {
+      "node": "verify_fix",
+      "wall_s": 55.96,
+      "reads": [
+        {
+          "path": "tests/forms_tests/tests/test_media.py",
+          "bytes": 27936,
+          "writer": "create_test_case"
+        },
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 36935,
+          "writer": "fix_media_merge"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 65596,
+      "cache_read_tokens": 43168,
+      "output_tokens": 5075,
+      "cost_usd": 0.47644,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "generate_diff",
+      "wall_s": 40.79,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 36935,
+          "writer": "fix_media_merge"
+        },
+        {
+          "path": "tests/forms_tests/tests/test_media.py",
+          "bytes": 27936,
+          "writer": "create_test_case"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 60151,
+      "cache_read_tokens": 43168,
+      "output_tokens": 3902,
+      "cost_usd": 0.41989,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+The current files already match the target state (no `providing_args` present), except the test fixtures in tests/dispatch/tests.py which the upstream node t1 introduced `providing_args`. But the given current contents already show them without `providing_args`. So the only diff needed is to remove `providing_args` from the test fixtures — but current contents already lack them.
+
+Given all current file contents already have no `providing_args`, there are no changes to make.

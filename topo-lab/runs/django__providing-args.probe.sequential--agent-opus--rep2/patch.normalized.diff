@@ -1,0 +1,13 @@
+The current files already have no `providing_args` in them except the test fixtures. Looking at the current test file, it already uses `Signal()` and `Signal(use_caching=True)` without `providing_args`. The upstream node t1 introduced `providing_args` but t2 reverted it. The final state has no `providing_args` anywhere.
+
+Since all the given current files already lack `providing_args`, there are no changes needed to make against the current contents.
+
+diff --git a/tests/dispatch/tests.py b/tests/dispatch/tests.py
+index 0000000..0000000 100644
+--- a/tests/dispatch/tests.py
++++ b/tests/dispatch/tests.py
+@@ -39,7 +39,7 @@ class Callable:
+ a_signal = Signal()
+ b_signal = Signal()
+ c_signal = Signal()
+ d_signal = Signal(use_caching=True)

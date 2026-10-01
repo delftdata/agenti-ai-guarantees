@@ -1,0 +1,102 @@
+# Analysis of Media Ordering Issue in Django Forms
+
+## Problem Statement
+When merging 3 or more `Media` objects, Django incorrectly reports `MediaOrderConflictWarning` and produces suboptimal JS file ordering. The issue occurs when:
+1. Widget A has: `['color-picker.js']`
+2. Widget B has: `['text-editor.js']`
+3. Widget C has: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+When these are combined, the result is incorrect ordering with a false warning about `text-editor-extras.js` and `text-editor.js`.
+
+## Root Cause Analysis
+
+### The Issue with Current Implementation
+
+The problem lies in how the `Media.__add__` method and the `merge()` method interact when handling multiple sequential additions:
+
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+This implementation **stores references to the lists** rather than merging them immediately. The actual merging happens lazily in the `_js` property:
+
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+### The Sequential Addition Problem
+
+When merging A + B + C:
+
+1. **Step 1**: `A + B` creates a Media with `_js_lists = [['color-picker.js'], ['text-editor.js']]`
+   - When accessed via `_js` property: `merge(['color-picker.js'], ['text-editor.js'])`
+   - Result: `['color-picker.js', 'text-editor.js']` (establishes constraint: color-picker before text-editor)
+
+2. **Step 2**: `(A+B) + C` creates a Media with:
+   - `_js_lists = [['color-picker.js'], ['text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']]`
+
+3. **Step 3**: When accessing `_js` property, it merges sequentially:
+   - First: `merge(['color-picker.js'], ['text-editor.js'])` → `['color-picker.js', 'text-editor.js']`
+   - Then: `merge(['color-picker.js', 'text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])`
+
+### The Merge Algorithm Problem
+
+The `merge()` method processes `list_2` in **reverse order**:
+
+```python
+for path in reversed(list_2):
+    try:
+        index = combined_list.index(path)
+    except ValueError:
+        combined_list.insert(last_insert_index, path)
+    else:
+        if index > last_insert_index:
+            # WARNING: Detected opposite order
+        last_insert_index = index
+```
+
+When merging `['color-picker.js', 'text-editor.js']` with `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` in reverse:
+
+1. Process `'color-picker.js'`: found at index 0, `last_insert_index = 0`
+2. Process `'text-editor-extras.js'`: not found, insert at position 0 → `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`
+3. Process `'text-editor.js'`: found at index 2, `last_insert_index = 0`
+   - **FALSE POSITIVE**: `index (2) > last_insert_index (0)` → **WARNING TRIGGERED**
+   - But the warning message incorrectly refers to indices in the wrong state
+
+### Why This Is Wrong
+
+The algorithm assumes a linear left-to-right processing model, but when dealing with 3+ Media objects being combined sequentially:
+
+1. The constraint from step 1 (color-picker before text-editor) is **artificially imposed** and doesn't reflect actual dependencies in the original widgets
+2. The reverse-order processing in `merge()` doesn't account for the fact that `text-editor-extras.js` legitimately depends on `text-editor.js` in widget C
+3. The algorithm treats the intermediate result `['color-picker.js', 'text-editor.js']` as having a binding order constraint, but this order came from an arbitrary addition sequence, not from declared dependencies
+
+### The Core Flaw
+
+The `merge()` method's `last_insert_index` tracking mechanism works correctly for **pairwise merges**, but fails for **sequential merges** because:
+
+- It doesn't distinguish between:
+  - Items that must come in a specific order due to **explicit dependency** (from a single Media object)
+  - Items that came in a specific order due to **accumulation** from previous additions
+
+- The constraint "color-picker before text-editor" from `A + B` shouldn't prevent "text-editor before color-picker" when explicitly declared in `C`
+
+## Solution Direction
+
+The fix requires either:
+
+1. **Merge all lists at once** rather than pairwise, using a topological sort on declared dependencies
+2. **Track dependency relationships** rather than just positional constraints
+3. **Flatten and re-merge intelligently** to consider all constraints holistically
+4. **Pre-process Media objects** to handle sequential additions more intelligently
+
+The current implementation treats the merge algorithm as a simple constraint satisfaction problem, but it should treat it as a **topological ordering problem** where only explicitly declared dependencies matter.

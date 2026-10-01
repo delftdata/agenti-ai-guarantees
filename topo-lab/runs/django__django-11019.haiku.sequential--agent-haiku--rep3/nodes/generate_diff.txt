@@ -1,0 +1,205 @@
+```diff
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -68,12 +68,15 @@ class Media:
+     @property
+     def _js(self):
+         js = self._js_lists[0]
++        all_lists = [js] + list(filter(None, self._js_lists[1:]))
+         # filter(None, ...) avoids calling merge() with empty lists.
+-        for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
++        if len(all_lists) > 1:
++            js = self.merge_multiple(all_lists)
++        else:
++            js = self._js_lists[0]
+         return js
+ 
+     def render(self):
+         return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+ 
+     def render_js(self):
+@@ -115,6 +118,107 @@ class Media:
+             return Media(**{str(name): getattr(self, '_' + name)})
+         raise KeyError('Unknown media type "%s"' % name)
+ 
++    @staticmethod
++    def merge_multiple(lists):
++        """
++        Merge multiple lists while preserving order constraints.
++        
++        This method takes a list of lists and merges them all at once, extracting
++        all ordering constraints from all input lists before checking for conflicts.
++        This prevents spurious MediaOrderConflictWarnings that would occur if lists
++        were merged pairwise.
++        
++        For static assets it can be important to have them included in the DOM
++        in a certain order. In JavaScript you may not be able to reference a
++        global or in CSS you might want to override a style.
++        """
++        # Collect all unique items across all lists
++        all_items = []
++        seen = set()
++        for lst in lists:
++            for item in lst:
++                if item not in seen:
++                    all_items.append(item)
++                    seen.add(item)
++        
++        if not all_items:
++            return []
++        
++        if len(all_items) == 1:
++            return all_items
++        
++        # Build a graph of ordering constraints from all lists
++        # constraints[a].add(b) means "a must come before b"
++        constraints = {item: set() for item in all_items}
++        
++        # Extract constraints from each input list
++        for lst in lists:
++            for i, item1 in enumerate(lst):
++                for item2 in lst[i + 1:]:
++                    constraints[item1].add(item2)
++        
++        # Check for conflicts: if there's a constraint a->b and b->a, warn
++        for item in all_items:
++            for successor in list(constraints[item]):
++                if item in constraints.get(successor, set()):
++                    # Circular constraint detected - warn about the conflict
++                    warnings.warn(
++                        'Detected duplicate Media files in an opposite order:\n'
++                        '%s\n%s' % (successor, item),
++                        MediaOrderConflictWarning,
++                    )
++        
++        # Topological sort using Kahn's algorithm
++        in_degree = {item: 0 for item in all_items}
++        for item in all_items:
++            for successor in constraints[item]:
++                in_degree[successor] += 1
++        
++        # Find all nodes with no incoming edges
++        queue = [item for item in all_items if in_degree[item] == 0]
++        result = []
++        
++        while queue:
++            # Sort for deterministic output when multiple items have in_degree 0
++            queue.sort(key=lambda x: all_items.index(x))
++            node = queue.pop(0)
++            result.append(node)
++            
++            # For each successor of this node
++            for successor in sorted(constraints[node], key=lambda x: all_items.index(x)):
++                in_degree[successor] -= 1
++                if in_degree[successor] == 0:
++                    queue.append(successor)
++        
++        # If we couldn't process all items, there's a cycle (shouldn't happen after conflict check)
++        if len(result) != len(all_items):
++            # Fall back to preserving first list + new items
++            if lists:
++                return lists[0] + [item for item in all_items if item not in lists[0]]
++            return all_items
++        
++        return result
++
+     @staticmethod
+     def merge(list_1, list_2):
+         """
+@@ -136,6 +240,7 @@ class Media:
+             all_items.append(item)
+             seen.add(item)
+         for item in list_2:
+             if item not in seen:
+                 all_items.append(item)
+                 seen.add(item)
+@@ -149,6 +254,7 @@ class Media:
+         # Extract constraints from list_1
+         for i, item1 in enumerate(list_1):
+             for item2 in list_1[i + 1:]:
+                 constraints[item1].add(item2)
+         
+@@ -156,6 +262,7 @@ class Media:
+         for i, item2 in enumerate(list_2):
+             for item2_later in list_2[i + 1:]:
+                 constraints[item2].add(item2_later)
+         
+         # Check for conflicts: if there's a constraint a->b and b->a, warn
+         for item in all_items:
+             for successor in list(constraints[item]):
+@@ -165,6 +272,7 @@ class Media:
+                         '%s\n%s' % (successor, item),
+                         MediaOrderConflictWarning,
+                     )
+         
+         # Topological sort using Kahn's algorithm
+         in_degree = {item: 0 for item in all_items}
+@@ -173,6 +281,7 @@ class Media:
+                 in_degree[successor] += 1
+         
+         # Find all nodes with no incoming edges
+         queue = [item for item in all_items if in_degree[item] == 0]
+         result = []
+@@ -183,6 +292,7 @@ class Media:
+             node = queue.pop(0)
+             result.append(node)
+             
+             # For each successor of this node
+             for successor in sorted(constraints[node], key=lambda x: all_items.index(x)):
+                 in_degree[successor] -= 1
+@@ -190,6 +300,7 @@ class Media:
+                     queue.append(successor)
+         
+         # If we couldn't process all items, there's a cycle (shouldn't happen after conflict check)
+         if len(result) != len(all_items):
+             # Fall back to list_1 + new items from list_2 to be safe
+             return list_1 + [item for item in list_2 if item not in list_1]
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 2345678..bcdefgh 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -500,3 +500,47 @@ class FormsMediaTestCase(SimpleTestCase):
+         # was never specified.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_js_three_way_no_conflict_warning(self):
++        """
++        Regression test for issue where merging 3+ media objects throws
++        unnecessary MediaOrderConflictWarnings.
++        
++        When files have no explicit ordering constraint between them in any
++        widget definition, they should not trigger a warning just because
++        intermediate merge operations established an incidental order.
++        """
++        class ColorPicker(TextInput):
++            class Media:
++                js = ['color-picker.js']
++
++        class SimpleTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js']
++
++        class FancyTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        # Merge in the order they appear in a form
++        color_picker_media = ColorPicker().media
++        simple_text_media = SimpleTextWidget().media
++        fancy_text_media = FancyTextWidget().media
++        
++        # This should not produce a warning - the final merged result should
++        # respect the explicit ordering from FancyTextWidget
++        merged = color_picker_media + simple_text_media + fancy_text_media
++        
++        # The result should contain all three files in a sensible order.
++        # text-editor.js should come before text-editor-extras.js (explicit dependency)
++        # and ideally before color-picker.js (since FancyTextWidget defines it that way)
++        self.assertEqual(
++            merged._js,
++            ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        )

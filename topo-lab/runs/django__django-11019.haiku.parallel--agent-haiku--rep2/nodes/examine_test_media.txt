@@ -1,0 +1,47 @@
+# Analysis of Media Tests and Problem Statement
+
+## Problem Summary
+When merging 3 or more Media objects, Django can throw unnecessary `MediaOrderConflictWarnings`. The issue occurs when:
+
+1. **Root cause**: The order of additions matters. When you add `ColorPicker().media + SimpleTextWidget().media` first, it creates a constraint that `color-picker.js` must come before `text-editor.js`, even though this constraint doesn't exist in reality.
+
+2. **Example from problem statement**:
+   - `ColorPicker` requires: `color-picker.js`
+   - `SimpleTextWidget` requires: `text-editor.js`
+   - `FancyTextWidget` requires: `text-editor.js, text-editor-extras.js, color-picker.js`
+   
+   When combined in form, the correct order should be: `text-editor.js, text-editor-extras.js, color-picker.js`
+   
+   But due to the order of addition, it produces: `text-editor-extras.js, color-picker.js, text-editor.js` with a warning about the wrong pair of files.
+
+## Key Test Observations
+
+From `test_media.py`, the relevant tests are:
+
+1. **`test_merge()`**: Tests `Media.merge()` with various list combinations. Shows that:
+   - `[1, 2] + [3, 4] = [1, 2, 3, 4]`
+   - `[1, 2] + [2, 3] = [1, 2, 3]` (dedup, order preserved)
+   - `[2, 3] + [1, 2] = [1, 2, 3]` (reorder if needed)
+   - `[1, 3] + [2, 3] = [1, 2, 3]` (handle ordering constraints)
+   - `[1, 2] + [1, 3] = [1, 2, 3]` (handle ordering constraints)
+   - `[1, 2] + [3, 2] = [1, 3, 2]` (warning case - conflicting order)
+
+2. **`test_merge_warning()`**: Expects a warning when `[1, 2]` and `[2, 1]` are merged (direct conflict).
+
+3. **`test_merge_js_three_way()` and `test_merge_css_three_way()`**: These are key!
+   - They show that merging 3+ media objects should preserve relative ordering
+   - The three-way merge should succeed without warnings when there's no actual conflict
+   - Example: `[custom_widget.js] + [jquery.js, uses_jquery.js]` should handle later additions gracefully
+
+## The Real Issue
+
+The current `Media.merge()` algorithm appears to be comparing only two lists at a time (pairwise), rather than considering the full set of constraints when merging multiple items. This causes false positives.
+
+When merging `A + B + C`:
+- Current approach: `(A merged with B) then merged with C`
+- Problem: The merged result of `A + B` may impose false constraints that conflict with `C`
+
+The solution likely needs to:
+1. Build a dependency/ordering graph from all media items being merged
+2. Resolve ordering based on actual dependencies, not just pairwise comparisons
+3. Only warn when there's a true conflict that cannot be resolved

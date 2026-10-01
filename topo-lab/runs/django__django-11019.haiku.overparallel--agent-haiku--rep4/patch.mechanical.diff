@@ -1,0 +1,105 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..faea1b60c2 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -125,29 +125,77 @@ class Media:
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++        # Build a combined list of all items that appear in either list
++        combined_list = []
++        seen = set()
++        
++        # First pass: collect all unique items and track their positions
++        # in both lists for constraint building
++        all_items = []
++        for item in list_1:
++            if item not in seen:
++                all_items.append(item)
++                seen.add(item)
++        for item in list_2:
++            if item not in seen:
++                all_items.append(item)
++                seen.add(item)
++        
++        # Build ordering constraints from both lists
++        # A constraint (a, b) means a should come before b
++        constraints = {}
++        for item in all_items:
++            constraints[item] = set()
++        
++        # Add constraints from list_1
++        for i, item in enumerate(list_1):
++            for j in range(i + 1, len(list_1)):
++                constraints[list_1[i]].add(list_1[j])
++        
++        # Add constraints from list_2
++        for i, item in enumerate(list_2):
++            for j in range(i + 1, len(list_2)):
++                constraints[list_2[i]].add(list_2[j])
++        
++        # Check for conflicts: if both orders exist, that's a conflict
++        conflict_pairs = []
++        for item_a in all_items:
++            for item_b in constraints[item_a]:
++                # Check if there's a reverse constraint
++                if item_a in constraints.get(item_b, set()):
++                    conflict_pairs.append((item_a, item_b))
++        
++        if conflict_pairs:
++            # Report the first conflict found
++            item_a, item_b = conflict_pairs[0]
++            warnings.warn(
++                'Detected duplicate Media files in an opposite order:\n'
++                '%s\n%s' % (item_a, item_b),
++                MediaOrderConflictWarning,
++            )
++        
++        # Topological sort to produce final order
++        # Use Kahn's algorithm
++        in_degree = {item: 0 for item in all_items}
++        for item in all_items:
++            for dependent in constraints[item]:
++                in_degree[dependent] += 1
++        
++        queue = [item for item in all_items if in_degree[item] == 0]
++        result = []
++        
++        while queue:
++            # Sort queue to ensure deterministic output when multiple items have 0 in-degree
++            queue.sort(key=lambda x: all_items.index(x))
++            current = queue.pop(0)
++            result.append(current)
++            
++            for dependent in sorted(constraints[current], key=lambda x: all_items.index(x)):
++                in_degree[dependent] -= 1
++                if in_degree[dependent] == 0:
++                    queue.append(dependent)
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()

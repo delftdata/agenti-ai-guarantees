@@ -1,0 +1,144 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..00b7371e4a 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -63,18 +63,14 @@ class Media:
+         # filter(None, ...) avoids calling merge with empty dicts.
+         for obj in filter(None, self._css_lists[1:]):
+             css = {
+-                medium: self.merge(css.get(medium, []), obj.get(medium, []))
++                medium: self.merge([css.get(medium, []), obj.get(medium, [])])
+                 for medium in css.keys() | obj.keys()
+             }
+         return css
+ 
+     @property
+     def _js(self):
+-        js = self._js_lists[0]
+-        # filter(None, ...) avoids calling merge() with empty lists.
+-        for obj in filter(None, self._js_lists[1:]):
+-            js = self.merge(js, obj)
+-        return js
++        return self.merge(self._js_lists)
+ 
+     def render(self):
+         return mark_safe('\n'.join(chain.from_iterable(getattr(self, 'render_' + name)() for name in MEDIA_TYPES)))
+@@ -115,39 +111,94 @@ class Media:
+         raise KeyError('Unknown media type "%s"' % name)
+ 
+     @staticmethod
+-    def merge(list_1, list_2):
++    def merge(lists):
+         """
+-        Merge two lists while trying to keep the relative order of the elements.
+-        Warn if the lists have the same two elements in a different relative
+-        order.
+-
++        Merge multiple lists of items while respecting ordering constraints.
++        
++        This method collects all ordering constraints from all input lists,
++        then performs a topological sort to determine the final order.
++        It warns if there are conflicting orderings (the same pair of items
++        appearing in opposite orders in different input lists).
++        
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
++        # Filter out empty lists
++        lists = [lst for lst in lists if lst]
++        
++        if not lists:
++            return []
++        
++        if len(lists) == 1:
++            return list(lists[0])
++        
++        # Collect all unique items and build a graph of ordering constraints
++        all_items = []
++        item_to_index = {}
++        
++        for lst in lists:
++            for item in lst:
++                if item not in item_to_index:
++                    item_to_index[item] = len(all_items)
++                    all_items.append(item)
++        
++        # Build adjacency list for the constraint graph
++        # Key insight: a constraint "a before b" means we add an edge from a to b
++        graph = {i: set() for i in range(len(all_items))}
++        
++        # Track all constraints and their sources for conflict detection
++        constraints = {}  # (before_idx, after_idx) -> source_list_index
++        reverse_constraints = {}  # (after_idx, before_idx) -> source_list_index
++        
++        # Process each list to extract ordering constraints
++        for list_idx, lst in enumerate(lists):
++            for i in range(len(lst) - 1):
++                before_item = lst[i]
++                after_item = lst[i + 1]
++                before_idx = item_to_index[before_item]
++                after_idx = item_to_index[after_item]
++                
++                constraint = (before_idx, after_idx)
++                reverse_constraint = (after_idx, before_idx)
++                
++                # Check for conflicting constraints
++                if reverse_constraint in constraints:
++                    # We have a conflict: the same pair appears in opposite order
++                    before_item_name = all_items[before_idx]
++                    after_item_name = all_items[after_idx]
+                     warnings.warn(
+                         'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
++                        '%s\n%s' % (before_item_name, after_item_name),
+                         MediaOrderConflictWarning,
+                     )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++                
++                # Record this constraint (prefer the first occurrence)
++                if constraint not in constraints:
++                    constraints[constraint] = list_idx
++                    graph[before_idx].add(after_idx)
++        
++        # Perform topological sort using Kahn's algorithm
++        in_degree = [0] * len(all_items)
++        for idx in range(len(all_items)):
++            for neighbor in graph[idx]:
++                in_degree[neighbor] += 1
++        
++        queue = [i for i in range(len(all_items)) if in_degree[i] == 0]
++        result = []
++        
++        while queue:
++            # To maintain stability, process items in the order they first appear
++            queue.sort(key=lambda i: all_items.index(all_items[i]))
++            node = queue.pop(0)
++            result.append(all_items[node])
++            
++            for neighbor in sorted(graph[node]):
++                in_degree[neighbor] -= 1
++                if in_degree[neighbor] == 0:
++                    queue.append(neighbor)
++        
++        return result
+ 
+     def __add__(self, other):
+         combined = Media()

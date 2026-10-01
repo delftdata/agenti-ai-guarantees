@@ -1,0 +1,54 @@
+## Root Cause Analysis of Media Merging
+
+### The Problem
+
+`Media.__add__` combines media objects by concatenating their unmerged lists:
+
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+This part is actually fine — it defers merging and preserves all the original individual lists. The real problem is in **how those lists are later collapsed** into a single ordered list in the `_js`/`_css` properties.
+
+### The Faulty Merge Strategy
+
+The `_js` property does a **left-fold pairwise merge**:
+
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+Each `merge()` call flattens two lists into one totally-ordered list. This is the root cause: **a flat list can only represent a total order, but the actual constraints are only partial.**
+
+### Why This Produces Spurious Constraints
+
+Each source media list only genuinely constrains the relative order of the files *within that list*. Two files that never appear together in any single list have **no real ordering relationship**.
+
+However, pairwise `merge` forces every intermediate result into a single flat list. This assigns arbitrary total orderings to independent files, and those arbitrary orderings become "hard" constraints for subsequent merges.
+
+Walking the example:
+1. `['color-picker.js']` merged with `['text-editor.js']` → `['color-picker.js', 'text-editor.js']`. This **fabricates** the constraint "color-picker before text-editor," even though the two files are independent.
+2. Merging with `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` now requires "color-picker after text-editor," which contradicts the fabricated constraint from step 1 → `MediaOrderConflictWarning`.
+
+### Why the Warning Message Is Misleading
+
+The warning reports `text-editor-extras.js` / `text-editor.js` as the conflicting pair, but those aren't the actual conflict. The conflict arose from the fabricated `color-picker.js` vs `text-editor.js` ordering. Because the merge operates on already-flattened intermediate lists, it has lost the information about which constraints were real versus fabricated, so it blames whichever adjacent pair happens to trip the index check.
+
+### The Correct Approach
+
+The merge should be modeled as a **topological sort over a dependency graph**:
+- Collect *all* the lists first (which `__add__` already preserves in `_js_lists`).
+- Each list contributes edges only between the pairs it actually defines (adjacent/relative ordering within that list).
+- Files appearing in no common list remain unconstrained relative to each other.
+- A `MediaOrderConflictWarning` should be raised only when two files genuinely appear in opposite relative orders across different source lists (a real cycle).
+
+The existing infrastructure is already well-suited: because lists are stored unmerged, the fix is to replace the pairwise left-fold in `_js`/`_css` with a single graph-based topological merge over all accumulated lists. Django already ships `django/utils/topological_sort.py`, which can be leveraged to build a stable topological sort that yields `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` without any warning.

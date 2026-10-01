@@ -1,0 +1,58 @@
+# Analysis of the Media Class Merging Logic
+
+## Current Implementation Overview
+
+The `Media` class stores CSS and JS as **lists of lists** (`_css_lists` and `_js_lists`), and defers the actual merge until the `_css`/`_js` properties are accessed.
+
+### The `__add__` method
+When two Media objects are combined, their lists are simply concatenated (not merged):
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+### The `_js` property
+When accessed, it folds the list of lists left-to-right using `merge()`:
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+### The `merge()` method
+This is a **pairwise** 2-list merge. It starts with a copy of `list_1`, then walks `list_2` in reverse, inserting elements not already present and tracking `last_insert_index`. It warns when a duplicate is found "in an opposite order."
+
+## The Root Cause of the Problem
+
+The core issue is that **`merge()` only operates on two lists at a time**, and the left-fold combines them pairwise. This forces false ordering constraints to be created during intermediate steps.
+
+Consider the example: `ColorPicker + SimpleText + FancyText`.
+
+1. First merge: `['color-picker.js']` + `['text-editor.js']` → `['color-picker.js', 'text-editor.js']`. 
+   - **This is the bug's origin**: two completely independent files now have an *artificial* ordering constraint imposed (color-picker before text-editor).
+2. Second merge: `['color-picker.js', 'text-editor.js']` + `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`.
+   - The second list wants `color-picker.js` *after* `text-editor.js`, but the intermediate result claims `color-picker.js` must come *before* `text-editor.js`.
+   - This produces the spurious `MediaOrderConflictWarning`.
+
+The pairwise approach cannot distinguish between:
+- A genuine constraint (text-editor.js must come before text-editor-extras.js), and
+- An accidental constraint created only because two independent files happened to appear in some order in an unrelated intermediate list.
+
+## Why the Warning Message is Confusing
+
+The warning reports `text-editor-extras.js` and `text-editor.js` as conflicting, but the actual constraint violation involved `color-picker.js` and `text-editor.js`. This mismatch happens because the warning is emitted deep inside a chain of pairwise merges, where the reported indices reflect the intermediate combined list state rather than the original user intent.
+
+## The Fix Direction
+
+The pairwise `merge()` should be replaced by an approach that treats the merging as a **topological sort / dependency graph** problem:
+- Each individual list only imposes ordering constraints between *adjacent-or-transitively-ordered elements within that same list*.
+- Independent files across different lists must NOT get artificial constraints between them.
+- All the original lists should be considered together (rather than folded pairwise), so that a true topological ordering can be found, and warnings only emitted when there's a genuine cycle/conflict among real constraints.
+
+Concretely, the solution would change `merge()` (or add a new merging routine) to accept and process all the media sub-lists together, building a graph of "must come before" relationships and doing a stable topological sort, only warning on actual cycles.

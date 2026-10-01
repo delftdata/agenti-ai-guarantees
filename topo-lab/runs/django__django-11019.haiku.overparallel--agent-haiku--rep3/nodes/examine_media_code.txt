@@ -1,0 +1,71 @@
+# Analysis of the Media Class Merging Logic
+
+## Current Implementation Overview
+
+The `Media` class in `django/forms/widgets.py` is responsible for merging CSS and JavaScript files from multiple widgets while trying to preserve their relative order. The key method is `Media.merge()` (lines 125-155).
+
+## Current Merging Algorithm
+
+The `merge()` static method takes two lists (`list_1` and `list_2`) and:
+
+1. Starts with a copy of `list_1`
+2. Walks through `list_2` **in reverse order**
+3. For each element in `list_2`:
+   - If it's not in `combined_list`, inserts it at `last_insert_index`
+   - If it's already in `combined_list`:
+     - Checks if its current index is greater than `last_insert_index`
+     - If yes, issues a `MediaOrderConflictWarning` (comparing elements at wrong positions)
+     - Updates `last_insert_index` to the element's current index
+
+## The Problem Identified
+
+The issue manifests when merging 3+ media objects:
+
+1. **First merge**: `ColorPicker().media + SimpleTextWidget().media`
+   - ColorPicker has: `['color-picker.js']`
+   - SimpleTextWidget has: `['text-editor.js']`
+   - Result: `['color-picker.js', 'text-editor.js']`
+   - This creates a false constraint that color-picker must come before text-editor
+
+2. **Second merge**: Previous result + `FancyTextWidget().media`
+   - Previous: `['color-picker.js', 'text-editor.js']`
+   - FancyTextWidget has: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+   - Walking through FancyTextWidget in reverse: `['color-picker.js', 'text-editor-extras.js', 'text-editor.js']`
+   - When processing 'text-editor.js': it's at index 1 in combined list
+   - When 'text-editor-extras.js' is found at some position and 'text-editor.js' is later, the algorithm detects index 1 > last_insert_index and warns
+   - This is a false positive because the warning message shows wrong file pairs
+
+## Root Cause
+
+The algorithm has a flaw in its logic when handling multi-step merges:
+
+1. It preserves constraints from intermediate merges that aren't actually required by the original sources
+2. The `last_insert_index` tracking doesn't distinguish between:
+   - Files that have a true dependency relationship
+   - Files that were accidentally ordered due to earlier merges
+3. The warning comparison logic reports the wrong file pairs in the conflict
+
+## Specific Issues in Problem Case
+
+When merging 3 widgets:
+- The order `['color-picker.js', 'text-editor.js']` from the first two widgets shouldn't constrain the final merge
+- FancyTextWidget explicitly specifies: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+- This has only one real dependency: `text-editor-extras.js` depends on `text-editor.js`
+- The color-picker position is flexible
+
+The final result `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']` violates the dependency but the algorithm accepts it, and the warning message mentions the wrong file pair.
+
+## Algorithm Weaknesses
+
+1. **No dependency tracking**: Only tracks position constraints, not actual dependencies
+2. **Irreversible constraints**: Once a file order is established in an intermediate merge, it cannot be reordered even if later sources require a different order
+3. **Incorrect warning detection**: The warning triggers on position indices rather than actual logical conflicts
+4. **Reverse iteration**: Walking `list_2` in reverse may not be optimal for multi-step merges
+
+## Solution Direction Needed
+
+A better approach would need to:
+1. Understand that files should only be constrained by explicit ordering in the **same** media definition
+2. Allow reordering when different source objects have different orderings (unless truly incompatible)
+3. Only warn when there's an actual unresolvable conflict (circular or contradictory requirements)
+4. Consider topological sorting or dependency graph approaches instead of positional insertion

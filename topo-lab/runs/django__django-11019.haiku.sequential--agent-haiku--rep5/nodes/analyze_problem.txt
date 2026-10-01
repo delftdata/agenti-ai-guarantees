@@ -1,0 +1,105 @@
+# Analysis of Media.__add__ and Related Methods
+
+## Root Cause Identification
+
+After analyzing the Media class implementation, the root cause of incorrect ordering when merging 3+ media objects is:
+
+### The Sequential Merging Problem
+
+**The core issue lies in how the `_js` property merges accumulated lists:**
+
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    # filter(None, ...) avoids calling merge() with empty lists.
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+
+When multiple Media objects are added via `__add__()`:
+
+```python
+def __add__(self, other):
+    combined = Media()
+    combined._css_lists = self._css_lists + other._css_lists
+    combined._js_lists = self._js_lists + other._js_lists
+    return combined
+```
+
+**The sequential merging happens LEFT-TO-RIGHT through the accumulated lists.**
+
+### Concrete Example of the Problem
+
+For the form in the issue:
+1. `ColorPicker().media._js_lists` = `[['color-picker.js']]`
+2. `SimpleTextWidget().media._js_lists` = `[['text-editor.js']]`
+3. `FancyTextWidget().media._js_lists` = `[['text-editor.js', 'text-editor-extras.js', 'color-picker.js']]`
+
+**Step-by-step execution when accessing `MyForm().media._js`:**
+
+```
+Initial: _js_lists = [
+    ['color-picker.js'],                                    # from ColorPicker
+    ['text-editor.js'],                                     # from SimpleTextWidget
+    ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']  # from FancyTextWidget
+]
+
+Step 1: merge(['color-picker.js'], ['text-editor.js'])
+  → Result: ['color-picker.js', 'text-editor.js']
+  → This ARTIFICIALLY constrains color-picker < text-editor
+
+Step 2: merge(['color-picker.js', 'text-editor.js'], 
+              ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
+  → Process 'color-picker.js': found at index 0, last_insert_index=3
+    - index (0) NOT > last_insert_index (3), so no warning yet
+    - last_insert_index = 0
+  
+  → Process 'text-editor-extras.js': NOT in list, insert at position 0
+    → combined_list = ['text-editor-extras.js', 'color-picker.js', 'text-editor.js']
+    → last_insert_index = 0
+  
+  → Process 'text-editor.js': found at index 2, last_insert_index=0
+    - index (2) > last_insert_index (0) → WARNING TRIGGERED!
+    - Incorrectly reports 'text-editor-extras.js' and 'text-editor.js' as conflicting
+    - last_insert_index = 2
+
+  → Final: ['text-editor-extras.js', 'color-picker.js', 'text-editor.js']
+```
+
+The warning reports the wrong files because `last_insert_index` points to where the last item was found, not the actual problematic pair.
+
+### Why This Is a Design Flaw
+
+**The merge algorithm has two fundamental weaknesses:**
+
+1. **No Global Constraint Tracking**: The algorithm treats each merge operation independently. It doesn't know that:
+   - The constraint `color-picker < text-editor` from Step 1 is ARTIFICIAL (just happened to be added in that order)
+   - The constraint `text-editor < text-editor-extras` from FancyTextWidget is REAL (part of the widget's definition)
+   - The constraint `text-editor-extras < color-picker` from FancyTextWidget is REAL
+
+2. **The `last_insert_index` Variable is Misleading**: This variable doesn't actually track the "last inserted position" semantically. Instead, it tracks where an existing item was found. When warnings are triggered, it reports the wrong pair because:
+   - `last_insert_index` points to a previously-found item
+   - The actual conflict is between the item at `index` and items that should be processed later
+   - The warning message uses `combined_list[last_insert_index]` and `combined_list[index]`, which may not be the actual conflicting pair
+
+### Why 3+ Objects Trigger the Bug
+
+- **With 2 objects**: Only one merge happens, so artificial constraints aren't created yet
+- **With 3+ objects**: Sequential merges create artificial constraints that conflict with real dependencies in later objects
+
+For example, with just ColorPicker + SimpleTextWidget, the result `['color-picker.js', 'text-editor.js']` seems reasonable (no warning). But when a third widget with true dependencies (`text-editor` before `color-picker`) is added, the false constraint causes issues.
+
+### The Correct Approach Needed
+
+The solution must:
+
+1. **Collect ALL constraints from all input lists FIRST** before merging
+2. **Distinguish between**:
+   - Items that appear in multiple lists (must preserve their relative order across all appearances)
+   - Items that appear in only one list (no ordering constraint)
+3. **Warn only for genuine conflicts**: When the same two items appear in opposite orders in DIFFERENT input lists (not created by the merge algorithm itself)
+4. **Use a conflict-detection that looks at original input positions**, not intermediate merge results
+
+The current implementation violates this principle by letting intermediate merge results create new constraints that weren't in the original inputs.

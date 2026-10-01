@@ -1,0 +1,115 @@
+# Analysis of Media Merging Issue with 3+ Objects
+
+## Problem Summary
+
+When merging 3 or more Media objects, Django incorrectly raises `MediaOrderConflictWarning` even when no actual conflict exists. The final result is also sub-optimal compared to Django 1.11's behavior.
+
+## Root Cause Analysis
+
+### 1. Current Merging Strategy
+
+The `Media` class uses **pairwise sequential merging**:
+- `(A + B) + C` instead of considering all three together
+- Each `+` operation calls `merge()` on the internal `_js_lists`
+- The `merge()` method operates on already-merged intermediate results
+
+### 2. The Sequential Merge Problem
+
+In the problem example:
+```
+ColorPicker:         ['color-picker.js']
+SimpleTextWidget:    ['text-editor.js']
+FancyTextWidget:     ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+```
+
+**Step 1:** `ColorPicker().media + SimpleTextWidget().media`
+```
+merge(['color-picker.js'], ['text-editor.js'])
+→ ['color-picker.js', 'text-editor.js']
+```
+This creates an **implicit ordering constraint**: color-picker must come before text-editor.
+
+**Step 2:** `(Result) + FancyTextWidget().media`
+```
+merge(['color-picker.js', 'text-editor.js'], 
+      ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
+```
+
+When processing FancyTextWidget's list in reverse:
+- Process 'color-picker.js': found at index 0
+  - `last_insert_index` starts at 2 (length of list)
+  - index (0) is NOT > last_insert_index, so no warning yet
+  - Update `last_insert_index = 0`
+  
+- Process 'text-editor-extras.js': not found
+  - Insert at position 0 (current `last_insert_index`)
+  - Result: `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`
+
+- Process 'text-editor.js': found at index 2
+  - Current `last_insert_index = 0`
+  - index (2) > last_insert_index (0) → **FALSE POSITIVE WARNING**
+  - The warning is about 'text-editor-extras.js' and 'text-editor.js'
+
+### 3. Why This Is A False Positive
+
+The warning triggers because:
+1. The intermediate merge result imposed an artificial constraint
+2. The algorithm sees 'text-editor.js' at position 2 and 'text-editor-extras.js' at position 0
+3. But this ordering was created by the pairwise merge, not by the original dependencies
+4. The original dependencies actually require: text-editor.js → text-editor-extras.js
+
+**The core issue:** The `last_insert_index` variable only tracks a single position and doesn't account for complex dependency chains. It assumes that if something is found at an earlier position than where we're inserting, it's a conflict. But in reality, we might need to rebuild the entire order from scratch.
+
+### 4. Algorithm Limitations
+
+The `merge()` method's algorithm has fundamental flaws:
+
+**Current approach:**
+```python
+last_insert_index = len(list_1)
+for path in reversed(list_2):
+    try:
+        index = combined_list.index(path)
+        if index > last_insert_index:
+            # WARN: conflict detected
+        last_insert_index = index
+    except ValueError:
+        combined_list.insert(last_insert_index, path)
+```
+
+**Why it fails with 3+ objects:**
+- It only checks if items are in wrong relative order based on a single `last_insert_index`
+- It doesn't distinguish between:
+  - A real dependency conflict (A requires B before it, but B requires A before it)
+  - A temporary ordering artifact from previous pairwise merges
+- It warns immediately without considering if the order can be fixed by reordering
+
+## Specific Issue with the Problem Case
+
+The sequence of intermediate results is:
+1. Start: ColorPicker + SimpleTextWidget = `['color-picker.js', 'text-editor.js']`
+2. This result + FancyTextWidget expects to merge with `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+3. FancyTextWidget's order implies: text-editor < text-editor-extras < color-picker
+4. But step 1 established: color-picker < text-editor
+5. These are actually compatible (the optimal order is text-editor < text-editor-extras < color-picker)
+6. The merge algorithm incorrectly detects this as a conflict
+
+## Why Adding All at Once Would Solve This
+
+If the algorithm had access to all three lists simultaneously instead of merging pairwise, it could:
+1. Build a dependency graph of actual constraints
+2. Recognize that text-editor.js must precede text-editor-extras.js (from FancyTextWidget's list structure)
+3. Recognize that color-picker.js is independent (appears in both ColorPicker and FancyTextWidget)
+4. Produce the optimal order: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+5. Never issue a false warning
+
+## The Fix Strategy
+
+The proper solution should:
+1. **Not merge pairwise** or improve the merge logic to handle reordering
+2. **Track actual dependencies** between files (not just position in a list)
+3. **Only warn on real conflicts** (circular dependencies)
+4. **Allow reordering** when needed to satisfy all constraints
+5. **Consider all lists together** before warning about conflicts
+
+The current approach of walking list_2 in reverse and maintaining a single `last_insert_index` is too simplistic for handling complex multi-way merges.

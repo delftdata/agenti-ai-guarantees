@@ -1,0 +1,48 @@
+Looking at the current implementation and tests, I need to understand the expected behavior of the media merging system and identify how to fix the `MediaOrderConflictWarning` issue.
+
+## Analysis of Current Behavior
+
+The problem stems from the `Media.merge()` method and how media objects are combined. The current implementation performs pairwise merges (`media1 + media2 + media3`), which builds up spurious ordering constraints.
+
+### The Core Issue
+
+When merging two lists at a time:
+- `ColorPicker + SimpleTextWidget` = `['color-picker.js', 'text-editor.js']`
+- This incorrectly asserts `color-picker.js` must come before `text-editor.js`, even though they're independent
+- Later, when `FancyTextWidget` is added (which needs `text-editor.js` before `color-picker.js`), a false conflict is detected
+
+The current `merge` takes exactly two lists and merges them. This 2-way merge cannot distinguish between "these files have a real ordering dependency" versus "these files just happened to appear in this order across unrelated widgets."
+
+### Expected Behavior from Tests
+
+Looking at the existing tests:
+
+1. **`test_merge`**: Tests the 2-way merge with various cases. These are all valid orderings that must be preserved.
+
+2. **`test_merge_warning`**: When lists genuinely conflict (`[1,2]` vs `[2,1]`), a `RuntimeWarning` should fire with message `'Detected duplicate Media files in an opposite order:\n1\n2'`.
+
+3. **`test_merge_js_three_way`**: This is the key insight. It documents that:
+   - `custom_widget.js` and `jquery.js` have their relative order "established (but without a real need to)"
+   - The three-way merge must still succeed and produce `['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js']`
+   - This shows spurious constraints shouldn't cause failures
+
+4. **`test_merge_css_three_way`**: Similar - `form1` and `form2` have `a.css`/`b.css` in different orders, but merging succeeds because "the relative ordering of a.css and b.css was never specified."
+
+### The Fix Strategy
+
+The solution is to change the merge algorithm so that combining media defers the actual list merging. Instead of eagerly merging pairs, the `Media` class should accumulate lists and merge them all at once using a smarter algorithm that:
+
+1. Collects all the individual media lists (from each widget/form)
+2. Merges them in a way that only detects genuine conflicts (a true topological ordering that respects each individual list's internal ordering)
+
+The `merge` method needs to be reworked. Rather than a simple 2-way merge that treats the accumulated result as a hard constraint, the approach should merge lists pairwise but only warn when there's an *actual* order reversal within lists that both contain the pair — building the combined order by inserting new items relative to existing ones while respecting the last-seen position.
+
+The `__add__` method should collect the underlying `_css_lists` and `_js_lists` from both operands rather than eagerly computing merged `_js`/`_css`, and the merging should happen lazily (in the `_js`/`_css` properties) across all collected lists at once.
+
+### Key Test Constraints to Preserve
+
+- `test_merge_warning` still expects a warning for `[1,2]` + `[2,1]` — genuine two-list conflicts still warn
+- The three-way tests must NOT warn and must produce the documented merged orders
+- All the widget combination tests (`test_combine_media`, `test_multi_widget`, `test_form_media`) must still produce their exact expected HTML output orderings
+
+The fix requires restructuring `Media` to store lists-of-lists and merge them all together, so that transitive spurious constraints from intermediate pairwise merges are eliminated.

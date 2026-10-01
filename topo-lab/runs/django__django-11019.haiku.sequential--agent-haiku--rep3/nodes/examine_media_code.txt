@@ -1,0 +1,55 @@
+# Analysis of the Media Class Implementation
+
+## Current Implementation Overview
+
+The `Media` class in `django/forms/widgets.py` handles the merging of CSS and JS files from multiple widgets. The key components are:
+
+### Structure
+- `_css_lists`: List of CSS dictionaries
+- `_js_lists`: List of JS lists
+- Properties `_css` and `_js` that merge the lists using the `merge()` static method
+
+### The `merge()` Method (Lines 125-155)
+
+The current merge logic:
+1. Starts with a copy of `list_1`
+2. Walks through `list_2` in **reverse order**
+3. For each item in `list_2`:
+   - If the item doesn't exist in `combined_list`, insert it at `last_insert_index`
+   - If the item already exists:
+     - If its current index is greater than `last_insert_index`, it raises a `MediaOrderConflictWarning`
+     - Updates `last_insert_index` to the item's current index
+
+### The Problem
+
+When merging 3+ media objects, the order of addition matters incorrectly:
+
+**Example from the issue:**
+- `ColorPicker().media` → `['color-picker.js']`
+- `SimpleTextWidget().media` → `['text-editor.js']`
+- `FancyTextWidget().media` → `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+**Step-by-step execution:**
+1. `ColorPicker + SimpleTextWidget` produces `['color-picker.js', 'text-editor.js']`
+   - This incorrectly establishes that `color-picker.js` must come before `text-editor.js`
+2. Adding `FancyTextWidget` then tries to respect both:
+   - The false constraint from step 1
+   - The actual dependency that `text-editor.js` must come before `text-editor-extras.js`
+3. This creates a conflict and produces a suboptimal order
+
+## Root Cause
+
+The `merge()` method treats constraints transitively and cumulatively without distinguishing between:
+- **Explicit constraints**: Direct ordering requirements from a single widget's Media definition
+- **Implicit constraints**: Ordering requirements created as a side-effect of merging previous unrelated media objects
+
+When merging `ColorPicker + SimpleTextWidget`, the resulting order `['color-picker.js', 'text-editor.js']` becomes a hard constraint in subsequent merges, even though there's no actual dependency between these files.
+
+## What Should Happen
+
+The algorithm needs to be smarter about:
+1. Recognizing when items have no direct dependency on each other
+2. Preserving only explicit dependencies from individual widget definitions
+3. Allowing reordering of items when subsequent merges provide better information about true dependencies
+
+The issue is that `merge()` is a **pairwise operation** that doesn't have context about the full dependency graph across all widgets. Each pairwise merge creates artificial constraints that interfere with later merges.

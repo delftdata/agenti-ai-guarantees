@@ -1,0 +1,53 @@
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 1234567..abcdefg 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -233,3 +233,39 @@ class FormsMediaTestCase(SimpleTestCase):
+         # form2 have a.css and b.css in different order...
+         self.assertEqual(form1._css, {'screen': ['a.css', 'b.css']})
+         self.assertEqual(form2._css, {'screen': ['b.css', 'a.css']})
+         # ...but merging succeeds as the relative ordering of a.css and b.css
+         # was never specified.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_three_way_no_warning(self):
++        """
++        Test the issue from #11019: Merging 3+ media objects should not raise
++        unnecessary MediaOrderConflictWarnings when the relative ordering
++        constraints are satisfiable via topological sort.
++
++        This tests the scenario with ColorPicker, SimpleTextWidget, and
++        FancyTextWidget where text-editor-extras.js depends on text-editor.js.
++        """
++        class ColorPicker(TextInput):
++            class Media:
++                js = ['color-picker.js']
++
++        class SimpleTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js']
++
++        class FancyTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        class MyForm(Form):
++            background_color = CharField(widget=ColorPicker())
++            intro = CharField(widget=SimpleTextWidget())
++            body = CharField(widget=FancyTextWidget())
++
++        # This should not raise a MediaOrderConflictWarning
++        form = MyForm()
++        # The result should properly order the JS files
++        result_js = form.media._js
++        # text-editor.js should come before text-editor-extras.js
++        self.assertLess(
++            result_js.index('text-editor.js'),
++            result_js.index('text-editor-extras.js'),
++            "text-editor.js must come before text-editor-extras.js"
++        )
++        # All three files should be present
++        self.assertIn('color-picker.js', result_js)
++        self.assertIn('text-editor.js', result_js)
++        self.assertIn('text-editor-extras.js', result_js)

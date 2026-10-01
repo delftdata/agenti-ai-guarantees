@@ -1,0 +1,52 @@
+The current `Media` class merging logic works as follows:
+
+## Data Storage
+
+When a `Media` object is created, it stores its CSS and JS in lists-of-lists:
+- `self._css_lists = [css]`
+- `self._js_lists = [js]`
+
+When two `Media` objects are combined with `__add__`, these lists are simply concatenated (deferred merging):
+```python
+combined._css_lists = self._css_lists + other._css_lists
+combined._js_lists = self._js_lists + other._js_lists
+```
+
+So merging is lazy — the actual merge only happens when the `_css` or `_js` property is accessed.
+
+## The Merge Computation
+
+The `_js` property performs a **left-fold** (reduce) over the accumulated lists:
+```python
+js = self._js_lists[0]
+for obj in filter(None, self._js_lists[1:]):
+    js = self.merge(js, obj)
+return js
+```
+
+This means it merges pairwise, in sequence: `merge(merge(merge(list0, list1), list2), list3)...`
+
+## The `merge` Method
+
+`merge(list_1, list_2)` combines two lists while trying to preserve relative order:
+1. Starts with a copy of `list_1`, sets `last_insert_index = len(list_1)`.
+2. Walks `list_2` **in reverse**, inserting elements not already present at `last_insert_index`.
+3. If an element already exists at an `index > last_insert_index`, it emits a `MediaOrderConflictWarning` (this signals that two files appear in opposite relative orders across the two lists).
+4. When an element is found, `last_insert_index` is updated to that element's index, so subsequent insertions go in front of it.
+
+## The Root Cause of the Bug
+
+The problem is that `merge` is designed to enforce ordering constraints **between exactly two lists**, treating the relative order *within each list* as a hard constraint. But when folding three or more lists pairwise, intermediate results acquire **spurious ordering constraints** that were never actually required by any single source.
+
+In the reported example:
+- `ColorPicker`: `['color-picker.js']`
+- `SimpleTextWidget`: `['text-editor.js']`
+- `FancyTextWidget`: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+The first merge, `merge(['color-picker.js'], ['text-editor.js'])`, produces `['color-picker.js', 'text-editor.js']`. This *fabricates* a constraint that `color-picker.js` must come before `text-editor.js`, even though neither widget expressed any relationship between these two independent files. When this intermediate result is later merged against `FancyTextWidget`'s list (which has `text-editor.js` before `color-picker.js`), the fabricated constraint conflicts with the real one, triggering the warning.
+
+## Key Insight for a Fix
+
+The pairwise-fold approach loses information: it collapses lists into a single ordered list too early, converting incidental adjacency into hard constraints. The proper solution is a **topological sort** — treating each source list only as a set of directed ordering constraints (each element must come before the next element in *that same list*), then computing an ordering that satisfies all real constraints simultaneously. A warning should only be raised when there's an actual cycle (a genuine mutually-contradictory ordering), not merely because two independent files happened to be ordered arbitrarily in an intermediate merge.
+
+Notably, Django already has `django/utils/topological_sort.py` available, which could be leveraged for such a fix.

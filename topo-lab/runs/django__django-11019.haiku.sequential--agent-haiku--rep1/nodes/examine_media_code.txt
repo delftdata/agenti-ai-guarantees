@@ -1,0 +1,68 @@
+# Analysis of the Media Class and Merging Logic
+
+## Current Implementation Overview
+
+The `Media` class in django/forms/widgets.py is responsible for merging CSS and JavaScript files from multiple widgets. The issue described in the problem statement relates to the `merge()` static method (lines 123-154).
+
+## Current Merging Logic
+
+### Key Data Structures
+- `_css_lists`: List of CSS dictionaries to be merged
+- `_js_lists`: List of JS lists to be merged
+- When accessing `_css` or `_js` properties, all accumulated lists are merged sequentially
+
+### The `merge()` Method Logic (lines 127-154)
+The current algorithm:
+1. Starts with a copy of `list_1`
+2. Tracks `last_insert_index` (initialized to `len(list_1)`)
+3. Iterates through `list_2` in **reverse order**
+4. For each item in `list_2`:
+   - If item doesn't exist in `combined_list`: inserts it at `last_insert_index`
+   - If item already exists:
+     - If its current index > `last_insert_index`: warns about conflict
+     - Updates `last_insert_index` to the item's current index
+
+### The Core Problem
+
+The issue occurs when merging 3+ media objects sequentially. Let's trace the example:
+- `ColorPicker().media` = `Media(js=['color-picker.js'])`
+- `SimpleTextWidget().media` = `Media(js=['text-editor.js'])`
+- `FancyTextWidget().media` = `Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])`
+
+**Step 1**: `ColorPicker + SimpleTextWidget`
+- `list_1 = ['color-picker.js']`
+- `list_2 = ['text-editor.js']` (reversed to `['text-editor.js']`)
+- Result: `['color-picker.js', 'text-editor.js']`
+- **This incorrectly establishes the constraint that color-picker.js must come before text-editor.js**
+
+**Step 2**: Result from Step 1 + `FancyTextWidget`
+- `list_1 = ['color-picker.js', 'text-editor.js']`
+- `list_2 = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` (reversed to `['color-picker.js', 'text-editor-extras.js', 'text-editor.js']`)
+- Processing:
+  - `'color-picker.js'`: found at index 0, `last_insert_index = 0`
+  - `'text-editor-extras.js'`: not found, insert at index 0
+  - `'text-editor.js'`: found at index 2, but `2 > 0` (last_insert_index), triggers **false warning**
+- Result: `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`
+
+## The Root Cause
+
+The problem is that the algorithm treats the **intermediate merged results** as if they represent genuine ordering constraints from a single source. However, these intermediate results are artifacts of the sequential merging process, not true dependencies.
+
+The algorithm should only warn about conflicts when the **same two files appear in opposite orders in the original input lists**, not when they appear in opposite orders in intermediate merged results.
+
+## What Should Happen
+
+The correct final order should be: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+This is because:
+- `text-editor.js` and `text-editor-extras.js` have an explicit dependency (text-editor-extras depends on text-editor)
+- `color-picker.js` is independent of the text-editor files
+- All three files appear together in `FancyTextWidget`, which is the definitive ordering
+
+## The Solution Direction
+
+The merge algorithm needs to be more sophisticated about:
+1. Tracking which ordering constraints are "genuine" (from the same original input list)
+2. Detecting when a false constraint is being created by intermediate merges
+3. Only warning when there's a **true conflict** between elements that appear in opposite orders in multiple original input lists
+4. Potentially using a topological sort approach or constraint-based merging instead of simple positional tracking

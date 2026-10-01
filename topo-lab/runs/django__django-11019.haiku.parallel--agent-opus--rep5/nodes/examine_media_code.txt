@@ -1,0 +1,53 @@
+# Analysis of the Media Class Merging Logic
+
+## Current Implementation Overview
+
+The `Media` class stores its CSS and JS as **lists of lists** (`self._css_lists` and `self._js_lists`), which are accumulated lazily and only merged when the `_css` or `_js` properties are accessed.
+
+## How Merging Currently Works
+
+### The `_js` property
+```python
+@property
+def _js(self):
+    js = self._js_lists[0]
+    for obj in filter(None, self._js_lists[1:]):
+        js = self.merge(js, obj)
+    return js
+```
+This does a **left-fold pairwise merge**: it starts with the first list, then merges the second into it, then the third into that result, and so on. Each intermediate result is a fully "resolved" flat list.
+
+### The `merge` method
+The `merge(list_1, list_2)` method:
+1. Starts with a copy of `list_1`.
+2. Walks `list_2` in **reverse**, inserting each element that isn't already present.
+3. Uses `last_insert_index` to track where to place new elements.
+4. When an element from `list_2` already exists in `combined_list`, it checks whether its `index > last_insert_index`. If so, it emits a `MediaOrderConflictWarning`, because it detected the same two files appearing in opposite relative orders.
+
+## The Root Cause of the Problem
+
+The key issue is that **pairwise merging imposes spurious ordering constraints**. When two independent media lists are merged, the result becomes a single flat list where *every* element now has a fixed relative order with respect to *every other* element—even elements that had no actual dependency relationship.
+
+Walking through the problem example:
+- `ColorPicker`: `['color-picker.js']`
+- `SimpleTextWidget`: `['text-editor.js']`
+- `FancyTextWidget`: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+The form merges left-to-right:
+1. `ColorPicker + SimpleTextWidget` → merging `['color-picker.js']` with `['text-editor.js']` produces `['color-picker.js', 'text-editor.js']`. This **falsely establishes** that `color-picker.js` must come before `text-editor.js`, even though these two files are completely independent.
+2. Then merging that intermediate result with `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` conflicts: now `color-picker.js` needs to come *after* `text-editor.js` (per the third list), but the intermediate result already says it comes *before*. This triggers the `MediaOrderConflictWarning`.
+
+The warning is misleading because it reports `text-editor-extras.js` and `text-editor.js` as the conflicting pair, when the real problem originated from the artificial constraint between `color-picker.js` and `text-editor.js` introduced in step 1.
+
+## The Deeper Problem
+
+The pairwise `merge` approach treats each 2-element ordering it sees as a hard constraint, but a flat merged list can only express a **total order**. Independent files get assigned an arbitrary total order, and that arbitrary order can later conflict with real constraints.
+
+The correct approach is to treat the merging as a **topological sort / dependency graph problem**:
+- Each individual media list only expresses constraints between *consecutive* (adjacent) elements within that list (i.e., the actual dependency relationships).
+- Files that never appear together in the same list should have **no ordering constraint** between them.
+- Only when two files appear in the same source list in genuinely opposite orders should a warning be issued.
+
+By collecting all lists first and building a dependency graph where each list contributes edges `a → b` for pairs it defines, then performing a topological sort over the combined graph, the independent files (`color-picker.js` vs `text-editor.js`) would remain unconstrained and could be ordered freely to satisfy the real constraint (`text-editor.js` before `text-editor-extras.js`), producing the intuitive result `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` without any warning.
+
+The existing infrastructure already supports this direction: media lists are stored unmerged in `_js_lists`, so a fix can replace the pairwise-fold `merge` in the `_js`/`_css` properties with a graph-based topological merge over all the accumulated lists at once.

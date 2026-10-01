@@ -1,0 +1,57 @@
+## Root Cause Analysis of Media Merging
+
+### The Core Problem
+
+The `merge()` method is a **pairwise** operation that merges exactly two lists. When 3+ media objects are combined, the `_js` property folds them left-to-right:
+
+```python
+js = self._js_lists[0]
+for obj in filter(None, self._js_lists[1:]):
+    js = self.merge(js, obj)
+```
+
+Each pairwise merge produces a single flat list. The problem is that once two lists are merged into one, **all elements in that intermediate list acquire an implicit total ordering** relative to each other—even elements that had no genuine dependency relationship.
+
+### Walking Through the Failure
+
+Given `ColorPicker + SimpleText + FancyText`:
+
+- `_js_lists = [['color-picker.js'], ['text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']]`
+
+Step 1: `merge(['color-picker.js'], ['text-editor.js'])` → `['color-picker.js', 'text-editor.js']`
+
+This is the origin of the bug. `color-picker.js` and `text-editor.js` are independent, but the merged result now encodes "color-picker before text-editor" as if it were a real constraint.
+
+Step 2: `merge(['color-picker.js', 'text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])`
+
+The third list legitimately requires `text-editor.js` before `color-picker.js`. But the intermediate from step 1 claims the opposite. `merge()` detects an inversion and raises `MediaOrderConflictWarning`—even though no real conflict exists.
+
+### Why Pairwise Merging Is Fundamentally Wrong
+
+The pairwise approach **cannot distinguish** between:
+
+1. **Real constraints**: relative order of two files *within the same original list* (e.g. text-editor.js before text-editor-extras.js in FancyText).
+2. **Accidental constraints**: relative order of two files that only ended up adjacent because of an unrelated intermediate merge.
+
+By collapsing lists into a single flat sequence at each step, it promotes accidental adjacency into hard ordering constraints, which then propagate into later merges.
+
+### Why the Warning Message Is Misleading
+
+The warning reports `text-editor-extras.js` / `text-editor.js`, but the actual inversion involved `color-picker.js` / `text-editor.js`. This mismatch arises because:
+
+- The warning fires based on `last_insert_index` tracking inside the intermediate combined list.
+- The reported indices reflect the *positions in the intermediate merged state*, not the original user-declared lists.
+- Because state carries over from prior merges, the reported pair reflects the corrupted intermediate ordering rather than the genuine source of conflict.
+
+### The Correct Approach
+
+The merge should treat the collection of *all* original sub-lists together as a **dependency graph / topological sort** problem:
+
+- Each original list contributes only "X must come before Y" edges **between elements that co-occur in that list**.
+- Independent files across different lists get **no edge** between them.
+- A stable topological sort across all lists at once yields a valid global ordering.
+- A `MediaOrderConflictWarning` should be raised only when there is a genuine **cycle** in the dependency graph (i.e., list A says X→Y and list B says Y→X).
+
+This eliminates artificial constraints from intermediate flattening and produces the intuitive result: `text-editor.js, text-editor-extras.js, color-picker.js`.
+
+The implementation should replace the left-fold of pairwise `merge()` calls in `_js`/`_css` with a routine that accepts all sub-lists, builds the graph, and performs the topological sort—warning only on real cycles.

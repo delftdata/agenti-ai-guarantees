@@ -1,0 +1,91 @@
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..edea00df5f 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -17,6 +17,7 @@ from django.utils.formats import get_format
+ from django.utils.html import format_html, html_safe
+ from django.utils.safestring import mark_safe
+ from django.utils.translation import gettext_lazy as _
++from django.utils.topological_sort import topological_sort
+ 
+ from .renderers import get_default_renderer
+ 
+@@ -125,29 +126,59 @@ class Media:
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Start with a copy of list_1.
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
+-        # Walk list_2 in reverse, inserting each element into combined_list if
+-        # it doesn't already exist.
+-        for path in reversed(list_2):
+-            try:
+-                # Does path already exist in the list?
+-                index = combined_list.index(path)
+-            except ValueError:
+-                # Add path to combined_list since it doesn't exist.
+-                combined_list.insert(last_insert_index, path)
+-            else:
+-                if index > last_insert_index:
++        return Media.merge_lists([list_1, list_2])
++
++    @staticmethod
++    def merge_lists(lists):
++        """
++        Merge a list of lists using topological sort to respect all ordering
++        constraints from all input lists simultaneously.
++        
++        This ensures that when merging 3+ media objects, we don't create
++        spurious ordering constraints from intermediate pairwise merges.
++        """
++        # Collect all unique items and build a dependency graph
++        all_items = []
++        seen = set()
++        dependencies = {}  # item -> set of items that must come before it
++        
++        # First pass: collect all items and build initial dependencies
++        for lst in lists:
++            for item in lst:
++                if item not in seen:
++                    all_items.append(item)
++                    seen.add(item)
++                    dependencies[item] = set()
++        
++        # Second pass: build ordering constraints from each list
++        for lst in lists:
++            for i, item in enumerate(lst):
++                # This item must come after all previous items in this list
++                for prev_item in lst[:i]:
++                    dependencies[item].add(prev_item)
++        
++        # Use topological sort to get the final order
++        # topological_sort expects a dict of node -> set of nodes it depends on
++        sorted_items = topological_sort(dependencies)
++        
++        # Check for any ordering conflicts and warn
++        for lst in lists:
++            if len(lst) < 2:
++                continue
++            for i in range(len(lst) - 1):
++                current = lst[i]
++                next_item = lst[i + 1]
++                # Check if in final sorted order, next_item comes before current
++                current_index = sorted_items.index(current)
++                next_index = sorted_items.index(next_item)
++                if next_index < current_index:
+                     warnings.warn(
+                         'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
++                        '%s\n%s' % (next_item, current),
+                         MediaOrderConflictWarning,
+                     )
+-                # path already exists in the list. Update last_insert_index so
+-                # that the following elements are inserted in front of this one.
+-                last_insert_index = index
+-        return combined_list
++        
++        return sorted_items
+ 
+     def __add__(self, other):
+         combined = Media()

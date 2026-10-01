@@ -1,0 +1,59 @@
+# Analysis of the Media Class and the Merging Issue
+
+## Current Implementation Summary
+
+The `Media` class in `django/forms/widgets.py` has a `merge()` static method (lines 119-145) that combines two lists while attempting to preserve relative order and detect conflicts.
+
+### How the Current `merge()` Method Works
+
+1. **Starting Point**: Creates a copy of `list_1`
+2. **Reverse Iteration**: Walks through `list_2` in reverse order
+3. **For Each Element in list_2**:
+   - Checks if the element already exists in `combined_list`
+   - If NOT found: inserts it at `last_insert_index`
+   - If FOUND: 
+     - Warns if `index > last_insert_index` (conflict detected)
+     - Updates `last_insert_index = index` to position before this element
+
+### The Problem
+
+The issue manifests when merging 3+ Media objects sequentially:
+
+**Example from the bug report:**
+- `ColorPicker().media` = `['color-picker.js']`
+- `SimpleTextWidget().media` = `['text-editor.js']`
+- `FancyTextWidget().media` = `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+**Step-by-step execution:**
+
+1. **First merge**: `['color-picker.js'] + ['text-editor.js']`
+   - Result: `['color-picker.js', 'text-editor.js']`
+   - This creates an incorrect constraint that `color-picker.js` must come before `text-editor.js`
+
+2. **Second merge**: `['color-picker.js', 'text-editor.js'] + ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+   - Processing in reverse: `color-picker.js`, `text-editor-extras.js`, `text-editor.js`
+   - When processing `text-editor.js`: found at index 1, `last_insert_index=2`, so index < last_insert_index (OK)
+   - When processing `text-editor-extras.js`: not found, inserts at position 2
+   - When processing `color-picker.js`: found at index 0, but `last_insert_index=1`, so index < last_insert_index (OK)
+   - Result: `['text-editor-extras.js', 'color-picker.js', 'text-editor.js']`
+   
+   **FALSE WARNING**: Reports conflict between `text-editor-extras.js` and `text-editor.js`, but these aren't the actual conflicting pair. The real issue is the earlier constraint from step 1.
+
+## Root Cause
+
+The `merge()` method doesn't have a holistic view of all constraints. It processes pairs sequentially, and early merges can create incorrect ordering constraints that persist through subsequent merges. The algorithm:
+
+1. Uses only `last_insert_index` to track position
+2. Doesn't verify that the final ordering actually respects all original constraints from both input lists
+3. Reports conflicts based on local decisions without confirming they're actual conflicts
+
+## What Should Happen
+
+The correct final order should be: `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']`
+
+This respects:
+- From `ColorPicker`: `color-picker.js` appears
+- From `SimpleTextWidget`: `text-editor.js` appears
+- From `FancyTextWidget`: `text-editor.js` before `text-editor-extras.js`, and both before `color-picker.js`
+
+The issue is that the sequential pair-wise merging doesn't account for the global constraint graph that emerges when merging multiple sources.

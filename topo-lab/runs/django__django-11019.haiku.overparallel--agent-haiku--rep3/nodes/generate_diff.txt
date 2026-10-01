@@ -1,0 +1,135 @@
+```diff
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index original..modified 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -116,28 +116,77 @@ class Media:
+     @staticmethod
+     def merge(list_1, list_2):
+         """
+         Merge two lists while trying to keep the relative order of the elements.
+         Warn if the lists have the same two elements in a different relative
+         order.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        combined_list = list(list_1)
+-        last_insert_index = len(list_1)
++        return Media.merge_lists([list_1, list_2])
+ 
++    @staticmethod
++    def merge_lists(lists):
++        """
++        Merge a list of lists using topological sort to respect all ordering
++        constraints from all input lists simultaneously.
++        
++        This ensures that when merging 3+ media objects, we don't create
++        spurious ordering constraints from intermediate pairwise merges.
++        """
++        # Collect all unique items and build a dependency graph
++        all_items = []
++        seen = set()
++        dependencies = {}  # item -> set of items that must come before it
++        
++        # First pass: collect all items and build initial dependencies
+         for lst in lists:
+-            try:
+-                index = combined_list.index(lst)
+-            except ValueError:
+-                combined_list.insert(last_insert_index, lst)
++            for item in lst:
++                if item not in seen:
++                    all_items.append(item)
++                    seen.add(item)
++                    dependencies[item] = set()
++        
++        # Second pass: build ordering constraints from each list
++        # Each item depends on all items that come before it in any list
++        for lst in lists:
++            for i, item in enumerate(lst):
++                # This item must come after all previous items in this list
++                for prev_item in lst[:i]:
++                    dependencies[item].add(prev_item)
++        
++        # Use topological sort to get the final order
++        # topological_sort expects a dict of node -> set of nodes it depends on
++        sorted_items = topological_sort(dependencies)
++        
++        # Check for any ordering conflicts and warn
++        for lst in lists:
++            if len(lst) < 2:
++                continue
++            for i in range(len(lst) - 1):
++                current = lst[i]
++                next_item = lst[i + 1]
++                # Check if in final sorted order, next_item comes before current
++                current_index = sorted_items.index(current)
++                next_index = sorted_items.index(next_item)
++                if next_index < current_index:
++                    warnings.warn(
++                        'Detected duplicate Media files in an opposite order:\n'
++                        '%s\n%s' % (next_item, current),
++                        MediaOrderConflictWarning,
++                    )
+-            else:
+-                if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (lst, combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
+-                last_insert_index = index
+-        return combined_list
++        
++        return sorted_items
+ 
+     def __add__(self, other):
+         combined = Media()
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index original..modified 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -249,6 +249,40 @@ class FormsMediaTestCase(SimpleTestCase):
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
+ 
++    def test_merge_js_no_conflict_with_dependencies(self):
++        """
++        Test for issue #11019: Merging 3+ media objects should not produce
++        false MediaOrderConflictWarnings when files have unambiguous dependencies.
++        
++        The issue is that when merging ColorPicker + SimpleTextWidget + FancyTextWidget,
++        where:
++        - ColorPicker has: color-picker.js
++        - SimpleTextWidget has: text-editor.js
++        - FancyTextWidget has: text-editor.js, text-editor-extras.js, color-picker.js
++        
++        The merge should succeed without warnings because there are no real conflicts.
++        """
++        class ColorPicker(TextInput):
++            class Media:
++                js = ['color-picker.js']
++
++        class SimpleTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js']
++
++        class FancyTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++        class MyForm(Form):
++            background_color = CharField(widget=ColorPicker())
++            intro = CharField(widget=SimpleTextWidget())
++            body = CharField(widget=FancyTextWidget())
++
++        # This should not raise a MediaOrderConflictWarning
++        form = MyForm()
++        media = form.media
++        expected_js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        self.assertEqual(media._js, expected_js)
+ 
+     def test_merge_js_three_way(self):
+         """

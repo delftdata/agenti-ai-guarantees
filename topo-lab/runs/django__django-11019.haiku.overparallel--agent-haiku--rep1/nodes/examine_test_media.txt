@@ -1,0 +1,81 @@
+# Analysis of Media Tests and Problem Statement
+
+## Problem Summary
+When merging 3 or more media objects, Django can throw unnecessary `MediaOrderConflictWarnings`. The issue occurs because intermediate merge results impose incorrect ordering constraints.
+
+## Example from Problem Statement
+```python
+class ColorPicker(forms.Widget):
+    class Media:
+        js = ['color-picker.js']
+
+class SimpleTextWidget(forms.Widget):
+    class Media:
+        js = ['text-editor.js']
+
+class FancyTextWidget(forms.Widget):
+    class Media:
+        js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
+
+class MyForm(forms.Form):
+    background_color = forms.CharField(widget=ColorPicker())
+    intro = forms.CharField(widget=SimpleTextWidget())
+    body = forms.CharField(widget=FancyTextWidget())
+```
+
+**Current behavior:** Accessing `MyForm().media` produces a warning and wrong result.
+
+**Expected behavior:** Should resolve to `['text-editor.js', 'text-editor-extras.js', 'color-picker.js']` without warnings.
+
+## Root Cause Analysis
+The warning happens because:
+1. `ColorPicker().media + SimpleTextWidget().media` → `Media(js=['color-picker.js', 'text-editor.js'])`
+   - This creates an intermediate result imposing the constraint: `color-picker.js` must come before `text-editor.js`
+2. When this is merged with `FancyTextWidget().media` (which has `text-editor.js` before `color-picker.js`), a conflict is detected
+3. The final result is worse than expected due to incorrect ordering constraints from intermediate merges
+
+## Key Test Cases from test_media.py
+
+### test_merge() - Basic merge behavior
+Tests `Media.merge()` with various list combinations. Shows that merging should:
+- Remove duplicates
+- Preserve relative ordering when unambiguous
+- Handle transitive ordering (if A before C and B before C, and A before B, then preserve that)
+
+Examples:
+- `[1,2] + [3,4]` → `[1,2,3,4]` (no overlap)
+- `[1,2] + [2,3]` → `[1,2,3]` (2 shared, keep first)
+- `[1,3] + [2,3]` → `[1,2,3]` (merge 1,2 from different sources)
+
+### test_merge_warning() - Conflict detection
+Tests that a warning is raised when there's a true conflict:
+- `Media.merge([1, 2], [2, 1])` produces warning (genuine opposite order)
+
+### test_merge_js_three_way() - The key test
+This is the critical test showing the expected behavior for 3+ way merges:
+- Tests that relative ordering is preserved in chained additions
+- Shows custom_widget.js doesn't depend on jquery.js
+- When merging form media + inline media, the result maintains relative order
+
+### test_merge_css_three_way() - CSS merging
+Tests that CSS merging across multiple widgets works correctly:
+- Shows that widget ordering disagreements can be resolved if the conflict isn't fundamental
+- Tests merging: `widget3 + form1 + form2` where form1 and form2 have different orderings of non-dependent files
+
+## Expected Behavior Pattern
+The tests show that:
+1. Merging should use topological sorting when there are dependency constraints
+2. Warnings should only occur when there's a **genuine** conflict (circular dependency or incompatible orderings)
+3. When multiple orderings are possible, the algorithm should prefer earlier provided orderings
+4. The algorithm must handle 3+ way merges correctly without creating false conflicts from intermediate results
+
+## Current Algorithm Issue
+The problem is in how intermediate merge results are handled. When:
+- A merged with B creates intermediate result with ordering constraint X→Y
+- This intermediate result is then merged with C
+- The algorithm doesn't recognize that constraint X→Y might be an artifact of the merge order, not a real dependency
+
+The fix needs to be in the `Media.merge()` method in `django/forms/widgets.py` to use a smarter topological sorting approach that:
+1. Tracks actual dependencies vs. ordering artifacts
+2. Only raises warnings for genuine conflicts
+3. Produces correct results for n-way merges

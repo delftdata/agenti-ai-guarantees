@@ -28,6 +28,8 @@ BEGIN2 = "<!-- RESULTS2:BEGIN -->"
 END2 = "<!-- RESULTS2:END -->"
 BEGIN3 = "<!-- RESULTS3:BEGIN -->"
 END3 = "<!-- RESULTS3:END -->"
+BEGIN4 = "<!-- ADDITIONAL:BEGIN -->"
+END4 = "<!-- ADDITIONAL:END -->"
 
 PHASE2_TASKS = {"django__django-11019"}
 # authored paper-figure task: its runs go to the RESULTS3 block only
@@ -323,13 +325,22 @@ def fig1_analysis(reps):
 
 def main():
     rows = load_rows()
+    # additional runs (consistency grid): 11019 under the haiku harness,
+    # and the paper-figure probe under the opus agent, are tabulated in
+    # their own block and excluded from the original tables
+    p4 = [r for r in rows
+          if (r["instance"] in PHASE2_TASKS and r["harness"] == "haiku")
+          or (r["instance"] == FIG1_TASK and r["agent"] == "opus")]
+    add_names = {r["name"] for r in p4}
     p1 = [r for r in rows if r["instance"] not in PHASE2_TASKS
           and r["instance"] != FIG1_TASK
           and not r["harness"].startswith("probe")]
     p2 = [r for r in rows if r["instance"] != FIG1_TASK
+          and r["name"] not in add_names
           and (r["instance"] in PHASE2_TASKS
                or r["harness"].startswith("probe"))]
-    p3 = [r for r in rows if r["instance"] == FIG1_TASK]
+    p3 = [r for r in rows if r["instance"] == FIG1_TASK
+          and r["name"] not in add_names]
 
     # ---- phase 1: bracket ----
     grid = [r for r in p1 if not re.search(r"--rep\d+$", r["name"])]
@@ -410,9 +421,32 @@ def main():
         parts3 = ["(no runs recorded yet)"]
     block3 = BEGIN3 + "\n\n" + "\n".join(parts3) + "\n\n" + END3
 
+    # ---- additional runs: consistency grid, tables only ----
+    a_reps = [r for r in p4 if re.search(r"--rep\d+$", r["name"])]
+    combos = [
+        ("django-11019 - haiku harness, haiku agent",
+         lambda r: r["instance"] in PHASE2_TASKS and r["agent"] == "haiku"),
+        ("django-11019 - haiku harness, opus agent",
+         lambda r: r["instance"] in PHASE2_TASKS and r["agent"] == "opus"),
+        ("providing-args - authored plans, opus agent",
+         lambda r: r["instance"] == FIG1_TASK and r["harness"] == "probe"),
+        ("providing-args - ordered arm, opus agent",
+         lambda r: r["instance"] == FIG1_TASK
+         and r["harness"] == "probeordered"),
+    ]
+    parts4 = []
+    for title, pred in combos:
+        rs = [r for r in a_reps if pred(r)]
+        if rs:
+            parts4 += [f"### {title}", "", table(rs), ""]
+    if not parts4:
+        parts4 = ["(no additional runs recorded yet)"]
+    block4 = BEGIN4 + "\n\n" + "\n".join(parts4) + "\n\n" + END4
+
     doc = DOC.read_text(encoding="utf-8")
     for begin, end, block in ((BEGIN, END, block1), (BEGIN2, END2, block2),
-                              (BEGIN3, END3, block3)):
+                              (BEGIN3, END3, block3),
+                              (BEGIN4, END4, block4)):
         if begin not in doc or end not in doc:
             raise SystemExit(f"experiment.md is missing the {begin} markers")
         doc = re.sub(re.escape(begin) + r".*?" + re.escape(end), block,
@@ -420,7 +454,8 @@ def main():
     DOC.write_text(doc, encoding="utf-8")
     print(f"summarized {len(rows)} runs into docs/experiment.md "
           f"({len(grid)} bracket grid, {len(reps)} bracket repetition, "
-          f"{len(p2)} gradient, {len(p3)} figure-1 probe)")
+          f"{len(p2)} gradient, {len(p3)} figure-1 probe, "
+          f"{len(p4)} additional)")
 
 
 if __name__ == "__main__":

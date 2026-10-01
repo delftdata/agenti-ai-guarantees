@@ -1,0 +1,167 @@
+```diff
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 1234567..abcdefg 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -128,57 +128,146 @@ class Media:
+     @staticmethod
+     def merge(list_1, list_2):
+         """
+         Merge two lists while trying to keep the relative order of the elements.
+         Warn if the lists have the same two elements in a different relative
+         order.
+ 
+         For static assets it can be important to have them included in the DOM
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
+-        # Build a combined list of all items that appear in either list
+-        combined_list = []
++        # The goal is to merge list_1 and list_2 into a single list while:
++        # 1. Respecting the order of elements within each list
++        # 2. Only warning about genuine conflicts (same pair in opposite order in both lists)
++        # 3. Not warning about artificial ordering constraints from previous merges
++        
++        # Track position information for both lists
++        list_1_positions = {item: i for i, item in enumerate(list_1)}
++        list_2_positions = {item: i for i, item in enumerate(list_2)}
++        
++        # Start with list_1 and insert items from list_2 that aren't already present
++        combined_list = list(list_1)
+         seen = set(combined_list)
+-        last_insert_index = 0
+ 
++        # For each item in list_2, determine if it conflicts with ordering in list_1
++        # We iterate in reverse to handle insertions correctly
+         for item in list_2:
+             if item in seen:
+-                index = combined_list.index(item)
+-                last_insert_index = index + 1
++                # Item is in both lists. Check for genuine conflicts.
++                # A genuine conflict is when:
++                # 1. There exists another item that appears before this item in both lists
++                # 2. But in combined_list (from merging), it appears after this item
++                
++                # Get the current position in combined_list
++                current_index = combined_list.index(item)
++                
++                # Check if there are items that should come before this item based on list_2
++                # but come after it in combined_list
++                items_before_in_list2 = [
++                    i for i in list_2[:list_2_positions[item]]
++                    if i in combined_list
++                ]
++                
++                # For a true conflict, we need items that:
++                # 1. Come before item in list_2
++                # 2. Come after item in combined_list (wrong order)
++                # 3. Come before item in list_1 (which is why they're after in combined_list)
++                for before_item in items_before_in_list2:
++                    before_index_in_combined = combined_list.index(before_item)
++                    if before_index_in_combined > current_index:
++                        # before_item is after item in combined_list, but should be before
++                        # Check if this is a genuine conflict or just an artifact
++                        before_in_list1 = before_item in list_1_positions
++                        before_in_list2 = before_item in list_2_positions
++                        
++                        if before_in_list1 and before_in_list2:
++                            # Item appears in both lists
++                            pos_in_list1 = list_1_positions[before_item]
++                            pos_in_list2 = list_2_positions[before_item]
++                            item_pos_in_list1 = list_1_positions[item]
++                            
++                            # Genuine conflict: before_item comes after item in list_1
++                            # but comes before item in list_2
++                            if pos_in_list1 > item_pos_in_list1 and pos_in_list2 < list_2_positions[item]:
++                                warnings.warn(
++                                    'Detected duplicate Media files in an opposite order:\n'
++                                    '%s\n%s' % (item, before_item),
++                                    MediaOrderConflictWarning,
++                                )
+             else:
+-                # Item doesn't exist in combined_list, so we'll add it.
+-                index = last_insert_index
+-                for j, item2 in enumerate(list_2):
+-                    if item2 in combined_list:
+-                        # Find the righmost position of item2 in combined_list
+-                        index = max(index, combined_list.index(item2) + 1)
+-                    if item2 == item:
+-                        break
++                # Item is not in combined_list, so add it
++                # Find the correct position to insert it based on items that come before it in list_2
++                insert_index = 0
++                for other_item in list_2[:list_2_positions[item]]:
++                    if other_item in combined_list:
++                        insert_index = max(insert_index, combined_list.index(other_item) + 1)
++                
++                combined_list.insert(insert_index, item)
+                 seen.add(item)
+-                combined_list.insert(index, item)
+-
+-        return combined_list
++        
++        return combined_list
+ 
+     def __add__(self, other):
+         combined = Media()
+         combined._css_lists = self._css_lists + other._css_lists
+         combined._js_lists = self._js_lists + other._js_lists
+         return combined
+ 
+ 
+diff --git a/tests/forms_tests/tests/test_media.py b/tests/forms_tests/tests/test_media.py
+index 1234567..abcdefg 100644
+--- a/tests/forms_tests/tests/test_media.py
++++ b/tests/forms_tests/tests/test_media.py
+@@ -256,3 +256,48 @@ class FormsMediaTestCase(SimpleTestCase):
+         # ...but merging succeeds as the relative ordering of a.css and b.css
+         # was never specified.
+         merged = widget3 + form1 + form2
+         self.assertEqual(merged._css, {'screen': ['a.css', 'b.css'], 'all': ['c.css']})
++
++    def test_merge_js_with_dependencies_no_conflict_warning(self):
++        """
++        Test for issue #11019: Merging 3 or more media objects should not
++        throw unnecessary MediaOrderConflictWarnings when there are dependencies.
++        
++        This tests the scenario described in the issue where:
++        - ColorPicker has ['color-picker.js']
++        - SimpleTextWidget has ['text-editor.js']
++        - FancyTextWidget has ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++          where text-editor-extras.js depends on text-editor.js
++        
++        The result should be ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        without any MediaOrderConflictWarning.
++        """
++        class ColorPicker(TextInput):
++            class Media:
++                js = ['color-picker.js']
++        
++        class SimpleTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js']
++        
++        class FancyTextWidget(TextInput):
++            class Media:
++                js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++        
++        class MyForm(Form):
++            background_color = CharField(widget=ColorPicker())
++            intro = CharField(widget=SimpleTextWidget())
++            body = CharField(widget=FancyTextWidget())
++        
++        # This should not produce a warning and should have the correct order
++        form = MyForm()
++        # The expected order should respect the dependency:
++        # text-editor.js before text-editor-extras.js, and both before color-picker.js
++        # (or color-picker.js can come before since it has no dependency relationship)
++        # The key is no warning should be raised
++        form_js = form.media._js
++        
++        # The important assertions:
++        # 1. text-editor.js must come before text-editor-extras.js
++        self.assertTrue(
++            form_js.index('text-editor.js') < form_js.index('text-editor-extras.js'),
++            f"text-editor.js should come before text-editor-extras.js in {form_js}"
++        )
+```

@@ -1,0 +1,177 @@
+{
+  "graph": "django__django-11019.haiku.parallel.json",
+  "topology": "parallel",
+  "agent": "opus",
+  "mock": false,
+  "schedule": [
+    [
+      "examine_media_code",
+      "examine_test_media"
+    ],
+    [
+      "analyze_problem",
+      "create_test_case"
+    ],
+    [
+      "fix_media_merge"
+    ],
+    [
+      "verify_fix"
+    ],
+    [
+      "generate_diff"
+    ]
+  ],
+  "wall_s": 396.61,
+  "total_cost_usd": 2.1418,
+  "overwrite_events": [],
+  "nodes": [
+    {
+      "node": "examine_media_code",
+      "wall_s": 19.75,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 37371,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 12766,
+      "cache_read_tokens": 43168,
+      "output_tokens": 1439,
+      "cost_usd": 0.12139,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "examine_test_media",
+      "wall_s": 19.07,
+      "reads": [
+        {
+          "path": "tests/forms_tests/tests/test_media.py",
+          "bytes": 26171,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 9715,
+      "cache_read_tokens": 43168,
+      "output_tokens": 1406,
+      "cost_usd": 0.10531,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "analyze_problem",
+      "wall_s": 15.59,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 37371,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 14259,
+      "cache_read_tokens": 43168,
+      "output_tokens": 1144,
+      "cost_usd": 0.12148,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "create_test_case",
+      "wall_s": 84.2,
+      "reads": [
+        {
+          "path": "tests/forms_tests/tests/test_media.py",
+          "bytes": 26171,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 11245,
+      "cache_read_tokens": 43168,
+      "output_tokens": 10054,
+      "cost_usd": 0.32916,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "tests/forms_tests/tests/test_media.py"
+      ]
+    },
+    {
+      "node": "fix_media_merge",
+      "wall_s": 230.2,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 37371,
+          "writer": "__seed__"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 14117,
+      "cache_read_tokens": 43168,
+      "output_tokens": 25915,
+      "cost_usd": 0.74004,
+      "status": "success",
+      "error": null,
+      "files_written": [
+        "django/forms/widgets.py"
+      ]
+    },
+    {
+      "node": "verify_fix",
+      "wall_s": 29.78,
+      "reads": [
+        {
+          "path": "tests/forms_tests/tests/test_media.py",
+          "bytes": 26828,
+          "writer": "create_test_case"
+        },
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 36926,
+          "writer": "fix_media_merge"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 58649,
+      "cache_read_tokens": 43168,
+      "output_tokens": 2289,
+      "cost_usd": 0.37205,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    },
+    {
+      "node": "generate_diff",
+      "wall_s": 32.68,
+      "reads": [
+        {
+          "path": "django/forms/widgets.py",
+          "bytes": 36926,
+          "writer": "fix_media_merge"
+        },
+        {
+          "path": "tests/forms_tests/tests/test_media.py",
+          "bytes": 26828,
+          "writer": "create_test_case"
+        }
+      ],
+      "missing_deps": [],
+      "input_tokens": 50915,
+      "cache_read_tokens": 43168,
+      "output_tokens": 3049,
+      "cost_usd": 0.35238,
+      "status": "success",
+      "error": null,
+      "files_written": []
+    }
+  ]
+}
