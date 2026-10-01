@@ -48,6 +48,22 @@ Findings are indexed by these task characteristics - concurrent state access on 
 
 Each harness model received the identical frozen prompt (`prompts/orchestrator_prompt.txt` + the task context) in a single-turn Workbench run at temperature 0. The four decompositions, dependency edges as declared:
 
+### Node Counts Summary
+
+| Experiment | Node Count |
+|---|---|
+| django__django-11099 - opus harness | 3 |
+| django__django-11099 - haiku harness | 8 |
+| sympy__sympy-18087 - opus harness | 6 |
+| sympy__sympy-18087 - haiku harness | 10 |
+| django__django-11019 - haiku harness | 7 |
+| django__django-11019 - opus harness | 5 |
+| django__django-11019 - probe harness | 4 |
+| django__django-11099 - probe harness | 3 |
+| django__django-11099 - probeordered harness | 3 |
+| django__providing-args - probe harness | 5 |
+| django__providing-args - probeordered harness | 5 |
+
 ### django__django-11099 - Opus harness (3 nodes)
 
 ```mermaid
